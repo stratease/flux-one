@@ -1,0 +1,86 @@
+{
+  "name": "flux-plugins/flux-one",
+  "description": "Command-driven control panel for WordPress admin (command palette and dashboard widget).",
+  "type": "wordpress-plugin",
+  "license": "GPL-2.0-or-later",
+  "authors": [
+    {
+      "name": "Flux Plugins",
+      "homepage": "https://fluxplugins.com"
+    }
+  ],
+  "repositories": [
+    {
+      "type": "vcs",
+      "url": "git@github.com:stratease/flux-plugins-common.git"
+    }
+  ],
+  "require": {
+    "php": ">=8.1",
+    "monolog/monolog": "^2.8",
+    "stratease/flux-plugins-common": "@dev",
+    "woocommerce/action-scheduler": "^3.7"
+  },
+  "require-dev": {
+    "brianhenryie/strauss": "^0.22.5",
+    "phpstan/phpstan": "^1.10",
+    "phpunit/phpunit": "^9.6",
+    "squizlabs/php_codesniffer": "^3.7",
+    "wp-coding-standards/wpcs": "^2.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "FluxOne\\App\\": "app/"
+    }
+  },
+  "scripts": {
+    "test": "phpunit",
+    "phpstan": "phpstan analyse",
+    "phpcs": "phpcs --standard=WordPress app/ tests/",
+    "phpcbf": "phpcbf --standard=WordPress app/ tests/",
+    "quality": [
+      "@phpcs",
+      "@phpstan",
+      "@test"
+    ],
+    "copy-common-assets": [
+      "sh -c 'if [ -d vendor/stratease/flux-plugins-common/src/assets ]; then mkdir -p src/assets/common && cp -r vendor/stratease/flux-plugins-common/src/assets/* src/assets/common/; else echo \"⚠️  Common library assets not found in vendor/\"; fi'"
+    ],
+    "prefix-namespaces": [
+      "@copy-common-assets",
+      "sh -c 'test -f ./bin/strauss.phar || curl -o bin/strauss.phar -L -C - https://github.com/BrianHenryIE/strauss/releases/latest/download/strauss.phar'",
+      "@php bin/strauss.phar",
+      "@composer dump-autoload"
+    ],
+    "post-install-cmd": [
+      "@prefix-namespaces"
+    ],
+    "post-update-cmd": [
+      "@prefix-namespaces"
+    ]
+  },
+  "config": {
+    "allow-plugins": {
+      "dealerdirect/phpcodesniffer-composer-installer": true
+    },
+    "optimize-autoloader": true,
+    "sort-packages": true
+  },
+  "extra": {
+    "strauss": {
+      "target_directory": "vendor-prefixed",
+      "namespace_prefix": "FluxOne\\",
+      "classmap_prefix": "FluxOne_",
+      "constant_prefix": "FluxOne_",
+      "packages": [
+        "stratease/flux-plugins-common",
+        "monolog/monolog",
+        "psr/log"
+      ],
+      "exclude_from_namespace": [
+        "woocommerce/action-scheduler"
+      ]
+    }
+  }
+}
+
