@@ -1,0 +1,177 @@
+import type { IndexData } from './suggest';
+import { resolveNavDestinationUrl } from './suggest';
+import { SUBCOMMANDS_BY_ROOT } from './registry';
+import Fuse from 'fuse.js';
+
+/** Commands that are complete with no entity (exact canonical match). */
+const TERMINAL_EXACT = new Set([
+  'plugin list',
+  'plugin show',
+  'user list',
+  'user show',
+  'menu list',
+  'menu show',
+  'site list',
+  'site show',
+  'plugin update all',
+  'aggregate email',
+  'summary email',
+  'config list',
+]);
+
+function normalizeCanonical(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/**
+ * When the user typed `plugin li` or `site sw`, expand to the single matching subcommand value if unambiguous.
+ */
+function expandUniqueSubcommandToken(root: keyof typeof SUBCOMMANDS_BY_ROOT, partial: string): string | null {
+  const subs = SUBCOMMANDS_BY_ROOT[root];
+  if (!subs?.length || !partial) {
+    return null;
+  }
+  const p = partial.toLowerCase();
+  const matches = subs.filter((s) => {
+    const tail = s.value
+      .trim()
+      .toLowerCase()
+      .replace(new RegExp(`^${String(root)}\\s+`), '');
+    const first = tail.split(/\s+/)[0] || '';
+    return first.startsWith(p);
+  });
+  if (matches.length !== 1) {
+    return null;
+  }
+  return matches[0].value.trim();
+}
+
+/**
+ * If the canonical command is runnable as-is or can be expanded to a unique entity, returns the command to execute.
+ */
+export function resolveRunnableCommand(canonical: string, indices: IndexData): { ok: boolean; command?: string } {
+  const c = normalizeCanonical(canonical);
+  if (!c) return { ok: false };
+
+  const pluginTok = /^plugin\s+(\S+)$/.exec(c);
+  if (pluginTok) {
+    const expanded = expandUniqueSubcommandToken('plugin', pluginTok[1]);
+    if (expanded && normalizeCanonical(expanded) !== c) {
+      return resolveRunnableCommand(expanded, indices);
+    }
+  }
+
+  const siteTok = /^site\s+(\S+)$/.exec(c);
+  if (siteTok) {
+    const expanded = expandUniqueSubcommandToken('site', siteTok[1]);
+    if (expanded && normalizeCanonical(expanded) !== c) {
+      return resolveRunnableCommand(expanded, indices);
+    }
+  }
+
+  const userTok = /^user\s+(\S+)$/.exec(c);
+  if (
+    userTok &&
+    userTok[1].toLowerCase() !== 'lock' &&
+    userTok[1].toLowerCase() !== 'unlock' &&
+    userTok[1].toLowerCase() !== 'role'
+  ) {
+    const expanded = expandUniqueSubcommandToken('user', userTok[1]);
+    if (expanded && normalizeCanonical(expanded) !== c) {
+      return resolveRunnableCommand(expanded, indices);
+    }
+  }
+
+  if (TERMINAL_EXACT.has(c)) {
+    return { ok: true, command: c };
+  }
+
+  if (c.startsWith('nav ')) {
+    const rest = c.slice(4).trim();
+    const url = resolveNavDestinationUrl(rest, indices.destinations);
+    if (url) {
+      return { ok: true, command: c };
+    }
+    return { ok: false };
+  }
+
+  const plugins = indices.plugins || [];
+  const users = indices.users || [];
+  const sites = indices.sites || [];
+
+  const mUpdate = /^plugin update (.+)$/.exec(c);
+  if (mUpdate) {
+    const q = mUpdate[1].trim();
+    if (!q || q === 'all') return { ok: false };
+    const fuse = new Fuse(plugins, { keys: ['name', 'pluginFile'], threshold: 0.35, ignoreLocation: true });
+    const r = fuse.search(q);
+    if (r.length === 1) {
+      return { ok: true, command: `plugin update ${r[0].item.name}` };
+    }
+    return { ok: false };
+  }
+
+  for (const verb of ['activate', 'deactivate', 'delete'] as const) {
+    const re = new RegExp(`^plugin ${verb} (.+)$`);
+    const m = re.exec(c);
+    if (m) {
+      const q = m[1].trim();
+      if (!q) return { ok: false };
+      const fuse = new Fuse(plugins, { keys: ['name', 'pluginFile'], threshold: 0.35, ignoreLocation: true });
+      const r = fuse.search(q);
+      if (r.length === 1) {
+        return { ok: true, command: `plugin ${verb} ${r[0].item.name}` };
+      }
+      return { ok: false };
+    }
+  }
+
+  const mLock = /^user lock (.+)$/.exec(c);
+  if (mLock) {
+    const q = mLock[1].trim();
+    if (!q) return { ok: false };
+    const fuse = new Fuse(users, { keys: ['email', 'displayName', 'login'], threshold: 0.35, ignoreLocation: true });
+    const r = fuse.search(q);
+    if (r.length === 1) {
+      return { ok: true, command: `user lock ${r[0].item.email}` };
+    }
+    return { ok: false };
+  }
+
+  const mUnlock = /^user unlock (.+)$/.exec(c);
+  if (mUnlock) {
+    const q = mUnlock[1].trim();
+    if (!q) return { ok: false };
+    const fuse = new Fuse(users, { keys: ['email', 'displayName', 'login'], threshold: 0.35, ignoreLocation: true });
+    const r = fuse.search(q);
+    if (r.length === 1) {
+      return { ok: true, command: `user unlock ${r[0].item.email}` };
+    }
+    return { ok: false };
+  }
+
+  const mSwitch = /^site switch (.+)$/.exec(c);
+  if (mSwitch) {
+    const q = mSwitch[1].trim();
+    if (!q) return { ok: false };
+    const fuse = new Fuse(sites, { keys: ['domain', 'path'], threshold: 0.35, ignoreLocation: true });
+    const r = fuse.search(q);
+    if (r.length === 1) {
+      const s = r[0].item;
+      return { ok: true, command: `site switch ${s.domain}${s.path}` };
+    }
+    return { ok: false };
+  }
+
+  const mRole = /^user role set (\S+@\S+)\s+(\S+)$/.exec(c);
+  if (mRole && mRole[1].trim() && mRole[2].trim()) {
+    return { ok: true, command: c };
+  }
+
+  const mUserEmail = /^user\s+(\S+@\S+)$/.exec(c);
+  if (mUserEmail) {
+    return { ok: true, command: c };
+  }
+
+  return { ok: false };
+}

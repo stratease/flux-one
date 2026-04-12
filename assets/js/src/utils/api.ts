@@ -27,9 +27,10 @@ export const api = {
         path: '/flux-one/v1/bootstrap',
         method: 'GET',
       })
-    ).then((data) => {
-      cfg.bootstrap = data;
-      return data;
+    ).then((raw: any) => {
+      const inner = raw?.data ?? raw;
+      cfg.bootstrap = inner;
+      return inner;
     });
   },
 
@@ -57,6 +58,10 @@ export const api = {
     return apiFetch(withNonce({ path: `/flux-one/v1/index/destinations${qs}`, method: 'GET' }));
   },
 
+  async getSuiteConfigIndex() {
+    return apiFetch(withNonce({ path: '/flux-one/v1/index/suite-config', method: 'GET' }));
+  },
+
   async executeCommand(input: string) {
     return apiFetch(
       withNonce({
@@ -81,6 +86,31 @@ export const api = {
       withNonce({
         path: '/flux-one/v1/summary/email',
         method: 'POST',
+      })
+    );
+  },
+
+  async recordRecentNavigation(body: { url?: string; command?: string; label?: string }) {
+    return apiFetch(
+      withNonce({
+        path: '/flux-one/v1/memory/recent-navigation',
+        method: 'POST',
+        data: body,
+        keepalive: true,
+      })
+    );
+  },
+
+  async getSettings() {
+    return apiFetch(withNonce({ path: '/flux-one/v1/settings', method: 'GET' }));
+  },
+
+  async putSettings(patch: Record<string, unknown>) {
+    return apiFetch(
+      withNonce({
+        path: '/flux-one/v1/settings',
+        method: 'PUT',
+        data: patch,
       })
     );
   },

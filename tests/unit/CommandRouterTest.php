@@ -58,5 +58,69 @@ final class CommandRouterTest extends TestCase {
 		$this->assertSame( 'summary email', $result['command'] );
 		$this->assertTrue( (bool) ( $result['data']['aiRequested'] ?? false ) );
 	}
+
+	public function test_nav_dashboard_returns_navigation(): void {
+		$router = new CommandRouter();
+		$result = $router->handle( 'nav dashboard' );
+
+		$this->assertSame( 'navigation', $result['type'] );
+		$this->assertArrayHasKey( 'url', $result['data'] );
+		$this->assertStringContainsString( 'wp-admin', (string) $result['data']['url'] );
+	}
+
+	public function test_open_alias_normalizes_to_nav(): void {
+		$router = new CommandRouter();
+		$result = $router->handle( 'open settings' );
+
+		$this->assertSame( 'navigation', $result['type'] );
+		$this->assertStringContainsString( 'options-general', (string) $result['data']['url'] );
+	}
+
+	public function test_bare_plugin_returns_hint_error(): void {
+		$router = new CommandRouter();
+		$result = $router->handle( 'plugin' );
+
+		$this->assertSame( 'error', $result['type'] );
+		$this->assertStringContainsString( 'plugin list', strtolower( (string) $result['message'] ) );
+	}
+
+	public function test_user_lock_and_lock_user_alias_same_outcome(): void {
+		$router  = new CommandRouter();
+		$email   = 'flux-one-lock-alias-test-' . uniqid( '', true ) . '@example.com';
+		$primary = $router->handle( 'user lock ' . $email );
+		$alias   = $router->handle( 'lock user ' . $email );
+
+		$this->assertSame( $primary['type'], $alias['type'] );
+		$this->assertSame( $primary['command'] ?? '', $alias['command'] ?? '' );
+	}
+
+	public function test_user_unlock_and_unlock_user_alias_same_outcome(): void {
+		$router  = new CommandRouter();
+		$email   = 'flux-one-unlock-alias-test-' . uniqid( '', true ) . '@example.com';
+		$primary = $router->handle( 'user unlock ' . $email );
+		$alias   = $router->handle( 'unlock user ' . $email );
+
+		$this->assertSame( $primary['type'], $alias['type'] );
+		$this->assertSame( $primary['command'] ?? '', $alias['command'] ?? '' );
+	}
+
+	public function test_config_list_returns_suite_config_panel(): void {
+		$router = new CommandRouter();
+		$result = $router->handle( 'config list' );
+
+		$this->assertSame( 'panel', $result['type'] );
+		$this->assertSame( 'suite_config', $result['panelId'] );
+		$this->assertIsArray( $result['data'] ?? null );
+	}
+
+	public function test_user_role_set_and_role_set_alias_same_outcome(): void {
+		$router  = new CommandRouter();
+		$email   = 'flux-one-role-alias-test-' . uniqid( '', true ) . '@example.com';
+		$primary = $router->handle( 'user role set ' . $email . ' author' );
+		$alias   = $router->handle( 'role set ' . $email . ' author' );
+
+		$this->assertSame( $primary['type'], $alias['type'] );
+		$this->assertSame( $primary['command'] ?? '', $alias['command'] ?? '' );
+	}
 }
 

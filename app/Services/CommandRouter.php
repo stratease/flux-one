@@ -8,6 +8,9 @@
 
 namespace FluxOne\App\Services;
 
+use FluxOne\App\Services\CommandHandlers\ConfigHandler;
+use FluxOne\App\Services\CommandHandlers\MenusHandler;
+use FluxOne\App\Services\CommandHandlers\NavigationHandler;
 use FluxOne\App\Services\CommandHandlers\PluginsHandler;
 use FluxOne\App\Services\CommandHandlers\UsersHandler;
 use FluxOne\App\Services\CommandHandlers\MultisiteHandler;
@@ -27,6 +30,11 @@ class CommandRouter {
 	 * @return array
 	 */
 	public function handle( $input ) {
+		$trim = trim( (string) $input );
+		if ( preg_match( '/^config(\s|$)/i', $trim ) ) {
+			return ( new ConfigHandler() )->handle_raw( $trim );
+		}
+
 		$normalized = $this->normalize_input( (string) $input );
 		$tokens     = $normalized === '' ? [] : explode( ' ', $normalized );
 
@@ -47,36 +55,27 @@ class CommandRouter {
 		// Canonicalize common alias forms (store only canonical commands later in memory layer).
 		$tokens = $this->canonicalize_tokens( $tokens );
 
-		// Plugin management.
-		if ( 'plugins' === ( $tokens[0] ?? '' ) ) {
-			// Support `plugins update ...` as an alias for `plugin update ...`.
-			if ( 'update' === ( $tokens[1] ?? '' ) ) {
-				return ( new PluginsHandler() )->handle( array_slice( $tokens, 1 ) );
-			}
-			return ( new PluginsHandler() )->show_plugins_panel();
+		// Quick nav (canonical `nav`; `go` / `open` normalized in canonicalize_tokens).
+		if ( 'nav' === ( $tokens[0] ?? '' ) ) {
+			return ( new NavigationHandler() )->handle( array_slice( $tokens, 1 ) );
 		}
+
+		// Menus.
+		if ( 'menu' === ( $tokens[0] ?? '' ) ) {
+			return ( new MenusHandler() )->handle( array_slice( $tokens, 1 ) );
+		}
+
+		// Plugin management (`plugins` → `plugin` in canonicalize_tokens).
 		if ( 'plugin' === ( $tokens[0] ?? '' ) ) {
 			return ( new PluginsHandler() )->handle( array_slice( $tokens, 1 ) );
 		}
 
-		// Users.
-		if ( 'users' === ( $tokens[0] ?? '' ) ) {
-			return ( new UsersHandler() )->show_users_panel();
-		}
+		// Users (`users` → `user` except `users lock|unlock` rewritten earlier).
 		if ( 'user' === ( $tokens[0] ?? '' ) ) {
 			return ( new UsersHandler() )->handle( array_slice( $tokens, 1 ) );
 		}
-		if ( 'lock' === ( $tokens[0] ?? '' ) && 'user' === ( $tokens[1] ?? '' ) ) {
-			return ( new UsersHandler() )->handle( [ 'lock', ...array_slice( $tokens, 2 ) ] );
-		}
-		if ( 'unlock' === ( $tokens[0] ?? '' ) && 'user' === ( $tokens[1] ?? '' ) ) {
-			return ( new UsersHandler() )->handle( [ 'unlock', ...array_slice( $tokens, 2 ) ] );
-		}
 
-		// Multisite.
-		if ( 'sites' === ( $tokens[0] ?? '' ) ) {
-			return ( new MultisiteHandler() )->show_sites_panel();
-		}
+		// Multisite (`sites` → `site` in canonicalize_tokens).
 		if ( 'site' === ( $tokens[0] ?? '' ) ) {
 			return ( new MultisiteHandler() )->handle( array_slice( $tokens, 1 ) );
 		}
@@ -172,21 +171,41 @@ class CommandRouter {
 	 * @return array
 	 */
 	private function canonicalize_tokens( $tokens ) {
-		// "user lock {email}" => "lock user {email}".
-		if ( 'user' === ( $tokens[0] ?? '' ) && 'lock' === ( $tokens[1] ?? '' ) ) {
-			return [ 'lock', 'user', ...array_slice( $tokens, 2 ) ];
+		// "role set …" => "user role set …" (canonical; matches UsersHandler).
+		if ( 'role' === ( $tokens[0] ?? '' ) && 'set' === ( $tokens[1] ?? '' ) ) {
+			return array_merge( [ 'user', 'role', 'set' ], array_slice( $tokens, 2 ) );
 		}
-		// "users lock {email}" => "lock user {email}".
+
+		// "lock user {email}" => "user lock {email}" (canonical).
+		if ( 'lock' === ( $tokens[0] ?? '' ) && 'user' === ( $tokens[1] ?? '' ) ) {
+			return [ 'user', 'lock', ...array_slice( $tokens, 2 ) ];
+		}
+		// "unlock user {email}" => "user unlock {email}".
+		if ( 'unlock' === ( $tokens[0] ?? '' ) && 'user' === ( $tokens[1] ?? '' ) ) {
+			return [ 'user', 'unlock', ...array_slice( $tokens, 2 ) ];
+		}
+		// "users lock" / "users unlock" before plural → singular.
 		if ( 'users' === ( $tokens[0] ?? '' ) && 'lock' === ( $tokens[1] ?? '' ) ) {
-			return [ 'lock', 'user', ...array_slice( $tokens, 2 ) ];
+			return [ 'user', 'lock', ...array_slice( $tokens, 2 ) ];
 		}
-		// "user unlock {email}" => "unlock user {email}".
-		if ( 'user' === ( $tokens[0] ?? '' ) && 'unlock' === ( $tokens[1] ?? '' ) ) {
-			return [ 'unlock', 'user', ...array_slice( $tokens, 2 ) ];
-		}
-		// "users unlock {email}" => "unlock user {email}".
 		if ( 'users' === ( $tokens[0] ?? '' ) && 'unlock' === ( $tokens[1] ?? '' ) ) {
-			return [ 'unlock', 'user', ...array_slice( $tokens, 2 ) ];
+			return [ 'user', 'unlock', ...array_slice( $tokens, 2 ) ];
+		}
+
+		// Nav verb aliases.
+		if ( 'go' === ( $tokens[0] ?? '' ) || 'open' === ( $tokens[0] ?? '' ) ) {
+			$tokens[0] = 'nav';
+		}
+
+		// Plural → singular first tokens (after users lock|unlock rewrites above).
+		if ( 'plugins' === ( $tokens[0] ?? '' ) ) {
+			$tokens[0] = 'plugin';
+		}
+		if ( 'users' === ( $tokens[0] ?? '' ) ) {
+			$tokens[0] = 'user';
+		}
+		if ( 'sites' === ( $tokens[0] ?? '' ) ) {
+			$tokens[0] = 'site';
 		}
 
 		return $tokens;

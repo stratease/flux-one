@@ -9,6 +9,7 @@
 namespace FluxOne\App\Http\Controllers;
 
 use FluxOne\App\Services\CommandRouter;
+use FluxOne\App\Services\UserCommandMemory;
 use WP_REST_Request;
 
 /**
@@ -70,6 +71,17 @@ class CommandController extends BaseController {
 		try {
 			$router = new CommandRouter();
 			$result = $router->handle( $input );
+
+			if ( isset( $result['type'] ) && 'navigation' === $result['type'] && is_array( $result['data'] ?? null ) ) {
+				$label = isset( $result['data']['label'] ) ? (string) $result['data']['label'] : '';
+				$nav_url = isset( $result['data']['url'] ) ? (string) $result['data']['url'] : '';
+				$cmd   = isset( $result['command'] ) ? (string) $result['command'] : $input;
+				( new UserCommandMemory() )->add_recent_navigation(
+					$cmd,
+					$label !== '' ? $label : null,
+					$nav_url !== '' ? $nav_url : null
+				);
+			}
 
 			return $this->create_success_response( $result, 'Command executed' );
 		} catch ( \Throwable $e ) {

@@ -18,48 +18,6 @@ use FluxOne\App\Services\UserCommandMemory;
 class MultisiteHandler {
 
 	/**
-	 * Show sites panel.
-	 *
-	 * @since 0.1.0
-	 * @return array
-	 */
-	public function show_sites_panel() {
-		if ( ! is_multisite() ) {
-			return [
-				'type'    => 'error',
-				'command' => 'sites',
-				'message' => 'Multisite is not enabled.',
-			];
-		}
-
-		if ( ! current_user_can( 'manage_sites' ) && ! current_user_can( 'manage_options' ) ) {
-			return [
-				'type'    => 'error',
-				'command' => 'sites',
-				'message' => 'You do not have permission to view sites.',
-			];
-		}
-
-		$sites = get_sites( [ 'number' => 200 ] );
-
-		return [
-			'type'    => 'panel',
-			'panelId' => 'sites',
-			'command' => 'sites',
-			'data'    => array_map(
-				static function ( $site ) {
-					return [
-						'blogId' => (int) $site->blog_id,
-						'domain' => (string) $site->domain,
-						'path'   => (string) $site->path,
-					];
-				},
-				$sites
-			),
-		];
-	}
-
-	/**
 	 * Handle site subcommands.
 	 *
 	 * Supported: switch {query}.
@@ -72,15 +30,70 @@ class MultisiteHandler {
 		$tokens = array_values( (array) $tokens );
 		$op     = $tokens[0] ?? '';
 
+		if ( in_array( $op, [ 'list', 'show' ], true ) ) {
+			return $this->sites_list_panel( 'site ' . $op );
+		}
+
 		if ( 'switch' === $op ) {
 			$query = trim( implode( ' ', array_slice( $tokens, 1 ) ) );
 			return $this->switch_site( $query );
 		}
 
+		if ( '' === $op ) {
+			return [
+				'type'    => 'error',
+				'command' => 'site',
+				'message' => __( 'Try site list or site switch.', 'flux-one' ),
+			];
+		}
+
 		return [
 			'type'    => 'error',
 			'command' => 'site ' . implode( ' ', $tokens ),
-			'message' => 'Unknown multisite command.',
+			'message' => __( 'Unknown multisite command. Try site list.', 'flux-one' ),
+		];
+	}
+
+	/**
+	 * Sites list panel payload.
+	 *
+	 * @since 0.1.0
+	 * @param string $command Command label for response.
+	 * @return array
+	 */
+	private function sites_list_panel( $command ) {
+		if ( ! is_multisite() ) {
+			return [
+				'type'    => 'error',
+				'command' => $command,
+				'message' => __( 'Multisite is not enabled.', 'flux-one' ),
+			];
+		}
+
+		if ( ! current_user_can( 'manage_sites' ) && ! current_user_can( 'manage_options' ) ) {
+			return [
+				'type'    => 'error',
+				'command' => $command,
+				'message' => __( 'You do not have permission to view sites.', 'flux-one' ),
+			];
+		}
+
+		$sites = get_sites( [ 'number' => 200 ] );
+
+		return [
+			'type'    => 'panel',
+			'panelId' => 'sites',
+			'command' => $command,
+			'data'    => array_map(
+				static function ( $site ) {
+					return [
+						'blogId' => (int) $site->blog_id,
+						'domain' => (string) $site->domain,
+						'path'   => (string) $site->path,
+					];
+				},
+				$sites
+			),
 		];
 	}
 

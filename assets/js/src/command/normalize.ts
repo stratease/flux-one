@@ -26,11 +26,14 @@ export function parseInput(raw: string): ParsedInput {
  * This must align with `app/Services/CommandRouter.php`.
  */
 export function canonicalizeTokens(tokens: Token[]): Token[] {
-  // "user lock X" => "lock user X"
-  if (tokens[0] === 'user' && tokens[1] === 'lock') return ['lock', 'user', ...tokens.slice(2)];
-  if (tokens[0] === 'users' && tokens[1] === 'lock') return ['lock', 'user', ...tokens.slice(2)];
-  if (tokens[0] === 'user' && tokens[1] === 'unlock') return ['unlock', 'user', ...tokens.slice(2)];
-  if (tokens[0] === 'users' && tokens[1] === 'unlock') return ['unlock', 'user', ...tokens.slice(2)];
+  // "role set …" => "user role set …" (matches CommandRouter / UsersHandler).
+  if (tokens[0] === 'role' && tokens[1] === 'set') return ['user', 'role', 'set', ...tokens.slice(2)];
+
+  // "lock user X" => "user lock X" (canonical; matches CommandRouter).
+  if (tokens[0] === 'lock' && tokens[1] === 'user') return ['user', 'lock', ...tokens.slice(2)];
+  if (tokens[0] === 'unlock' && tokens[1] === 'user') return ['user', 'unlock', ...tokens.slice(2)];
+  if (tokens[0] === 'users' && tokens[1] === 'lock') return ['user', 'lock', ...tokens.slice(2)];
+  if (tokens[0] === 'users' && tokens[1] === 'unlock') return ['user', 'unlock', ...tokens.slice(2)];
 
   // "email aggregate" => "aggregate email"
   if (tokens[0] === 'email' && tokens[1] === 'aggregate') return ['aggregate', 'email', ...tokens.slice(2)];
@@ -39,10 +42,20 @@ export function canonicalizeTokens(tokens: Token[]): Token[] {
   // "email summary" => "summary email" (represented as tokens for standard mode)
   if (tokens[0] === 'email' && tokens[1] === 'summary') return ['summary', 'email', ...tokens.slice(2)];
 
-  // Treat "plugins update ..." as alias for "plugin update ...".
-  if (tokens[0] === 'plugins' && tokens[1] === 'update') return ['plugin', 'update', ...tokens.slice(2)];
-
-  return tokens;
+  const out = [...tokens];
+  if (out[0] === 'go' || out[0] === 'open') {
+    out[0] = 'nav';
+  }
+  if (out[0] === 'plugins') {
+    out[0] = 'plugin';
+  }
+  if (out[0] === 'users') {
+    out[0] = 'user';
+  }
+  if (out[0] === 'sites') {
+    out[0] = 'site';
+  }
+  return out;
 }
 
 export function canonicalizeInput(raw: string): CanonicalizationResult {

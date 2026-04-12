@@ -8,7 +8,9 @@
 
 namespace FluxOne\App\Http\Controllers;
 
+use FluxOne\App\Services\AdminDestinations;
 use FluxOne\App\Services\IndexCacheService;
+use FluxOne\App\Services\SuiteConfigCatalog;
 use WP_REST_Request;
 
 /**
@@ -113,6 +115,18 @@ class IndexController extends BaseController {
 							'required' => false,
 						],
 					],
+				],
+			]
+		);
+
+		register_rest_route(
+			$this->namespace,
+			'/index/suite-config',
+			[
+				[
+					'methods'             => 'GET',
+					'callback'            => [ $this, 'suite_config' ],
+					'permission_callback' => [ $this, 'check_permissions' ],
 				],
 			]
 		);
@@ -225,13 +239,7 @@ class IndexController extends BaseController {
 	public function destinations( WP_REST_Request $request ) {
 		$q = strtolower( trim( (string) $request->get_param( 'q' ) ) );
 
-		$destinations = [
-			[ 'id' => 'dashboard', 'label' => 'Dashboard', 'value' => 'dashboard' ],
-			[ 'id' => 'plugins', 'label' => 'Plugins', 'value' => 'plugins' ],
-			[ 'id' => 'users', 'label' => 'Users', 'value' => 'users' ],
-			[ 'id' => 'menus', 'label' => 'Menus', 'value' => 'menus' ],
-			[ 'id' => 'settings', 'label' => 'Settings', 'value' => 'settings' ],
-		];
+		$destinations = AdminDestinations::get_index_entries();
 
 		if ( '' === $q ) {
 			return $this->create_success_response( $destinations, 'Destinations index' );
@@ -248,6 +256,30 @@ class IndexController extends BaseController {
 		);
 
 		return $this->create_success_response( $filtered, 'Destinations results' );
+	}
+
+	/**
+	 * Keys for `config` command autocomplete (active Flux suite plugins only).
+	 *
+	 * @since 0.1.0
+	 * @return \WP_REST_Response
+	 */
+	public function suite_config() {
+		$rows = [];
+		foreach ( SuiteConfigCatalog::get_available_definitions() as $def ) {
+			if ( empty( $def['id'] ) ) {
+				continue;
+			}
+			$rows[] = [
+				'id'         => (string) $def['id'],
+				'label'      => (string) ( $def['label'] ?? '' ),
+				'plugin'     => (string) ( $def['plugin'] ?? '' ),
+				'type'       => (string) ( $def['type'] ?? '' ),
+				'searchText' => trim( (string) ( $def['id'] ?? '' ) . ' ' . (string) ( $def['label'] ?? '' ) . ' ' . (string) ( $def['plugin'] ?? '' ) . ' ' . (string) ( $def['search'] ?? '' ) ),
+			];
+		}
+
+		return $this->create_success_response( $rows, 'Suite config index' );
 	}
 }
 

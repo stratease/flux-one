@@ -8,6 +8,9 @@
 
 namespace FluxOne\App\Http\Controllers;
 
+use FluxOne\App\Services\AdminVisitRecorder;
+use FluxOne\FluxPlugins\Common\Services\MenuService;
+
 /**
  * Admin hooks for Flux One.
  *
@@ -23,10 +26,29 @@ class AdminController {
 	 */
 	public function init() {
 		add_action( 'init', [ $this, 'register_menu' ], 1 );
+		add_action( 'init', [ $this, 'register_flux_suite_pages' ], 10 );
+		AdminVisitRecorder::register();
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_scripts' ] );
 		add_action( 'admin_bar_menu', [ $this, 'register_admin_bar' ], 100 );
 		add_action( 'admin_footer', [ $this, 'render_overlay_mount' ] );
 		add_action( 'wp_dashboard_setup', [ $this, 'register_dashboard_widget' ] );
+		add_action( 'wp_dashboard_setup', [ $this, 'maybe_apply_default_dashboard_widget_order' ], 999 );
+	}
+
+	/**
+	 * Register shared Flux Suite License and Settings submenu pages (once per request).
+	 *
+	 * @since 0.1.0
+	 * @return void
+	 */
+	public function register_flux_suite_pages() {
+		if ( ! is_admin() ) {
+			return;
+		}
+
+		$menu_service = MenuService::get_instance();
+		$menu_service->register_license_page();
+		$menu_service->register_settings_page( 'FluxOneSettingsTab', __( 'Flux One', 'flux-one' ) );
 	}
 
 	/**
@@ -36,15 +58,7 @@ class AdminController {
 	 * @return void
 	 */
 	public function register_menu() {
-		$menu_service_class = '\FluxOne\FluxPlugins\Common\Services\MenuService';
-		if ( ! class_exists( $menu_service_class ) ) {
-			return;
-		}
-
-		$menu_service = call_user_func( [ $menu_service_class, 'get_instance' ] );
-		if ( ! is_object( $menu_service ) || ! method_exists( $menu_service, 'register_submenu_page' ) ) {
-			return;
-		}
+		$menu_service = MenuService::get_instance();
 
 		$menu_service->register_submenu_page(
 			'flux-one',
@@ -99,6 +113,54 @@ class AdminController {
 				],
 			]
 		);
+
+		if ( $hook === 'flux-suite_page_flux-suite-settings' ) {
+			$this->enqueue_suite_settings_scripts();
+		}
+	}
+
+	/**
+	 * Tab shell for Flux Suite → Settings (mount + Flux One tab bundle).
+	 *
+	 * @since 0.1.0
+	 * @return void
+	 */
+	private function enqueue_suite_settings_scripts() {
+		$handle   = 'flux-one-suite-settings';
+		$script_url = $this->get_suite_settings_script_url();
+
+		wp_enqueue_script(
+			$handle,
+			$script_url,
+			[ 'wp-element', 'wp-api-fetch' ],
+			FLUX_ONE_VERSION,
+			true
+		);
+
+		$tabs = MenuService::get_instance()->get_settings_tabs();
+
+		wp_localize_script(
+			$handle,
+			'fluxOneSuiteSettings',
+			[
+				'tabs'   => $tabs,
+				'apiUrl' => esc_url_raw( rest_url( 'flux-one/v1/' ) ),
+				'nonce'  => wp_create_nonce( 'wp_rest' ),
+			]
+		);
+	}
+
+	/**
+	 * Built suite settings script URL.
+	 *
+	 * @since 0.1.0
+	 * @return string
+	 */
+	private function get_suite_settings_script_url() {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {
+			return 'http://localhost:3004/suite-settings.bundle.js';
+		}
+		return plugin_dir_url( FLUX_ONE_PLUGIN_FILE ) . 'assets/js/dist/suite-settings.bundle.js';
 	}
 
 	/**
@@ -177,6 +239,68 @@ class AdminController {
 	 */
 	public function render_dashboard_widget() {
 		echo '<div id="flux-one-dashboard-widget-root"></div>';
+	}
+
+	/**
+	 * Once per user, prepend the Command Central widget to the normal dashboard column when no layout is saved yet.
+	 *
+	 * @since 0.1.0
+	 * @return void
+	 */
+	public function maybe_apply_default_dashboard_widget_order() {
+		if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		if ( ! function_exists( 'get_current_screen' ) ) {
+			return;
+		}
+
+		$screen = get_current_screen();
+		if ( ! $screen || 'dashboard' !== $screen->id ) {
+			return;
+		}
+
+		$user_id = get_current_user_id();
+		if ( ! $user_id ) {
+			return;
+		}
+
+		$existing = get_user_option( 'meta-box-order_dashboard', $user_id );
+		if ( ! empty( $existing ) ) {
+			return;
+		}
+
+		if ( get_user_meta( $user_id, '_flux_one_dashboard_default_order_applied', true ) ) {
+			return;
+		}
+
+		global $wp_meta_boxes;
+		if ( empty( $wp_meta_boxes['dashboard'] ) || ! is_array( $wp_meta_boxes['dashboard'] ) ) {
+			return;
+		}
+
+		$widget_id = 'flux_one_command_central_widget';
+		$new_order = [];
+
+		foreach ( [ 'normal', 'side', 'column3', 'column4' ] as $col ) {
+			if ( empty( $wp_meta_boxes['dashboard'][ $col ]['core'] ) || ! is_array( $wp_meta_boxes['dashboard'][ $col ]['core'] ) ) {
+				continue;
+			}
+			$ids = array_keys( $wp_meta_boxes['dashboard'][ $col ]['core'] );
+			if ( 'normal' === $col && in_array( $widget_id, $ids, true ) ) {
+				$ids = array_values( array_filter( $ids, static fn( $id ) => $id !== $widget_id ) );
+				array_unshift( $ids, $widget_id );
+			}
+			$new_order[ $col ] = implode( ',', $ids );
+		}
+
+		if ( empty( $new_order ) ) {
+			return;
+		}
+
+		update_user_option( $user_id, 'meta-box-order_dashboard', $new_order, true );
+		update_user_meta( $user_id, '_flux_one_dashboard_default_order_applied', '1' );
 	}
 }
 

@@ -10,6 +10,7 @@ namespace FluxOne\App\Http\Controllers;
 
 use WP_REST_Request;
 use FluxOne\App\Services\CacheVersionService;
+use FluxOne\App\Services\UserCommandMemory;
 
 /**
  * Provides preloaded indices and flags for fast command UX.
@@ -55,6 +56,7 @@ class BootstrapController extends BaseController {
 	 */
 	public function get_bootstrap( WP_REST_Request $request ) {
 		$versions = ( new CacheVersionService() )->get_versions();
+		$memory   = new UserCommandMemory();
 
 		return $this->create_success_response(
 			[
@@ -67,8 +69,12 @@ class BootstrapController extends BaseController {
 					'aggregateEmail'  => [ 'enabled' => true ],
 					'summaryEmail'    => [ 'enabled' => true ],
 					'navigation'      => [ 'enabled' => true ],
+					'suiteConfig'     => [ 'enabled' => true ],
 				],
 				'cacheVersions'   => $versions,
+				'commandMemory'   => [
+					'recentNavigations' => $memory->get_recent_navigations(),
+				],
 			],
 			'Bootstrap loaded'
 		);

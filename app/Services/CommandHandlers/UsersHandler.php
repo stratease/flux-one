@@ -8,6 +8,7 @@
 
 namespace FluxOne\App\Services\CommandHandlers;
 
+use FluxOne\App\Services\IndexCacheService;
 use WP_User;
 
 /**
@@ -25,24 +26,9 @@ class UsersHandler {
 	private const LOCK_META_KEY = '_flux_one_user_locked';
 
 	/**
-	 * Show users panel (v1: placeholder, indices are handled separately).
-	 *
-	 * @since 0.1.0
-	 * @return array
-	 */
-	public function show_users_panel() {
-		return [
-			'type'    => 'panel',
-			'panelId' => 'users',
-			'command' => 'users',
-			'data'    => [],
-		];
-	}
-
-	/**
 	 * Handle user subcommands.
 	 *
-	 * Supported (v1): lock/unlock {email}, role set {email} {role}.
+	 * Supported (v1): lock/unlock {email}, user role set {email} {role} (alias: role set …).
 	 *
 	 * @since 0.1.0
 	 * @param array $tokens Tokens after "user" or canonicalized.
@@ -52,6 +38,22 @@ class UsersHandler {
 		$tokens = array_values( (array) $tokens );
 
 		$op = $tokens[0] ?? '';
+
+		if ( in_array( $op, [ 'list', 'show' ], true ) ) {
+			if ( ! current_user_can( 'list_users' ) ) {
+				return [
+					'type'    => 'error',
+					'command' => 'user ' . $op,
+					'message' => __( 'You do not have permission to list users.', 'flux-one' ),
+				];
+			}
+			return [
+				'type'    => 'panel',
+				'panelId' => 'users',
+				'command' => 'user ' . $op,
+				'data'    => ( new IndexCacheService() )->get_users_index(),
+			];
+		}
 
 		if ( 'lock' === $op ) {
 			$email = (string) ( $tokens[1] ?? '' );
@@ -81,10 +83,18 @@ class UsersHandler {
 			];
 		}
 
+		if ( '' === $op ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user',
+				'message' => __( 'Try user list.', 'flux-one' ),
+			];
+		}
+
 		return [
 			'type'    => 'error',
 			'command' => 'user ' . implode( ' ', $tokens ),
-			'message' => 'Unknown user command.',
+			'message' => __( 'Unknown user command. Try user list.', 'flux-one' ),
 		];
 	}
 
@@ -100,7 +110,7 @@ class UsersHandler {
 		if ( ! current_user_can( 'edit_users' ) ) {
 			return [
 				'type'    => 'error',
-				'command' => $locked ? 'lock user' : 'unlock user',
+				'command' => $locked ? 'user lock' : 'user unlock',
 				'message' => 'You do not have permission to manage users.',
 			];
 		}
@@ -109,7 +119,7 @@ class UsersHandler {
 		if ( ! ( $user instanceof WP_User ) ) {
 			return [
 				'type'    => 'error',
-				'command' => ( $locked ? 'lock user ' : 'unlock user ' ) . $email,
+				'command' => ( $locked ? 'user lock ' : 'user unlock ' ) . $email,
 				'message' => 'User not found.',
 			];
 		}
@@ -122,7 +132,7 @@ class UsersHandler {
 
 		return [
 			'type'    => 'action',
-			'command' => ( $locked ? 'lock user ' : 'unlock user ' ) . $email,
+			'command' => ( $locked ? 'user lock ' : 'user unlock ' ) . $email,
 			'status'  => 'success',
 			'message' => $locked ? 'User locked.' : 'User unlocked.',
 			'data'    => [
@@ -145,7 +155,7 @@ class UsersHandler {
 		if ( ! current_user_can( 'promote_users' ) ) {
 			return [
 				'type'    => 'error',
-				'command' => 'role set ' . $email . ' ' . $role,
+				'command' => 'user role set ' . $email . ' ' . $role,
 				'message' => 'You do not have permission to change roles.',
 			];
 		}
@@ -154,7 +164,7 @@ class UsersHandler {
 		if ( ! ( $user instanceof WP_User ) ) {
 			return [
 				'type'    => 'error',
-				'command' => 'role set ' . $email . ' ' . $role,
+				'command' => 'user role set ' . $email . ' ' . $role,
 				'message' => 'User not found.',
 			];
 		}
@@ -163,7 +173,7 @@ class UsersHandler {
 		if ( '' === $role ) {
 			return [
 				'type'    => 'error',
-				'command' => 'role set ' . $email,
+				'command' => 'user role set ' . $email,
 				'message' => 'Role is required.',
 			];
 		}
@@ -172,7 +182,7 @@ class UsersHandler {
 
 		return [
 			'type'    => 'action',
-			'command' => 'role set ' . $email . ' ' . $role,
+			'command' => 'user role set ' . $email . ' ' . $role,
 			'status'  => 'success',
 			'message' => 'Role updated.',
 			'data'    => [

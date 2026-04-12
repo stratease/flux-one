@@ -14,10 +14,14 @@ use FluxOne\App\Http\Controllers\BootstrapController;
 use FluxOne\App\Http\Controllers\IndexController;
 use FluxOne\App\Http\Controllers\MenuController;
 use FluxOne\App\Http\Controllers\AggregationController;
+use FluxOne\App\Http\Controllers\MemoryController;
+use FluxOne\App\Http\Controllers\SettingsController;
 use FluxOne\App\Services\Database;
 use FluxOne\App\Services\CleanupService;
 use FluxOne\App\Services\CommandHandlers\UsersHandler;
 use FluxOne\App\Services\EmailEventLogger;
+use FluxOne\App\Services\EmailMailPolicy;
+use FluxOne\App\Services\FluxOneSettings;
 
 /**
  * Plugin orchestrator.
@@ -35,6 +39,8 @@ class Plugin {
 	public function init() {
 		Database::maybe_update_database();
 
+		add_action( 'admin_init', [ FluxOneSettings::class, 'register_settings' ] );
+
 		if ( is_admin() ) {
 			( new AdminController() )->init();
 		}
@@ -42,6 +48,7 @@ class Plugin {
 		add_action( CleanupService::CRON_HOOK, [ CleanupService::class, 'run' ] );
 		add_filter( 'wp_authenticate_user', [ UsersHandler::class, 'enforce_lock_on_authentication' ], 10, 1 );
 		add_filter( 'wp_mail', [ ( new EmailEventLogger() ), 'capture_wp_mail' ], 5, 1 );
+		EmailMailPolicy::register();
 
 		add_action( 'rest_api_init', [ $this, 'register_rest_routes' ] );
 	}
@@ -58,6 +65,8 @@ class Plugin {
 		( new IndexController() )->register_routes();
 		( new MenuController() )->register_routes();
 		( new AggregationController() )->register_routes();
+		( new MemoryController() )->register_routes();
+		( new SettingsController() )->register_routes();
 	}
 }
 

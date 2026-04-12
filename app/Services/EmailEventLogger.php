@@ -15,6 +15,7 @@ namespace FluxOne\App\Services;
  */
 class EmailEventLogger {
 
+
 	/**
 	 * Filter callback for wp_mail.
 	 *
@@ -23,6 +24,10 @@ class EmailEventLogger {
 	 * @return array
 	 */
 	public function capture_wp_mail( $args ) {
+		if ( ! FluxOneSettings::is_email_capture_enabled() ) {
+			return $args;
+		}
+
 		try {
 			$this->log_email_event( (array) $args );
 		} catch ( \Throwable $e ) {

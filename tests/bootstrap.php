@@ -46,13 +46,31 @@ if ( ! function_exists( 'is_email' ) ) {
 		return (bool) filter_var( $email, FILTER_VALIDATE_EMAIL );
 	}
 }
+if ( ! function_exists( 'get_user_by' ) ) {
+	function get_user_by( $field, $value ) {
+		return false;
+	}
+}
 if ( ! function_exists( '__' ) ) {
 	function __( $text, $domain = null ) {
 		return $text;
 	}
 }
+if ( ! function_exists( 'admin_url' ) ) {
+	function admin_url( $path = '' ) {
+		return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
+	}
+}
+if ( ! function_exists( 'wp_is_file_mod_allowed' ) ) {
+	function wp_is_file_mod_allowed( $context = '' ) {
+		return true;
+	}
+}
 
 // Load the classes under test directly (no Composer autoload required).
+require_once dirname( __DIR__ ) . '/app/Services/AdminDestinations.php';
+require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/NavigationHandler.php';
+require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/MenusHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/IndexCacheService.php';
 require_once dirname( __DIR__ ) . '/app/Services/UserCommandMemory.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/PluginsHandler.php';

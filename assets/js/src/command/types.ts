@@ -4,7 +4,9 @@ export type Token = string;
 
 export type SuggestionKind = 'command' | 'subcommand' | 'entity';
 
-export type EntityType = 'plugin' | 'user' | 'menu' | 'site' | 'destination';
+export type EntityType = 'plugin' | 'user' | 'menu' | 'site' | 'destination' | 'configKey';
+
+export type ClientNavAction = 'nav';
 
 export type Suggestion = {
   id: string;
@@ -13,6 +15,9 @@ export type Suggestion = {
   value: string; // the full input value to place in the textbox
   description?: string;
   entityType?: EntityType;
+  /** When set with `navUrl`, Command Central redirects in the browser without POST /command. */
+  clientAction?: ClientNavAction;
+  navUrl?: string;
 };
 
 export type ParsedInput = {
