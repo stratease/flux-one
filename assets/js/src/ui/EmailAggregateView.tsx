@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { FluxOneModal } from './FluxOneModal';
 
 export type EmailEventPayload = {
   to?: unknown;
@@ -45,8 +46,47 @@ function formatHeaders(payload: EmailEventPayload | null | undefined): string {
   return String(h);
 }
 
+function eventLine(ev: EmailAggregateEvent, previewMax: number): string {
+  const p = ev.payload || {};
+  const prev = trimStr(p.messagePreview || '');
+  const prevShort = prev
+    ? prev.length > previewMax
+      ? `${prev.slice(0, previewMax)}…`
+      : prev
+    : '';
+  return `${ev.createdAt} · To: ${formatTo(p)} · ${ev.source || '—'}${prevShort ? ` · ${prevShort}` : ''}`;
+}
+
+function EventBlock({ ev }: { ev: EmailAggregateEvent }) {
+  const p = ev.payload || {};
+  return (
+    <div style={{ marginBottom: 10, fontSize: 12 }}>
+      <div>{eventLine(ev, 140)}</div>
+      <details style={{ marginTop: 4 }}>
+        <summary style={{ cursor: 'pointer', fontSize: 11, opacity: 0.85 }}>Headers</summary>
+        <pre
+          className="flux-one-email-aggregate-headers"
+          style={{
+            margin: '6px 0 0',
+            padding: 8,
+            fontSize: 11,
+            maxHeight: 120,
+            overflow: 'auto',
+            background: 'rgba(0,0,0,0.04)',
+            borderRadius: 4,
+            whiteSpace: 'pre-wrap',
+            wordBreak: 'break-word',
+          }}
+        >
+          {formatHeaders(p) || '—'}
+        </pre>
+      </details>
+    </div>
+  );
+}
+
 export function EmailAggregateView({ data }: { data: EmailAggregatePayload | null | undefined }) {
-  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [modalSubject, setModalSubject] = useState<string | null>(null);
 
   const eventsBySubject = useMemo(() => {
     const events = Array.isArray(data?.events) ? data!.events! : [];
@@ -59,16 +99,14 @@ export function EmailAggregateView({ data }: { data: EmailAggregatePayload | nul
     return map;
   }, [data?.events]);
 
+  const modalEvents = modalSubject ? eventsBySubject[modalSubject] || [] : [];
+
   if (!data) {
     return <div style={{ opacity: 0.75, fontSize: 13 }}>No data.</div>;
   }
 
   const meta = data.meta || {};
   const groups = Array.isArray(data.groups) ? data.groups : [];
-
-  const toggle = (subject: string) => {
-    setExpanded((prev) => ({ ...prev, [subject]: !prev[subject] }));
-  };
 
   return (
     <div className="flux-one-email-aggregate">
@@ -83,85 +121,54 @@ export function EmailAggregateView({ data }: { data: EmailAggregatePayload | nul
         <div style={{ fontSize: 13, opacity: 0.8 }}>No grouped subjects in this window.</div>
       ) : (
         <div style={{ overflow: 'auto', maxHeight: 280 }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-            <thead>
-              <tr style={{ textAlign: 'left', borderBottom: '1px solid rgba(0,0,0,0.12)' }}>
-                <th style={{ padding: '6px 8px', width: 36 }} aria-label="Expand" />
-                <th style={{ padding: '6px 8px' }}>Subject</th>
-                <th style={{ padding: '6px 8px', width: 72 }}>Count</th>
-                <th style={{ padding: '6px 8px', width: 140 }}>Latest</th>
-              </tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => {
-                const isOpen = !!expanded[g.subject];
-                const evs = eventsBySubject[g.subject] || [];
-                return (
-                  <React.Fragment key={g.subject}>
-                    <tr style={{ borderBottom: '1px solid rgba(0,0,0,0.06)' }}>
-                      <td style={{ padding: '6px 8px', verticalAlign: 'top' }}>
-                        <button
-                          type="button"
-                          className="flux-one-email-aggregate-toggle"
-                          aria-expanded={isOpen}
-                          onClick={() => toggle(g.subject)}
-                          disabled={evs.length === 0}
-                        >
-                          {evs.length === 0 ? '—' : isOpen ? '▼' : '▶'}
-                        </button>
-                      </td>
-                      <td style={{ padding: '6px 8px', verticalAlign: 'top' }}>{g.subject}</td>
-                      <td style={{ padding: '6px 8px' }}>{g.count}</td>
-                      <td style={{ padding: '6px 8px', opacity: 0.8, fontSize: 12 }}>{g.latest || '—'}</td>
-                    </tr>
-                    {isOpen && evs.length > 0 ? (
-                      <tr key={`${g.subject}-detail`} className="flux-one-email-aggregate-detail">
-                        <td colSpan={4} style={{ padding: '0 8px 12px 48px', background: 'rgba(0,0,0,0.02)' }}>
-                          <ul style={{ margin: 0, padding: '8px 0 0 16px', listStyle: 'disc' }}>
-                            {evs.map((ev) => {
-                              const p = ev.payload || {};
-                              const prev = trimStr(p.messagePreview || '');
-                              const line = `${ev.createdAt} · To: ${formatTo(p)} · ${ev.source || '—'}${
-                                prev ? ` · ${prev.length > 140 ? `${prev.slice(0, 140)}…` : prev}` : ''
-                              }`;
-                              return (
-                                <li key={ev.id} style={{ marginBottom: 8, fontSize: 12 }}>
-                                  <div>{line}</div>
-                                  <details style={{ marginTop: 4 }}>
-                                    <summary style={{ cursor: 'pointer', fontSize: 11, opacity: 0.85 }}>
-                                      Headers
-                                    </summary>
-                                    <pre
-                                      className="flux-one-email-aggregate-headers"
-                                      style={{
-                                        margin: '6px 0 0',
-                                        padding: 8,
-                                        fontSize: 11,
-                                        maxHeight: 120,
-                                        overflow: 'auto',
-                                        background: 'rgba(0,0,0,0.04)',
-                                        borderRadius: 4,
-                                        whiteSpace: 'pre-wrap',
-                                        wordBreak: 'break-word',
-                                      }}
-                                    >
-                                      {formatHeaders(p) || '—'}
-                                    </pre>
-                                  </details>
-                                </li>
-                              );
-                            })}
-                          </ul>
-                        </td>
-                      </tr>
-                    ) : null}
-                  </React.Fragment>
-                );
-              })}
-            </tbody>
-          </table>
+          {groups.map((g) => {
+            const evs = eventsBySubject[g.subject] || [];
+            const preview = evs.slice(0, 2);
+            const hasMore = evs.length > 2;
+            return (
+              <div
+                key={g.subject}
+                style={{
+                  borderBottom: '1px solid rgba(0,0,0,0.06)',
+                  padding: '10px 0',
+                }}
+              >
+                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{g.subject}</div>
+                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
+                  Latest: {g.latest || '—'}
+                </div>
+                {preview.map((ev) => (
+                  <div key={ev.id} style={{ fontSize: 12, opacity: 0.9, marginBottom: 4, paddingLeft: 4 }}>
+                    {eventLine(ev, 120)}
+                  </div>
+                ))}
+                {hasMore ? (
+                  <button
+                    type="button"
+                    className="button button-small"
+                    style={{ marginTop: 6 }}
+                    onClick={() => setModalSubject(g.subject)}
+                  >
+                    View all ({evs.length})
+                  </button>
+                ) : null}
+              </div>
+            );
+          })}
         </div>
       )}
+
+      <FluxOneModal
+        open={modalSubject !== null}
+        onClose={() => setModalSubject(null)}
+        title={modalSubject ? `Email: ${modalSubject}` : 'Email'}
+      >
+        <div className="flux-one-modal-doc-list" style={{ maxHeight: 'min(60vh, 420px)', overflow: 'auto' }}>
+          {modalEvents.map((ev) => (
+            <EventBlock key={ev.id} ev={ev} />
+          ))}
+        </div>
+      </FluxOneModal>
     </div>
   );
 }

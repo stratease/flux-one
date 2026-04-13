@@ -8,6 +8,7 @@ import type { Suggestion } from '../command/types';
 import { filterCommandDocs } from '../command/commandDocs';
 import { interpretEnter, interpretSuggestionPick } from '../command/interpretEnter';
 import { EmailAggregateView, type EmailAggregatePayload } from './EmailAggregateView';
+import { FluxOneModal } from './FluxOneModal';
 
 type CommandResponse =
   | { type: 'panel'; panelId: string; command: string; data?: any }
@@ -68,7 +69,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [activeSuggestion, setActiveSuggestion] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const commandsModalTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const commandsModalCloseRef = useRef<HTMLButtonElement | null>(null);
   const commandsModalSearchRef = useRef<HTMLInputElement | null>(null);
   const dashboardFocusAppliedRef = useRef(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
@@ -167,23 +167,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   }, [kind, bootstrapped, bootstrapping]);
 
   const commandsModalWasOpenRef = useRef(false);
-  useEffect(() => {
-    if (!commandsModalOpen) {
-      return;
-    }
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.preventDefault();
-        setCommandsModalOpen(false);
-      }
-    };
-    window.addEventListener('keydown', onKey, { capture: true });
-    requestAnimationFrame(() => {
-      commandsModalSearchRef.current?.focus();
-    });
-    return () => window.removeEventListener('keydown', onKey, { capture: true } as AddEventListenerOptions);
-  }, [commandsModalOpen]);
-
   useEffect(() => {
     if (commandsModalWasOpenRef.current && !commandsModalOpen) {
       commandsModalTriggerRef.current?.focus();
@@ -420,6 +403,8 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     if (!cmd || commandMutation.isPending || fastPathLoading) {
       return;
     }
+    const displayCmd = /^config(\s|$)/i.test(cmd) ? cmd : canonicalizeInput(cmd).canonical;
+    setInput(displayCmd);
     setSuggestionsDismissed(true);
     const { canonical } = canonicalizeInput(cmd);
 
@@ -1234,86 +1219,51 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       </div>
       </div>
 
-      {commandsModalOpen ? (
-        <div
-          className="flux-one-modal-backdrop"
-          role="presentation"
-          onMouseDown={(e) => {
-            if (e.target === e.currentTarget) {
-              setCommandsModalOpen(false);
-            }
+      <FluxOneModal
+        open={commandsModalOpen}
+        onClose={() => setCommandsModalOpen(false)}
+        title="Command reference"
+        initialFocusRef={commandsModalSearchRef}
+      >
+        <input
+          ref={commandsModalSearchRef}
+          type="search"
+          value={commandsHelpQuery}
+          onChange={(e) => setCommandsHelpQuery(e.currentTarget.value)}
+          placeholder="Filter…"
+          style={{
+            width: '100%',
+            boxSizing: 'border-box',
+            marginBottom: 8,
+            padding: '8px 10px',
+            borderRadius: 4,
+            border: '1px solid rgba(0,0,0,0.2)',
+            fontSize: 13,
           }}
-          onClick={(e) => {
-            if (e.target === e.currentTarget) {
-              setCommandsModalOpen(false);
-            }
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="flux-one-command-reference-title"
-            className="flux-one-modal"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="flux-one-modal-header">
-              <h2 id="flux-one-command-reference-title" style={{ margin: 0, fontSize: 16 }}>
-                Command reference
-              </h2>
-              <button
-                ref={commandsModalCloseRef}
-                type="button"
-                className="button"
-                onClick={() => setCommandsModalOpen(false)}
-              >
-                Close
-              </button>
+        />
+        <div className="flux-one-modal-doc-list">
+          {filteredCommandDocs.map((row) => (
+            <div
+              key={row.canonical}
+              style={{
+                padding: '8px 0',
+                borderBottom: '1px solid rgba(0,0,0,0.06)',
+                fontSize: 13,
+              }}
+            >
+              <div style={{ fontWeight: row.kind === 'root' ? 600 : 400 }}>{row.canonical}</div>
+              <div style={{ opacity: 0.82, fontSize: 12, lineHeight: 1.45 }}>{row.summary}</div>
+              {row.details ? (
+                <div style={{ opacity: 0.72, fontSize: 12, lineHeight: 1.45, marginTop: 4 }}>{row.details}</div>
+              ) : null}
+              {row.aliases?.length ? (
+                <div style={{ opacity: 0.6, fontSize: 11, marginTop: 4 }}>Aliases: {row.aliases.join(', ')}</div>
+              ) : null}
             </div>
-            <div className="flux-one-modal-body">
-              <input
-                ref={commandsModalSearchRef}
-                type="search"
-                value={commandsHelpQuery}
-                onChange={(e) => setCommandsHelpQuery(e.currentTarget.value)}
-                placeholder="Filter…"
-                style={{
-                  width: '100%',
-                  boxSizing: 'border-box',
-                  marginBottom: 8,
-                  padding: '8px 10px',
-                  borderRadius: 4,
-                  border: '1px solid rgba(0,0,0,0.2)',
-                  fontSize: 13,
-                }}
-              />
-              <div className="flux-one-modal-doc-list">
-                {filteredCommandDocs.map((row) => (
-                  <div
-                    key={row.canonical}
-                    style={{
-                      padding: '8px 0',
-                      borderBottom: '1px solid rgba(0,0,0,0.06)',
-                      fontSize: 13,
-                    }}
-                  >
-                    <div style={{ fontWeight: row.kind === 'root' ? 600 : 400 }}>{row.canonical}</div>
-                    <div style={{ opacity: 0.82, fontSize: 12, lineHeight: 1.45 }}>{row.summary}</div>
-                    {row.details ? (
-                      <div style={{ opacity: 0.72, fontSize: 12, lineHeight: 1.45, marginTop: 4 }}>{row.details}</div>
-                    ) : null}
-                    {row.aliases?.length ? (
-                      <div style={{ opacity: 0.6, fontSize: 11, marginTop: 4 }}>Aliases: {row.aliases.join(', ')}</div>
-                    ) : null}
-                  </div>
-                ))}
-                {filteredCommandDocs.length === 0 ? (
-                  <div style={{ opacity: 0.7, fontSize: 13 }}>No matches.</div>
-                ) : null}
-              </div>
-            </div>
-          </div>
+          ))}
+          {filteredCommandDocs.length === 0 ? <div style={{ opacity: 0.7, fontSize: 13 }}>No matches.</div> : null}
         </div>
-      ) : null}
+      </FluxOneModal>
     </div>
   );
 }

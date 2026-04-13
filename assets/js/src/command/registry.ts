@@ -18,6 +18,8 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
   ],
   user: [
     { id: 'cmd.user.list', kind: 'subcommand', label: 'user list', value: 'user list' },
+    { id: 'cmd.user.lock', kind: 'subcommand', label: 'user lock', value: 'user lock ' },
+    { id: 'cmd.user.unlock', kind: 'subcommand', label: 'user unlock', value: 'user unlock ' },
     {
       id: 'cmd.user.add',
       kind: 'subcommand',
@@ -30,9 +32,13 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
       kind: 'subcommand',
       label: 'user role set',
       value: 'user role set ',
+      description: 'Alias typed as role set … is canonicalized to this command',
     },
   ],
-  menu: [{ id: 'cmd.menu.list', kind: 'subcommand', label: 'menu list', value: 'menu list' }],
+  menu: [
+    { id: 'cmd.menu.list', kind: 'subcommand', label: 'menu list', value: 'menu list' },
+    { id: 'cmd.menu.show', kind: 'subcommand', label: 'menu show', value: 'menu show' },
+  ],
   site: [
     { id: 'cmd.site.list', kind: 'subcommand', label: 'site list', value: 'site list' },
     { id: 'cmd.site.switch', kind: 'subcommand', label: 'site switch', value: 'site switch ' },
@@ -51,29 +57,13 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
  */
 export const ROOT_COMMANDS: Suggestion[] = [
   { id: 'cmd.plugin', kind: 'command', label: 'plugin', value: 'plugin ' },
-  { id: 'cmd.user', kind: 'command', label: 'user', value: 'user ' },
-  { id: 'cmd.user.lock', kind: 'command', label: 'user lock', value: 'user lock ' },
-  { id: 'cmd.user.unlock', kind: 'command', label: 'user unlock', value: 'user unlock ' },
   {
-    id: 'cmd.user.add.root',
+    id: 'cmd.user',
     kind: 'command',
-    label: 'user add',
-    value: 'user add ',
-    description: 'Create user: username email role (password generated)',
-  },
-  {
-    id: 'cmd.user.role.set.root',
-    kind: 'command',
-    label: 'user role set',
-    value: 'user role set ',
-    description: 'Set a user role (email then role slug)',
-  },
-  {
-    id: 'cmd.role.set.alias',
-    kind: 'command',
-    label: 'role set',
-    value: 'user role set ',
-    description: 'Alias for user role set',
+    label: 'user',
+    value: 'user ',
+    description: 'List, add, lock, unlock, role set, or pick a user by email',
+    searchText: 'role set lock unlock add list',
   },
   { id: 'cmd.menu', kind: 'command', label: 'menu', value: 'menu ' },
   { id: 'cmd.site', kind: 'command', label: 'site', value: 'site ' },

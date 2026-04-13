@@ -86,6 +86,14 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
     }
   }
 
+  const menuTok = /^menu\s+(\S+)$/.exec(c);
+  if (menuTok) {
+    const expanded = expandUniqueSubcommandToken('menu', menuTok[1]);
+    if (expanded && normalizeCanonical(expanded) !== c) {
+      return resolveRunnableCommand(expanded, indices);
+    }
+  }
+
   const configTok = /^config\s+(\S+)$/.exec(c);
   if (configTok) {
     const expanded = expandUniqueSubcommandToken('config', configTok[1]);

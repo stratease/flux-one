@@ -115,7 +115,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   },
   {
     canonical: 'user add',
-    kind: 'root',
+    kind: 'sub',
     summary: 'Creates a user with username, email, and role (no password prompt).',
     details:
       'POST /command → wp_insert_user with generated password; wp_send_new_user_notifications when available. Requires create_users. Role must be one of your editable roles (from bootstrap). Form: user add {login} {email} {role}.',
@@ -123,7 +123,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   },
   {
     canonical: 'user lock',
-    kind: 'root',
+    kind: 'sub',
     summary: 'Sets a Flux One lock flag on the account so they cannot log in.',
     details: 'POST /command → user meta. Alias: lock user <email>.',
     backend: 'command',
@@ -131,7 +131,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   },
   {
     canonical: 'user unlock',
-    kind: 'root',
+    kind: 'sub',
     summary: 'Clears the Flux One lock so the user can authenticate again.',
     details: 'POST /command. Alias: unlock user <email>.',
     backend: 'command',
@@ -139,7 +139,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   },
   {
     canonical: 'user role set',
-    kind: 'root',
+    kind: 'sub',
     summary: 'Sets the user’s single role to a role slug (e.g. editor, administrator).',
     details:
       'POST /command → WP_User::set_role(). Requires promote_users. Canonical form: user role set <email> <role>. Alias: role set <email> <role> (rewritten server-side).',
@@ -224,7 +224,8 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     canonical: 'aggregate email',
     kind: 'root',
     summary: 'Loads the email aggregate panel (counts / suppressions) for the last 7 days.',
-    details: 'POST /command returns panel id aggregate_email; client may GET aggregate JSON for the chart.',
+    details:
+      'POST /command returns panel id aggregate_email; client may GET aggregate JSON for the chart. UI: per-subject lines with up to two recent events and a modal for the full list.',
     backend: 'command+get',
   },
   {

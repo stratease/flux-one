@@ -57,7 +57,7 @@ Flux One supports “forgiving” command inputs by canonicalizing token order/s
 
 ### Enter key (Command Central)
 
-**Enter** uses layered intent: a small client ladder (`interpretEnter` + `commandLadder`) completes unique prefixes (e.g. `plugin li` → `plugin list`) and only **POSTs** when the command is runnable or uniquely disambiguated (single plugin/user/site match, terminal list commands, `nav` with a resolved URL, etc.). **Tab** still fills the highlighted suggestion without running. Suggestion **clicks** follow the same run vs. fill rules where possible.
+**Enter** uses layered intent: a small client ladder (`interpretEnter` + `commandLadder`) completes unique prefixes (e.g. `plugin li` → `plugin list`, `menu li` → `menu list`) and only **POSTs** when the command is runnable or uniquely disambiguated (single plugin/user/site match, terminal list commands, `nav` with a resolved URL, etc.). **Tab** still fills the highlighted suggestion without running. Suggestion **clicks** follow the same run vs. fill rules where possible. When a command **runs** (Enter or click), the input is filled with the **canonical** executed string (except `config …`, where raw casing is preserved for values). **Autocomplete** shows **top-level** commands only on an empty field; after a root and space (e.g. `user `), **Next steps** lists subcommands such as lock, unlock, add, and role set. **Aliases** (e.g. `role set …`) never appear as their own suggestion rows; typing them still canonicalizes, and the field shows the canonical command after run.
 
 ### Dashboard widget layout
 
@@ -65,11 +65,11 @@ For users who have **never** saved a dashboard layout, Flux One applies a **one-
 
 ### Recent navigation memory
 
-The dashboard widget shows up to **five** **recent admin pages** you have opened (tracked on each wp-admin screen load for users who can access Command Central), plus entries from **`nav`** via **`POST /command`** or client-side redirects. Each item includes a **`url`** (when known) and **`label`**; **`command`** is kept when the destination came from a `nav` command. Data lives in user meta (`recent_navigations` inside `_flux_one_command_memory`) and is returned on **`GET /flux-one/v1/bootstrap`** as **`commandMemory.recentNavigations`**. Client-side nav may also call **`POST /flux-one/v1/memory/recent-navigation`** with **`url`** and/or **`command`** before redirect.
+The dashboard widget shows up to **five** **recent admin pages** you have opened (tracked on each wp-admin screen load for users who can access Command Central), plus entries from **`nav`** via **`POST /command`** or client-side redirects. Each item includes a **`url`** (when known) and **`label`**; **`command`** is kept when the destination came from a `nav` command. **Labels** prefer real admin titles (`$GLOBALS['title']`, safe `get_admin_page_title()`, submenu titles for `admin.php?page=…`, then post type names or a short humanized screen id) instead of raw screen slugs when possible. Data lives in user meta (`recent_navigations` inside `_flux_one_command_memory`) and is returned on **`GET /flux-one/v1/bootstrap`** as **`commandMemory.recentNavigations`**. Client-side nav may also call **`POST /flux-one/v1/memory/recent-navigation`** with **`url`** and/or **`command`** before redirect.
 
 ### Flux Suite — License & Settings
 
-Flux One registers the shared **Flux Suite → License** page. **Flux Suite → Flux One** opens the plugin admin React app (`plugin-app.bundle.js`): **Overview** and **Settings** (HashRouter + shared `PageLayout` / `FluxAppProvider` from `flux-plugins-common`, same pattern as Flux Media Optimizer). Email aggregation options (capture on/off, suppress mail to self, default report window) live on the **Settings** tab and via **`GET` / `PUT /flux-one/v1/settings`**. **Recent admin pages** in the dashboard widget use plain `<a href>` links; destinations are de-duplicated by normalized admin URL (including dashboard aliases). Suppress-to-self runs on **`pre_wp_mail`** **after** logging on **`wp_mail`**, so aggregates stay complete.
+Flux One registers the shared **Flux Suite → License** page. **Flux Suite → Flux One** opens the plugin admin React app (`plugin-app.bundle.js`): **Overview** and **Settings** (HashRouter + shared `PageLayout` / `FluxAppProvider` from `flux-plugins-common`, same pattern as Flux Media Optimizer). Email aggregation options (capture on/off, suppress mail to self, default report window) are **per-user** where implemented: **`GET` / `PUT /flux-one/v1/settings`** reads and writes user meta (with legacy site options migrated on read). **Recent admin pages** in the dashboard widget use plain `<a href>` links; destinations are de-duplicated by normalized admin URL (including dashboard aliases). Outbound mail is logged via the **`wp_mail`** filter (`EmailEventLogger`); users who enable suppress-to-self have their addresses **stripped from To/Cc/Bcc** on a later **`wp_mail`** pass (`EmailMailPolicy`) so logs still reflect intended recipients while they skip receiving copies.
 
 ---
 
@@ -191,14 +191,14 @@ Entry:
 Current UI implementation (v1 shell):
 
 - Command input with ghost autocomplete and stepwise suggestions (`assets/js/src/command/*`, Fuse.js for entity match)
-- **Hierarchical autocomplete**: root commands (“Commands”) and, when a root is chosen (trailing space or exact single-token root like `plugin`), **Next steps** lists subcommands or nav destinations. Deeper paths (e.g. `plugin update {name}`) stay entity-driven as before.
+- **Hierarchical autocomplete**: an empty field lists **true root** commands only (`plugin`, `user`, `menu`, …). After **`user `** (trailing space or typing the root), **Next steps** includes `user list`, `user lock`, `user unlock`, `user add`, `user role set`, etc. Deeper paths (e.g. `plugin update {name}`) stay entity-driven as before.
 - **Client-side `nav`**: destination rows from `GET /index/destinations` include **`url`**. Choosing a destination suggestion uses **`window.location.assign(url)`** and **does not** call `POST /command`. Typed `nav …` with an **unambiguous** match against the cached index also redirects client-side; otherwise execution falls back to `POST /command` (same as `NavigationHandler`).
 - **Read-only list fast path**: `plugin list` / `user list` / `site list` / `menu list` (and `show` variants) can render the structured panel from **React Query cache** when the corresponding index is already loaded, skipping `POST /command`. **`aggregate email` and `summary email` always use the backend** (no client shortcut for aggregates or AI).
 - **`useMutation`** for commands that still need the server: disabled input + “Running…” notice while `POST /command` is in flight
 - Success / error notices show **human-readable text only** (no `error_code` in the palette)
 - Indices loaded from decoupled **`GET /flux-one/v1/index/*`** endpoints; after successful **`plugin update` / `activate` / `deactivate` / `delete`**, the plugins index query is **invalidated** so autocomplete stays fresh
 - **Commands reference** modal (info icon) with filter (`commandDocs.ts`); keep in sync when changing commands (see maintenance rule below)
-- **Email aggregate** panel uses a readable table view (`EmailAggregateView`) instead of raw JSON
+- **Email aggregate** panel (`EmailAggregateView`): summary line, per-subject latest time, up to **two** inline event previews, and **View all** opening a modal (shared `FluxOneModal` shell with the command reference) for the full chronological list with expandable headers—no accordion rows in the palette
 
 ### Documentation maintenance (commands)
 
@@ -273,9 +273,9 @@ Outputs to:
   - `user list` / `user show` (optional **client fast path** from cached users index)
   - **`user lock {email}`** / **`user unlock {email}`** (canonical)
   - Aliases: `lock user …`, `unlock user …`, `users lock|unlock …` → same routing
-  - `role set {email} {role}`
+  - **`user role set {email} {role}`** (alias typed as **`role set …`** canonicalizes to this form)
 - Menus:
-  - `menu list` (optional **client fast path** from cached menus index)
+  - `menu list` / `menu show` (optional **client fast path** from cached menus index; requires **`edit_theme_options`** on the server when not using the fast path)
 - Navigation:
   - `nav {destination}` (aliases `go`, `open` → `nav`; **client redirect** when URL is known from destinations index)
 - Multisite:

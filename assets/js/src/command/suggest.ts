@@ -41,7 +41,7 @@ function filterRoots(q: string): Suggestion[] {
   if (!qq) return ROOT_COMMANDS.slice(0, 12);
 
   const fuse = new Fuse(ROOT_COMMANDS, {
-    keys: ['label', 'value', 'description'],
+    keys: ['label', 'value', 'description', 'searchText'],
     threshold: 0.35,
     ignoreLocation: true,
   });
@@ -66,7 +66,7 @@ function filterSubsForRoot(rootKey: string, normalizedInput: string): Suggestion
   if (!qq) return subsAll.slice(0, 12);
 
   const fuse = new Fuse(subsAll, {
-    keys: ['label', 'value'],
+    keys: ['label', 'value', 'description'],
     threshold: 0.35,
     ignoreLocation: true,
   });
@@ -455,10 +455,14 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
 
   if (t0 === 'menu') {
     if (rt.length === 1) {
-      const item = SUBCOMMANDS_BY_ROOT.menu[0];
+      const subsAll = SUBCOMMANDS_BY_ROOT.menu;
+      const subs = filterSubsForRoot('menu', normalized);
+      const subSuggestions = subs.length ? subs : subsAll;
       const commandRow = filterRoots(normalized);
       const subRow =
-        parsed.hasTrailingSpace || (!parsed.hasTrailingSpace && t0 === 'menu') ? (item ? [item] : []) : [];
+        parsed.hasTrailingSpace || (!parsed.hasTrailingSpace && t0 === 'menu')
+          ? subSuggestions.slice(0, 12)
+          : [];
       return pack(parsed.hasTrailingSpace ? [] : commandRow, subRow);
     }
     return pack([], []);
