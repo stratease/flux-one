@@ -16,22 +16,37 @@ namespace FluxOne\App\Services;
 class EmailAggregationService {
 
 	/**
-	 * Get aggregate report for last N days.
+	 * Get aggregate report for last N days (only events captured for this user).
 	 *
 	 * @since 0.1.0
-	 * @param int $days Days.
+	 * @param int $days    Days.
+	 * @param int $user_id WordPress user ID.
 	 * @return array
 	 */
-	public function get_report( $days = 7 ) {
+	public function get_report( $days = 7, $user_id = 0 ) {
 		global $wpdb;
 
-		$table = Database::events_table_name();
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return [
+				'meta'    => [
+					'days'        => (int) $days,
+					'eventsCount' => 0,
+				],
+				'summary' => sprintf( '0 email event(s) in the last %d day(s).', (int) $days ),
+				'groups'  => [],
+				'events'  => [],
+			];
+		}
+
+		$table  = Database::events_table_name();
 		$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( (int) $days * DAY_IN_SECONDS ) );
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, source, event_type, subject, payload, created_at FROM {$table} WHERE event_type = %s AND created_at >= %s ORDER BY created_at DESC LIMIT 500",
+				"SELECT id, source, event_type, subject, payload, created_at FROM {$table} WHERE event_type = %s AND user_id = %d AND created_at >= %s ORDER BY created_at DESC LIMIT 500",
 				'email',
+				$user_id,
 				$cutoff
 			),
 			ARRAY_A

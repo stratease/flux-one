@@ -78,8 +78,8 @@ class AggregationController extends BaseController {
 			$days = 7;
 		}
 
-		$svc = new EmailAggregationService();
-		$report = $svc->get_report( $days );
+		$svc    = new EmailAggregationService();
+		$report = $svc->get_report( $days, get_current_user_id() );
 
 		return $this->create_success_response( $report, 'Email aggregation' );
 	}
@@ -92,7 +92,7 @@ class AggregationController extends BaseController {
 	 * @return \WP_REST_Response
 	 */
 	public function summary_email( WP_REST_Request $request ) {
-		$report = ( new EmailAggregationService() )->get_report( 7 );
+		$report = ( new EmailAggregationService() )->get_report( 7, get_current_user_id() );
 		$ai     = ( new AiSummaryService() )->summarize_email_report( $report );
 
 		return $this->create_success_response(

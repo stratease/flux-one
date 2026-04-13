@@ -12,10 +12,19 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
     { id: 'cmd.plugin.activate', kind: 'subcommand', label: 'plugin activate', value: 'plugin activate ' },
     { id: 'cmd.plugin.deactivate', kind: 'subcommand', label: 'plugin deactivate', value: 'plugin deactivate ' },
     { id: 'cmd.plugin.delete', kind: 'subcommand', label: 'plugin delete', value: 'plugin delete ' },
-    { id: 'cmd.plugin.install', kind: 'subcommand', label: 'plugin install', value: 'plugin install ' },
+    { id: 'cmd.plugin.upload', kind: 'subcommand', label: 'plugin upload', value: 'plugin upload' },
+    { id: 'cmd.plugin.add', kind: 'subcommand', label: 'plugin add', value: 'plugin add' },
+    { id: 'cmd.plugin.install', kind: 'subcommand', label: 'plugin install', value: 'plugin install' },
   ],
   user: [
     { id: 'cmd.user.list', kind: 'subcommand', label: 'user list', value: 'user list' },
+    {
+      id: 'cmd.user.add',
+      kind: 'subcommand',
+      label: 'user add',
+      value: 'user add ',
+      description: 'username, email, role (password emailed)',
+    },
     {
       id: 'cmd.user.role.set',
       kind: 'subcommand',
@@ -45,6 +54,13 @@ export const ROOT_COMMANDS: Suggestion[] = [
   { id: 'cmd.user', kind: 'command', label: 'user', value: 'user ' },
   { id: 'cmd.user.lock', kind: 'command', label: 'user lock', value: 'user lock ' },
   { id: 'cmd.user.unlock', kind: 'command', label: 'user unlock', value: 'user unlock ' },
+  {
+    id: 'cmd.user.add.root',
+    kind: 'command',
+    label: 'user add',
+    value: 'user add ',
+    description: 'Create user: username email role (password generated)',
+  },
   {
     id: 'cmd.user.role.set.root',
     kind: 'command',

@@ -32,7 +32,7 @@ const baseConfig = createBaseWebpackConfig({
       rules: [
         {
           test: /\.tsx?$/,
-          exclude: /node_modules/,
+          exclude: /node_modules\/(?!(?:@mui|@emotion)\/).*/,
           use: {
             loader: 'babel-loader',
             options: {
@@ -69,6 +69,7 @@ module.exports = {
   ...baseConfig,
   entry: {
     admin: './assets/js/src/admin/index.tsx',
+    'plugin-app': './assets/js/src/admin/plugin-app.tsx',
   },
   output: {
     ...baseConfig.output,
@@ -95,6 +96,11 @@ module.exports = {
       template: './assets/js/src/admin/index.html',
       filename: 'admin.html',
       chunks: ['admin'],
+    }),
+    new HtmlWebpackPlugin({
+      template: './assets/js/src/admin/plugin-app.html',
+      filename: 'plugin-app.html',
+      chunks: ['plugin-app'],
     }),
   ],
   devServer: {

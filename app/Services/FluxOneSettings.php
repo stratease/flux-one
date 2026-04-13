@@ -1,23 +1,6 @@
 <?php
 /**
- * Flux One site options for email capture and aggregation defaults.
- *
- * ## Plan (Command Central + suite)
- *
- * - **This class** remains the single source of truth for Flux One’s own options
- *   (see constants below). Values are exposed via REST (`SettingsController`) and
- *   mirrored in the inline **`config`** command through {@see SuiteConfigCatalog}
- *   (ids: `flux_one.*`).
- * - **Suite-wide settings** live in each plugin’s `Settings` service / options;
- *   {@see SuiteConfigCatalog} lists keys for every Flux suite plugin in this repo
- *   that should be discoverable from Command Central. Entries are **omitted until
- *   the plugin is active** (`is_plugin_active`).
- * - **Extending:** other plugins (or custom code) can add definitions with
- *   `add_filter( \FluxOne\App\Services\SuiteConfigCatalog::FILTER_DEFINITIONS, … )`
- *   (hook tag: `flux_one_suite_config_definitions`) using the same shape as core
- *   definitions (`id`, `plugin_file`, `label`, `type`, `handler`, …).
- * - **Secrets:** API keys are type `secret` in the catalog; `config list` masks them.
- *   `config set` passes the raw value from the original command (case preserved).
+ * Flux One settings: per-user email prefs (user meta) + site aggregate window.
  *
  * @package FluxOne
  * @since 0.1.0
@@ -33,57 +16,54 @@ namespace FluxOne\App\Services;
 class FluxOneSettings {
 
 	/**
-	 * When false, skip logging outbound mail (wp_mail filter short-circuits before insert).
+	 * Legacy site option (migrated to user meta, then removed).
 	 *
 	 * @since 0.1.0
 	 */
 	public const OPTION_EMAIL_CAPTURE_ENABLED = 'flux_one_email_capture_enabled';
 
 	/**
-	 * When true, cancel wp_mail when the current user's email appears in To (after logging).
+	 * Legacy site option (migrated to user meta, then removed).
 	 *
 	 * @since 0.1.0
 	 */
 	public const OPTION_SUPPRESS_MAIL_TO_SELF = 'flux_one_suppress_mail_to_self';
 
 	/**
-	 * Default window in days for aggregate UI (max 30, enforced server-side).
+	 * Default window in days for aggregate UI (max 30, enforced server-side). Site-wide default only.
 	 *
 	 * @since 0.1.0
 	 */
 	public const OPTION_AGGREGATE_DEFAULT_DAYS = 'flux_one_aggregate_default_days';
 
 	/**
-	 * Register WordPress settings (for discoverability; REST is authoritative for updates).
+	 * User meta: when true, log wp_mail for this user’s aggregate.
+	 *
+	 * @since 0.1.0
+	 */
+	public const USER_META_EMAIL_CAPTURE = 'flux_one_email_capture_enabled';
+
+	/**
+	 * User meta: when true, strip this user’s email from To/Cc/Bcc on outbound mail.
+	 *
+	 * @since 0.1.0
+	 */
+	public const USER_META_SUPPRESS_MAIL = 'flux_one_suppress_mail_to_self';
+
+	/**
+	 * Migration flag (site option).
+	 *
+	 * @since 0.1.0
+	 */
+	public const OPTION_USER_EMAIL_PREFS_MIGRATED = 'flux_one_user_email_prefs_migrated';
+
+	/**
+	 * Register WordPress settings (aggregate window only; email toggles are user meta).
 	 *
 	 * @since 0.1.0
 	 * @return void
 	 */
 	public static function register_settings() {
-		register_setting(
-			'flux_one_settings',
-			self::OPTION_EMAIL_CAPTURE_ENABLED,
-			[
-				'type'              => 'boolean',
-				'default'           => true,
-				'sanitize_callback' => static function ( $v ) {
-					return (bool) $v;
-				},
-			]
-		);
-
-		register_setting(
-			'flux_one_settings',
-			self::OPTION_SUPPRESS_MAIL_TO_SELF,
-			[
-				'type'              => 'boolean',
-				'default'           => false,
-				'sanitize_callback' => static function ( $v ) {
-					return (bool) $v;
-				},
-			]
-		);
-
 		register_setting(
 			'flux_one_settings',
 			self::OPTION_AGGREGATE_DEFAULT_DAYS,
@@ -99,21 +79,70 @@ class FluxOneSettings {
 	}
 
 	/**
-	 * Public shape for REST and admin UI.
+	 * Copy legacy site-wide email flags into per-user meta once, then drop legacy options.
+	 *
+	 * Must run on {@see 'plugins_loaded'} or later so user APIs (`get_users`, `user_can`, …) exist
+	 * and {@see WP_User_Query} is allowed (WP 6.1.1+).
+	 *
+	 * @since 0.1.0
+	 * @return void
+	 */
+	public static function maybe_migrate_legacy_email_options() {
+		if ( ! did_action( 'plugins_loaded' ) ) {
+			return;
+		}
+
+		if ( (string) get_option( self::OPTION_USER_EMAIL_PREFS_MIGRATED, '' ) === '1' ) {
+			return;
+		}
+
+		$legacy_capture  = get_option( self::OPTION_EMAIL_CAPTURE_ENABLED, null );
+		$legacy_suppress = get_option( self::OPTION_SUPPRESS_MAIL_TO_SELF, null );
+
+		if ( null !== $legacy_capture || null !== $legacy_suppress ) {
+			$user_ids = get_users(
+				[
+					'fields' => 'ID',
+					'number' => 9999,
+				]
+			);
+			foreach ( (array) $user_ids as $uid ) {
+				$uid = (int) $uid;
+				if ( $uid <= 0 || ! user_can( $uid, 'manage_options' ) ) {
+					continue;
+				}
+				if ( null !== $legacy_capture ) {
+					update_user_meta( $uid, self::USER_META_EMAIL_CAPTURE, (bool) $legacy_capture );
+				}
+				if ( null !== $legacy_suppress ) {
+					update_user_meta( $uid, self::USER_META_SUPPRESS_MAIL, (bool) $legacy_suppress );
+				}
+			}
+		}
+
+		delete_option( self::OPTION_EMAIL_CAPTURE_ENABLED );
+		delete_option( self::OPTION_SUPPRESS_MAIL_TO_SELF );
+		update_option( self::OPTION_USER_EMAIL_PREFS_MIGRATED, '1', false );
+	}
+
+	/**
+	 * Public shape for REST and admin UI (current user + site default days).
 	 *
 	 * @since 0.1.0
 	 * @return array
 	 */
 	public static function get_all() {
+		$uid = get_current_user_id();
+
 		return [
-			'emailCaptureEnabled'   => self::is_email_capture_enabled(),
-			'suppressMailToSelf'    => self::is_suppress_mail_to_self_enabled(),
-			'aggregateDefaultDays'  => self::get_aggregate_default_days(),
+			'emailCaptureEnabled'  => self::is_email_capture_enabled_for_user( $uid ),
+			'suppressMailToSelf'   => self::is_suppress_mail_enabled_for_user( $uid ),
+			'aggregateDefaultDays' => self::get_aggregate_default_days(),
 		];
 	}
 
 	/**
-	 * Merge partial update (only known keys).
+	 * Merge partial update (current user for email prefs; site for default days).
 	 *
 	 * @since 0.1.0
 	 * @param array $patch Patch.
@@ -121,13 +150,17 @@ class FluxOneSettings {
 	 */
 	public static function update_from_array( $patch ) {
 		$patch = is_array( $patch ) ? $patch : [];
+		$uid   = get_current_user_id();
 
-		if ( array_key_exists( 'emailCaptureEnabled', $patch ) ) {
-			update_option( self::OPTION_EMAIL_CAPTURE_ENABLED, (bool) $patch['emailCaptureEnabled'], false );
+		if ( $uid > 0 ) {
+			if ( array_key_exists( 'emailCaptureEnabled', $patch ) ) {
+				update_user_meta( $uid, self::USER_META_EMAIL_CAPTURE, (bool) $patch['emailCaptureEnabled'] );
+			}
+			if ( array_key_exists( 'suppressMailToSelf', $patch ) ) {
+				update_user_meta( $uid, self::USER_META_SUPPRESS_MAIL, (bool) $patch['suppressMailToSelf'] );
+			}
 		}
-		if ( array_key_exists( 'suppressMailToSelf', $patch ) ) {
-			update_option( self::OPTION_SUPPRESS_MAIL_TO_SELF, (bool) $patch['suppressMailToSelf'], false );
-		}
+
 		if ( array_key_exists( 'aggregateDefaultDays', $patch ) ) {
 			$d = (int) $patch['aggregateDefaultDays'];
 			$d = max( 1, min( 30, $d ) );
@@ -138,27 +171,78 @@ class FluxOneSettings {
 	}
 
 	/**
-	 * Whether wp_mail events are logged.
+	 * Whether wp_mail events are logged for this user (sending context).
 	 *
 	 * @since 0.1.0
+	 * @param int $user_id User ID.
 	 * @return bool
 	 */
-	public static function is_email_capture_enabled() {
-		return (bool) get_option( self::OPTION_EMAIL_CAPTURE_ENABLED, true );
+	public static function is_email_capture_enabled_for_user( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		return (bool) get_user_meta( $user_id, self::USER_META_EMAIL_CAPTURE, true );
 	}
 
 	/**
-	 * Whether to block sends addressed to the logged-in user (after logging).
+	 * Whether outbound mail strips this user’s address from recipients.
 	 *
 	 * @since 0.1.0
+	 * @param int $user_id User ID.
 	 * @return bool
 	 */
-	public static function is_suppress_mail_to_self_enabled() {
-		return (bool) get_option( self::OPTION_SUPPRESS_MAIL_TO_SELF, false );
+	public static function is_suppress_mail_enabled_for_user( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return false;
+		}
+		return (bool) get_user_meta( $user_id, self::USER_META_SUPPRESS_MAIL, true );
 	}
 
 	/**
-	 * Default aggregate window (days).
+	 * Lowercased account emails for users who enabled suppression (cached per request).
+	 *
+	 * @since 0.1.0
+	 * @return string[]
+	 */
+	public static function get_suppressed_delivery_emails() {
+		static $cache = null;
+		if ( is_array( $cache ) ) {
+			return $cache;
+		}
+
+		if ( ! did_action( 'plugins_loaded' ) || ! function_exists( 'get_userdata' ) ) {
+			return [];
+		}
+
+		$q = new \WP_User_Query(
+			[
+				'fields'     => 'ID',
+				'number'     => 9999,
+				'meta_query' => [
+					[
+						'key'   => self::USER_META_SUPPRESS_MAIL,
+						'value' => '1',
+					],
+				],
+			]
+		);
+
+		$emails = [];
+		foreach ( (array) $q->get_results() as $user_id ) {
+			$user = get_userdata( (int) $user_id );
+			if ( $user && is_email( $user->user_email ) ) {
+				$emails[] = strtolower( $user->user_email );
+			}
+		}
+
+		$cache = array_values( array_unique( $emails ) );
+		return $cache;
+	}
+
+	/**
+	 * Default aggregate window (days), site option.
 	 *
 	 * @since 0.1.0
 	 * @return int

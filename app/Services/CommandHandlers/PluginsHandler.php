@@ -74,6 +74,23 @@ class PluginsHandler {
 			return $this->mutate_plugin( $op, $query );
 		}
 
+		if ( in_array( $op, [ 'upload', 'add', 'install' ], true ) ) {
+			if ( ! current_user_can( 'install_plugins' ) ) {
+				return [
+					'type'    => 'error',
+					'command' => 'plugin ' . $op,
+					'message' => __( 'You do not have permission to install plugins.', 'flux-one' ),
+				];
+			}
+			return [
+				'type'    => 'navigation',
+				'command' => 'plugin ' . $op,
+				'data'    => [
+					'url' => admin_url( 'plugin-install.php?tab=upload' ),
+				],
+			];
+		}
+
 		if ( '' === $op ) {
 			return [
 				'type'    => 'error',

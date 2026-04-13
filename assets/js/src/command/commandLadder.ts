@@ -14,6 +14,9 @@ const TERMINAL_EXACT = new Set([
   'site list',
   'site show',
   'plugin update all',
+  'plugin upload',
+  'plugin add',
+  'plugin install',
   'aggregate email',
   'summary email',
   'config list',
@@ -26,7 +29,7 @@ function normalizeCanonical(s: string): string {
 /**
  * When the user typed `plugin li` or `site sw`, expand to the single matching subcommand value if unambiguous.
  */
-function expandUniqueSubcommandToken(root: keyof typeof SUBCOMMANDS_BY_ROOT, partial: string): string | null {
+function expandUniqueSubcommandToken(root: string, partial: string): string | null {
   const subs = SUBCOMMANDS_BY_ROOT[root];
   if (!subs?.length || !partial) {
     return null;
@@ -74,9 +77,18 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
     userTok &&
     userTok[1].toLowerCase() !== 'lock' &&
     userTok[1].toLowerCase() !== 'unlock' &&
-    userTok[1].toLowerCase() !== 'role'
+    userTok[1].toLowerCase() !== 'role' &&
+    userTok[1].toLowerCase() !== 'add'
   ) {
     const expanded = expandUniqueSubcommandToken('user', userTok[1]);
+    if (expanded && normalizeCanonical(expanded) !== c) {
+      return resolveRunnableCommand(expanded, indices);
+    }
+  }
+
+  const configTok = /^config\s+(\S+)$/.exec(c);
+  if (configTok) {
+    const expanded = expandUniqueSubcommandToken('config', configTok[1]);
     if (expanded && normalizeCanonical(expanded) !== c) {
       return resolveRunnableCommand(expanded, indices);
     }
@@ -150,6 +162,15 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
     return { ok: false };
   }
 
+  const mAdd = /^user add (\S+)\s+(\S+@\S+)\s+(\S+)$/.exec(c);
+  if (mAdd) {
+    const email = mAdd[2] || '';
+    if (!/^[^\s@]+@[^\s@]+$/.test(email)) {
+      return { ok: false };
+    }
+    return { ok: true, command: c };
+  }
+
   const mSwitch = /^site switch (.+)$/.exec(c);
   if (mSwitch) {
     const q = mSwitch[1].trim();
@@ -171,6 +192,29 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
   const mUserEmail = /^user\s+(\S+@\S+)$/.exec(c);
   if (mUserEmail) {
     return { ok: true, command: c };
+  }
+
+  const suiteCfg = indices.suiteConfig || [];
+  const mCfgGet = /^config get (\S+)$/.exec(c);
+  if (mCfgGet) {
+    const q = mCfgGet[1].toLowerCase();
+    const found = suiteCfg.find((x) => String(x.id).toLowerCase() === q);
+    if (found) {
+      return { ok: true, command: `config get ${found.id}` };
+    }
+  }
+
+  const mCfgSet = /^config set (\S+)\s+(.+)$/.exec(c);
+  if (mCfgSet) {
+    const q = mCfgSet[1].toLowerCase();
+    const val = mCfgSet[2].trim();
+    if (!val) {
+      return { ok: false };
+    }
+    const found = suiteCfg.find((x) => String(x.id).toLowerCase() === q);
+    if (found) {
+      return { ok: true, command: `config set ${found.id} ${val}` };
+    }
   }
 
   return { ok: false };

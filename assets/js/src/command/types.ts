@@ -4,7 +4,14 @@ export type Token = string;
 
 export type SuggestionKind = 'command' | 'subcommand' | 'entity';
 
-export type EntityType = 'plugin' | 'user' | 'menu' | 'site' | 'destination' | 'configKey';
+export type EntityType =
+  | 'plugin'
+  | 'user'
+  | 'menu'
+  | 'site'
+  | 'destination'
+  | 'configKey'
+  | 'configValue';
 
 export type ClientNavAction = 'nav';
 

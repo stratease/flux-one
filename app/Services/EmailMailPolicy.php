@@ -1,6 +1,6 @@
 <?php
 /**
- * Optional cancellation of wp_mail after logging (suppress mail to self).
+ * Strip opted-in users’ addresses from outbound wp_mail (To / Cc / Bcc).
  *
  * @package FluxOne
  * @since 0.1.0
@@ -9,7 +9,7 @@
 namespace FluxOne\App\Services;
 
 /**
- * Hooks pre_wp_mail to skip delivery when policy matches.
+ * Mutates wp_mail args so suppressed users do not receive copies; other recipients still get the message.
  *
  * @since 0.1.0
  */
@@ -22,80 +22,154 @@ class EmailMailPolicy {
 	 * @return void
 	 */
 	public static function register() {
-		add_filter( 'pre_wp_mail', [ self::class, 'maybe_suppress_mail_to_self' ], 10, 2 );
+		add_filter( 'wp_mail', [ self::class, 'maybe_strip_suppressed_recipients' ], 10, 1 );
 	}
 
 	/**
-	 * Return false to cancel send when To includes the current user's email.
+	 * Remove addresses belonging to users who enabled suppression.
 	 *
-	 * Logging runs earlier on the wp_mail filter, so aggregates stay complete.
+	 * Runs after {@see EmailEventLogger::capture_wp_mail} (priority 5) so logs see pre-strip recipients.
 	 *
 	 * @since 0.1.0
-	 * @param mixed $pre  Short-circuit value.
-	 * @param array $atts Mail attributes (to, subject, message, headers, attachments).
-	 * @return mixed
+	 * @param array $args Mail attributes (to, subject, message, headers, attachments).
+	 * @return array
 	 */
-	public static function maybe_suppress_mail_to_self( $pre, $atts ) {
-		if ( null !== $pre ) {
-			return $pre;
+	public static function maybe_strip_suppressed_recipients( $args ) {
+		$args = (array) $args;
+
+		$strip = array_flip( FluxOneSettings::get_suppressed_delivery_emails() );
+		if ( empty( $strip ) ) {
+			return $args;
 		}
 
-		if ( ! FluxOneSettings::is_suppress_mail_to_self_enabled() ) {
-			return $pre;
-		}
+		$args['to']      = self::filter_to_field( $args['to'] ?? '', $strip );
+		$args['headers'] = self::filter_headers_cc_bcc( $args['headers'] ?? [], $strip );
 
-		$user = wp_get_current_user();
-		if ( ! $user || ! $user->ID || ! is_email( $user->user_email ) ) {
-			return $pre;
-		}
-
-		$self = strtolower( $user->user_email );
-		$tos  = self::normalize_recipients( $atts['to'] ?? '' );
-
-		foreach ( $tos as $addr ) {
-			if ( strtolower( $addr ) === $self ) {
-				return false;
-			}
-		}
-
-		return $pre;
+		return $args;
 	}
 
 	/**
-	 * Flatten wp_mail "to" into lowercase-ish address strings.
-	 *
-	 * @since 0.1.0
-	 * @param mixed $to String or array from wp_mail.
-	 * @return string[]
+	 * @param mixed           $to    wp_mail to.
+	 * @param array<string,1> $strip Lowercased email => 1.
+	 * @return string|array
 	 */
-	private static function normalize_recipients( $to ) {
+	private static function filter_to_field( $to, array $strip ) {
 		if ( is_array( $to ) ) {
 			$out = [];
 			foreach ( $to as $entry ) {
-				$out = array_merge( $out, self::normalize_recipients( $entry ) );
+				$filtered = self::filter_address_string( (string) $entry, $strip );
+				if ( '' !== $filtered ) {
+					$out[] = $filtered;
+				}
 			}
 			return $out;
 		}
 
-		$s = trim( (string) $to );
+		$addrs = self::parse_address_list( (string) $to );
+		$keep  = [];
+		foreach ( $addrs as $addr ) {
+			if ( ! isset( $strip[ strtolower( $addr ) ] ) ) {
+				$keep[] = $addr;
+			}
+		}
+		return implode( ', ', $keep );
+	}
+
+	/**
+	 * @param mixed           $headers String or array of header lines.
+	 * @param array<string,1> $strip   Lowercased email => 1.
+	 * @return string|array
+	 */
+	private static function filter_headers_cc_bcc( $headers, array $strip ) {
+		if ( is_array( $headers ) ) {
+			$out = [];
+			foreach ( $headers as $line ) {
+				$out[] = self::filter_single_header_line( (string) $line, $strip );
+			}
+			return array_values( array_filter( $out, static fn( $l ) => '' !== trim( $l ) ) );
+		}
+
+		$lines = preg_split( "/\r\n|\n|\r/", (string) $headers );
+		$lines = is_array( $lines ) ? $lines : [];
+		$built = [];
+		foreach ( $lines as $line ) {
+			$adj = self::filter_single_header_line( $line, $strip );
+			if ( '' !== trim( $adj ) ) {
+				$built[] = $adj;
+			}
+		}
+		return implode( "\r\n", $built );
+	}
+
+	/**
+	 * @param string          $line  One header line.
+	 * @param array<string,1> $strip Lowercased email => 1.
+	 */
+	private static function filter_single_header_line( $line, array $strip ) {
+		$line = (string) $line;
+		if ( ! preg_match( '/^\s*(cc|bcc)\s*:\s*(.+)$/i', $line, $m ) ) {
+			return $line;
+		}
+		$name = $m[1];
+		$rest = $m[2];
+		$addrs = self::parse_address_list( $rest );
+		$keep  = [];
+		foreach ( $addrs as $addr ) {
+			if ( ! isset( $strip[ strtolower( $addr ) ] ) ) {
+				$keep[] = $addr;
+			}
+		}
+		if ( empty( $keep ) ) {
+			return '';
+		}
+		return $name . ': ' . implode( ', ', $keep );
+	}
+
+	/**
+	 * Remove suppressed addresses from one comma/semicolon segment (may include display names).
+	 *
+	 * @param array<string,1> $strip Lowercased email => 1.
+	 */
+	private static function filter_address_string( $chunk, array $strip ) {
+		$addrs = self::parse_address_list( $chunk );
+		$keep  = [];
+		foreach ( $addrs as $addr ) {
+			if ( ! isset( $strip[ strtolower( $addr ) ] ) ) {
+				$keep[] = $addr;
+			}
+		}
+		return implode( ', ', $keep );
+	}
+
+	/**
+	 * Extract bare email addresses from a header fragment.
+	 *
+	 * @since 0.1.0
+	 * @param string $s Raw.
+	 * @return string[]
+	 */
+	private static function parse_address_list( $s ) {
+		$s = trim( (string) $s );
 		if ( '' === $s ) {
 			return [];
 		}
-
 		$parts = preg_split( '/[,;]/', $s );
+		$parts = is_array( $parts ) ? $parts : [];
 		$addrs = [];
-		foreach ( (array) $parts as $p ) {
+		foreach ( $parts as $p ) {
 			$p = trim( $p );
 			if ( '' === $p ) {
 				continue;
 			}
 			if ( preg_match( '/<([^>]+)>/', $p, $m ) ) {
-				$addrs[] = trim( $m[1] );
-				continue;
+				$candidate = trim( $m[1] );
+			} else {
+				$candidate = $p;
 			}
-			$addrs[] = $p;
+			if ( is_email( $candidate ) ) {
+				$addrs[] = $candidate;
+			}
 		}
-
 		return $addrs;
 	}
 }

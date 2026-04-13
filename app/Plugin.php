@@ -39,6 +39,8 @@ class Plugin {
 	public function init() {
 		Database::maybe_update_database();
 
+		add_action( 'plugins_loaded', [ FluxOneSettings::class, 'maybe_migrate_legacy_email_options' ], 20 );
+
 		add_action( 'admin_init', [ FluxOneSettings::class, 'register_settings' ] );
 
 		if ( is_admin() ) {

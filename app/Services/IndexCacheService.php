@@ -1,6 +1,6 @@
 <?php
 /**
- * Index caching service.
+ * Index builders for REST and Command Central (no server-side HTTP response cache).
  *
  * @package FluxOne
  * @since 0.1.0
@@ -9,66 +9,12 @@
 namespace FluxOne\App\Services;
 
 /**
- * Provides lightweight indices for fast client-side autocomplete.
+ * Builds lightweight indices for client-side autocomplete. Each call recomputes;
+ * TanStack Query caches on the client.
  *
  * @since 0.1.0
  */
 class IndexCacheService {
-
-	/**
-	 * Plugins index cache key.
-	 *
-	 * @since 0.1.0
-	 */
-	private const TRANSIENT_PLUGINS = 'flux_one_index_plugins';
-
-	/**
-	 * Menus index cache key.
-	 *
-	 * @since 0.1.0
-	 */
-	private const TRANSIENT_MENUS = 'flux_one_index_menus';
-
-	/**
-	 * Multisite index cache key.
-	 *
-	 * @since 0.1.0
-	 */
-	private const TRANSIENT_SITES = 'flux_one_index_sites';
-
-	/**
-	 * Users index cache key.
-	 *
-	 * @since 0.1.0
-	 */
-	private const TRANSIENT_USERS = 'flux_one_index_users';
-
-	/**
-	 * Delete index transients.
-	 *
-	 * @since 0.1.0
-	 * @param string|null $which Optional key.
-	 * @return void
-	 */
-	public function clear( $which = null ) {
-		$which = $which ? (string) $which : '';
-
-		$map = [
-			'plugins' => self::TRANSIENT_PLUGINS,
-			'menus'   => self::TRANSIENT_MENUS,
-			'sites'   => self::TRANSIENT_SITES,
-			'users'   => self::TRANSIENT_USERS,
-		];
-
-		if ( isset( $map[ $which ] ) ) {
-			delete_transient( $map[ $which ] );
-			return;
-		}
-
-		foreach ( $map as $t ) {
-			delete_transient( $t );
-		}
-	}
 
 	/**
 	 * Get plugins index.
@@ -77,11 +23,6 @@ class IndexCacheService {
 	 * @return array
 	 */
 	public function get_plugins_index() {
-		$cached = get_transient( self::TRANSIENT_PLUGINS );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-
 		if ( ! function_exists( 'get_plugins' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/plugin.php';
 		}
@@ -97,15 +38,14 @@ class IndexCacheService {
 		$index = [];
 		foreach ( $plugins as $plugin_file => $meta ) {
 			$index[] = [
-				'pluginFile' => (string) $plugin_file,
-				'name'       => (string) ( $meta['Name'] ?? $plugin_file ),
-				'version'    => (string) ( $meta['Version'] ?? '' ),
-				'active'     => in_array( $plugin_file, $active, true ),
+				'pluginFile'      => (string) $plugin_file,
+				'name'            => (string) ( $meta['Name'] ?? $plugin_file ),
+				'version'         => (string) ( $meta['Version'] ?? '' ),
+				'active'          => in_array( $plugin_file, $active, true ),
 				'updateAvailable' => isset( $updates_response[ $plugin_file ] ),
 			];
 		}
 
-		set_transient( self::TRANSIENT_PLUGINS, $index, 60 );
 		return $index;
 	}
 
@@ -139,11 +79,6 @@ class IndexCacheService {
 	 * @return array
 	 */
 	public function get_menus_index() {
-		$cached = get_transient( self::TRANSIENT_MENUS );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-
 		$menus = wp_get_nav_menus();
 		$index = [];
 		foreach ( $menus as $menu ) {
@@ -154,7 +89,6 @@ class IndexCacheService {
 			];
 		}
 
-		set_transient( self::TRANSIENT_MENUS, $index, 60 );
 		return $index;
 	}
 
@@ -172,18 +106,13 @@ class IndexCacheService {
 			];
 		}
 
-		$cached = get_transient( self::TRANSIENT_SITES );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-
 		$sites = get_sites(
 			[
 				'number' => 200,
 			]
 		);
 
-		$index = [
+		return [
 			'enabled' => true,
 			'sites'   => array_map(
 				static function ( $site ) {
@@ -196,9 +125,6 @@ class IndexCacheService {
 				$sites
 			),
 		];
-
-		set_transient( self::TRANSIENT_SITES, $index, 60 );
-		return $index;
 	}
 
 	/**
@@ -209,11 +135,6 @@ class IndexCacheService {
 	 * @return array
 	 */
 	public function get_users_index( $limit = 200 ) {
-		$cached = get_transient( self::TRANSIENT_USERS );
-		if ( is_array( $cached ) ) {
-			return $cached;
-		}
-
 		if ( ! current_user_can( 'list_users' ) ) {
 			return [];
 		}
@@ -227,7 +148,7 @@ class IndexCacheService {
 			]
 		);
 
-		$index = array_map(
+		return array_map(
 			static function ( $user ) {
 				return [
 					'id'          => (int) $user->ID,
@@ -238,9 +159,5 @@ class IndexCacheService {
 			},
 			$users
 		);
-
-		set_transient( self::TRANSIENT_USERS, $index, 60 );
-		return $index;
 	}
 }
-

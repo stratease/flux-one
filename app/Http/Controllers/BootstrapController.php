@@ -10,6 +10,7 @@ namespace FluxOne\App\Http\Controllers;
 
 use WP_REST_Request;
 use FluxOne\App\Services\CacheVersionService;
+use FluxOne\App\Services\FluxOneSettings;
 use FluxOne\App\Services\UserCommandMemory;
 
 /**
@@ -58,9 +59,17 @@ class BootstrapController extends BaseController {
 		$versions = ( new CacheVersionService() )->get_versions();
 		$memory   = new UserCommandMemory();
 
+		if ( ! function_exists( 'get_editable_roles' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+		}
+		$editable_roles = function_exists( 'get_editable_roles' )
+			? array_keys( get_editable_roles() )
+			: [];
+
 		return $this->create_success_response(
 			[
 				'contractVersion' => 1,
+				'editableRoles'   => array_values( array_map( 'strval', $editable_roles ) ),
 				'features'        => [
 					'plugins'        => [ 'enabled' => true ],
 					'users'          => [ 'enabled' => true ],
@@ -74,6 +83,9 @@ class BootstrapController extends BaseController {
 				'cacheVersions'   => $versions,
 				'commandMemory'   => [
 					'recentNavigations' => $memory->get_recent_navigations(),
+				],
+				'emailPrefs'      => [
+					'emailCaptureEnabled' => FluxOneSettings::is_email_capture_enabled_for_user( get_current_user_id() ),
 				],
 			],
 			'Bootstrap loaded'

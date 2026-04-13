@@ -21,16 +21,13 @@ export function interpretEnter(
   ctx: { indices: IndexData; mergedSuggestions: Suggestion[]; activeIndex: number }
 ): InterpretEnterResult {
   const trimmed = rawInput.trim();
-  // Server parses `config` with original casing (API keys, model ids).
-  if (/^config(\s|$)/i.test(trimmed)) {
-    return { kind: 'run', value: trimmed };
-  }
   const { canonical } = canonicalizeInput(trimmed);
   const direct = resolveRunnableCommand(canonical, ctx.indices);
 
   if (direct.ok && direct.command) {
     if (norm(direct.command) === norm(canonical)) {
-      return { kind: 'run', value: direct.command };
+      const runValue = /^config(\s|$)/i.test(trimmed) ? trimmed : direct.command;
+      return { kind: 'run', value: runValue };
     }
     return { kind: 'complete_and_run', value: direct.command };
   }

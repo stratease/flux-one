@@ -270,13 +270,27 @@ class IndexController extends BaseController {
 			if ( empty( $def['id'] ) ) {
 				continue;
 			}
-			$rows[] = [
+			$row = [
 				'id'         => (string) $def['id'],
 				'label'      => (string) ( $def['label'] ?? '' ),
 				'plugin'     => (string) ( $def['plugin'] ?? '' ),
 				'type'       => (string) ( $def['type'] ?? '' ),
 				'searchText' => trim( (string) ( $def['id'] ?? '' ) . ' ' . (string) ( $def['label'] ?? '' ) . ' ' . (string) ( $def['plugin'] ?? '' ) . ' ' . (string) ( $def['search'] ?? '' ) ),
 			];
+			if ( isset( $def['choices'] ) && is_array( $def['choices'] ) ) {
+				$choices = array_values(
+					array_filter(
+						array_map( 'strval', $def['choices'] ),
+						static function ( $v ) {
+							return $v !== '';
+						}
+					)
+				);
+				if ( [] !== $choices ) {
+					$row['choices'] = $choices;
+				}
+			}
+			$rows[] = $row;
 		}
 
 		return $this->create_success_response( $rows, 'Suite config index' );

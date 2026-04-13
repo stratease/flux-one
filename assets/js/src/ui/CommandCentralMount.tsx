@@ -34,8 +34,22 @@ function getActionDisplayMessage(result: CommandResponse & { type: 'action' }): 
   return (result.message && result.message.trim()) || '';
 }
 
-function shouldInvalidatePluginsIndex(canonical: string): boolean {
-  return /^plugin\s+(update|activate|deactivate|delete)\b/.test(canonical);
+type FluxIndexQueryKey = readonly ['flux-one', 'index', 'plugins' | 'users' | 'menus' | 'sites' | 'destinations' | 'suite-config'];
+
+/** After successful command actions, invalidate matching TanStack index queries (server has no index transients). */
+function getInvalidatedIndexKeys(canonical: string): FluxIndexQueryKey[] {
+  const c = canonical.toLowerCase();
+  const keys: FluxIndexQueryKey[] = [];
+  if (/^plugin\s+(update|activate|deactivate|delete)\b/.test(c)) {
+    keys.push(['flux-one', 'index', 'plugins']);
+  }
+  if (/^user\s+add\b/.test(c) || /^user\s+lock\b/.test(c) || /^user\s+unlock\b/.test(c) || /^user\s+role\s+set\b/.test(c)) {
+    keys.push(['flux-one', 'index', 'users']);
+  }
+  if (/^config\s+set\b/.test(c)) {
+    keys.push(['flux-one', 'index', 'suite-config']);
+  }
+  return keys;
 }
 
 export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidget' | 'dev' }) {
@@ -60,11 +74,14 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
   const [commandsModalOpen, setCommandsModalOpen] = useState(false);
   const [commandsHelpQuery, setCommandsHelpQuery] = useState('');
+  const emailCaptureEnabledRef = useRef(false);
+  const [emailCaptureEnabled, setEmailCaptureEnabled] = useState(false);
   const [recentNavigations, setRecentNavigations] = useState<
     Array<{ label: string; url?: string; command?: string }>
   >([]);
   const [inputFocused, setInputFocused] = useState(false);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [fastPathLoading, setFastPathLoading] = useState(false);
   const structuredPanelRef = useRef<HTMLDivElement | null>(null);
   const blurDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -128,6 +145,9 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         if (Array.isArray(navs)) {
           setRecentNavigations(navs);
         }
+        const cap = !!(inner?.emailPrefs && inner.emailPrefs.emailCaptureEnabled === true);
+        emailCaptureEnabledRef.current = cap;
+        setEmailCaptureEnabled(cap);
         setBootstrapped(true);
       })
       .finally(() => setBootstrapping(false));
@@ -157,11 +177,11 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         setCommandsModalOpen(false);
       }
     };
-    window.addEventListener('keydown', onKey);
+    window.addEventListener('keydown', onKey, { capture: true });
     requestAnimationFrame(() => {
       commandsModalSearchRef.current?.focus();
     });
-    return () => window.removeEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey, { capture: true } as AddEventListenerOptions);
   }, [commandsModalOpen]);
 
   useEffect(() => {
@@ -207,11 +227,19 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const aggregateEmailQuery = useQuery({
     queryKey: ['flux-one', 'aggregate', 'email', 7],
     queryFn: () => api.getEmailAggregate(7),
-    enabled: !!selectedSuggestion && selectedSuggestion.value === 'aggregate email',
+    enabled:
+      bootstrapped &&
+      !!selectedSuggestion &&
+      selectedSuggestion.value === 'aggregate email' &&
+      emailCaptureEnabled,
     staleTime: 60_000,
   });
 
   useEffect(() => {
+    const boot = (typeof window !== 'undefined' && window.fluxOneAdmin?.bootstrap) as
+      | { editableRoles?: string[] }
+      | undefined;
+    const editableRoles = Array.isArray(boot?.editableRoles) ? boot.editableRoles : [];
     const indices = {
       plugins: (pluginsQuery.data as any)?.data ?? pluginsQuery.data ?? [],
       users: (usersQuery.data as any)?.data ?? usersQuery.data ?? [],
@@ -219,6 +247,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       sites: (sitesQuery.data as any)?.data ?? sitesQuery.data ?? [],
       destinations: (destinationsQuery.data as any)?.data ?? destinationsQuery.data ?? [],
       suiteConfig: (suiteConfigQuery.data as any)?.data ?? suiteConfigQuery.data ?? [],
+      editableRoles,
     };
     const split = getSuggestions(input, indices);
     setMergedSuggestions(split.merged);
@@ -234,6 +263,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     sitesQuery.data,
     destinationsQuery.data,
     suiteConfigQuery.data,
+    bootstrapped,
   ]);
 
   useEffect(() => {
@@ -261,6 +291,13 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       if (result.type === 'navigation') {
         const url = result.data?.url;
         if (typeof url === 'string' && url.length > 0) {
+          if (/^plugin\s+(upload|add|install)\b/i.test(ctx.canonical)) {
+            try {
+              sessionStorage.setItem('fluxOneReturnAfterPluginFlow', window.location.href);
+            } catch {
+              /* private mode */
+            }
+          }
           window.location.assign(url);
         }
         return;
@@ -271,26 +308,29 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
       if (result.type === 'panel') {
         if (result.panelId === 'aggregate_email') {
-          api.getEmailAggregate(7).then((agg: any) => setPanelData(agg?.data ?? agg));
-          const aiRequested = !!result?.data?.aiRequested;
-          if (aiRequested) {
-            api.getEmailSummary().then((ai: any) => setAiData(ai?.data ?? ai));
+          setAiData(null);
+          if (!emailCaptureEnabledRef.current) {
+            setPanelData(null);
+          } else {
+            api.getEmailAggregate(7).then((agg: any) => setPanelData(agg?.data ?? agg));
+            const aiRequested = !!result?.data?.aiRequested;
+            if (aiRequested) {
+              api.getEmailSummary().then((ai: any) => setAiData(ai?.data ?? ai));
+            }
           }
         } else {
           setPanelData(result.data ?? null);
         }
       }
 
-      if (
-        result.type === 'action' &&
-        result.status === 'success' &&
-        shouldInvalidatePluginsIndex(ctx.canonical)
-      ) {
-        queryClient.invalidateQueries({ queryKey: ['flux-one', 'index', 'plugins'] });
-      }
-
-      if (result.type === 'action' && result.status === 'success' && /^config\s+set\b/i.test(ctx.canonical)) {
-        queryClient.invalidateQueries({ queryKey: ['flux-one', 'index', 'suite-config'] });
+      if (result.type === 'action' && result.status === 'success') {
+        const seen = new Set<string>();
+        for (const key of getInvalidatedIndexKeys(ctx.canonical)) {
+          const sig = key.join(':');
+          if (seen.has(sig)) continue;
+          seen.add(sig);
+          queryClient.invalidateQueries({ queryKey: [...key] });
+        }
       }
     },
     onError: (err: unknown, rawCommand: string) => {
@@ -318,37 +358,66 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     void api.recordRecentNavigation(opts).catch(() => {});
   };
 
-  const tryReadOnlyFastPath = (canonical: string): boolean => {
-    const rows: Array<{ keys: string[]; panelId: string; queryKey: readonly unknown[] }> = [
-      { keys: ['plugin list', 'plugin show'], panelId: 'plugins', queryKey: ['flux-one', 'index', 'plugins'] },
-      { keys: ['user list', 'user show'], panelId: 'users', queryKey: ['flux-one', 'index', 'users'] },
-      { keys: ['site list', 'site show'], panelId: 'sites', queryKey: ['flux-one', 'index', 'sites'] },
-      { keys: ['menu list', 'menu show'], panelId: 'menus', queryKey: ['flux-one', 'index', 'menus'] },
+  const tryReadOnlyFastPathAsync = async (canonical: string): Promise<boolean> => {
+    const rows: Array<{
+      keys: string[];
+      panelId: string;
+      queryKey: readonly ['flux-one', 'index', string];
+      queryFn: () => Promise<unknown>;
+    }> = [
+      {
+        keys: ['plugin list', 'plugin show'],
+        panelId: 'plugins',
+        queryKey: ['flux-one', 'index', 'plugins'],
+        queryFn: () => api.getPluginsIndex(),
+      },
+      {
+        keys: ['user list', 'user show'],
+        panelId: 'users',
+        queryKey: ['flux-one', 'index', 'users'],
+        queryFn: () => api.getUsersIndex(),
+      },
+      {
+        keys: ['site list', 'site show'],
+        panelId: 'sites',
+        queryKey: ['flux-one', 'index', 'sites'],
+        queryFn: () => api.getSitesIndex(),
+      },
+      {
+        keys: ['menu list', 'menu show'],
+        panelId: 'menus',
+        queryKey: ['flux-one', 'index', 'menus'],
+        queryFn: () => api.getMenusIndex(),
+      },
     ];
     for (const row of rows) {
       if (!row.keys.includes(canonical)) {
         continue;
       }
-      const raw = queryClient.getQueryData(row.queryKey as any);
-      if (raw == null) {
+      try {
+        const raw = await queryClient.fetchQuery({
+          queryKey: row.queryKey,
+          queryFn: row.queryFn,
+        });
+        const data = (raw as any)?.data ?? raw;
+        if (!Array.isArray(data)) {
+          return false;
+        }
+        setLastResult({ type: 'panel', panelId: row.panelId, command: canonical });
+        setPanelData(data);
+        setAiData(null);
+        setLastDurationMs(0);
+        return true;
+      } catch {
         return false;
       }
-      const data = (raw as any)?.data ?? raw;
-      if (!Array.isArray(data)) {
-        return false;
-      }
-      setLastResult({ type: 'panel', panelId: row.panelId, command: canonical });
-      setPanelData(data);
-      setAiData(null);
-      setLastDurationMs(0);
-      return true;
     }
     return false;
   };
 
   const executeFromInput = (rawCommand: string, picked?: Suggestion | null) => {
     const cmd = rawCommand.trim();
-    if (!cmd || commandMutation.isPending) {
+    if (!cmd || commandMutation.isPending || fastPathLoading) {
       return;
     }
     setSuggestionsDismissed(true);
@@ -386,22 +455,28 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       }
     }
 
-    if (tryReadOnlyFastPath(canonical)) {
-      return;
-    }
-
-    commandMutation.mutate(cmd);
+    void (async () => {
+      setFastPathLoading(true);
+      let usedFastPath = false;
+      try {
+        usedFastPath = await tryReadOnlyFastPathAsync(canonical);
+      } catch {
+        usedFastPath = false;
+      } finally {
+        setFastPathLoading(false);
+      }
+      if (usedFastPath) {
+        return;
+      }
+      commandMutation.mutate(cmd);
+    })();
   };
 
-  const isExecuting = commandMutation.isPending;
+  const isExecuting = commandMutation.isPending || fastPathLoading;
   const runningLabel =
     commandMutation.variables != null
       ? canonicalizeInput(String(commandMutation.variables)).canonical
       : '';
-
-  if (kind === 'overlay' && !isOpen) {
-    return null;
-  }
 
   const ghost = getGhostRemainder(input, mergedSuggestions[activeSuggestion] ?? null);
   const parsed = parseInput(input);
@@ -456,6 +531,10 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     (commandRow.length > 0 || subcommandRow.length > 0);
 
   const filteredCommandDocs = useMemo(() => filterCommandDocs(commandsHelpQuery), [commandsHelpQuery]);
+
+  if (kind === 'overlay' && !isOpen) {
+    return null;
+  }
 
   return (
     <div className={`flux-one-mount flux-one-mount--${kind}`}>
@@ -814,11 +893,19 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
               <div style={{ marginTop: 10 }}>
                 <div style={{ fontWeight: 600, marginBottom: 6 }}>Aggregate email (7d)</div>
                 <div style={{ maxHeight: 180, overflow: 'auto', background: '#f6f7f7', borderRadius: 6, padding: 8 }}>
-                  <EmailAggregateView
-                    data={
-                      ((aggregateEmailQuery.data as any)?.data ?? aggregateEmailQuery.data) as EmailAggregatePayload | null
-                    }
-                  />
+                  {!emailCaptureEnabled ? (
+                    <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                      Turn on email capture for your user under{' '}
+                      <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a> to load an
+                      aggregate here.
+                    </div>
+                  ) : (
+                    <EmailAggregateView
+                      data={
+                        ((aggregateEmailQuery.data as any)?.data ?? aggregateEmailQuery.data) as EmailAggregatePayload | null
+                      }
+                    />
+                  )}
                 </div>
               </div>
             ) : null}
@@ -1055,15 +1142,16 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                       fontSize: 13,
                     }}
                   >
-                    <span style={{ flex: '1 1 200px', fontFamily: 'monospace', fontSize: 12 }}>{row.id}</span>
+                    <span
+                      style={{ flex: '2 1 240px', fontWeight: 600 }}
+                      title={`Config id: ${row.id}`}
+                    >
+                      {row.label}
+                    </span>
                     <span style={{ flex: '1 1 140px', opacity: 0.75, fontSize: 12 }}>{row.plugin}</span>
                     <span style={{ flex: '1 1 120px', fontSize: 12, opacity: 0.65 }}>{row.type}</span>
-                    <span style={{ flex: '2 1 220px' }}>{row.label}</span>
                     <span style={{ flex: '1 1 120px', fontWeight: 600 }}>{row.valueDisplay}</span>
                     <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      <button type="button" style={btnSmall} onClick={() => executeFromInput(`config get ${row.id}`)}>
-                        Get
-                      </button>
                       {row.type === 'bool' ? (
                         <>
                           <button type="button" style={btnSmall} onClick={() => executeFromInput(`config set ${row.id} true`)}>
@@ -1082,7 +1170,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           </div>
         ) : null}
 
-        {lastResult?.type === 'panel' && lastResult.panelId === 'aggregate_email' && panelData ? (
+        {lastResult?.type === 'panel' && lastResult.panelId === 'aggregate_email' ? (
           <div
             style={{
               margin: '8px 0 0',
@@ -1094,7 +1182,17 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
             }}
           >
             <div style={{ fontWeight: 600, marginBottom: 8 }}>Aggregate email (7d)</div>
-            <EmailAggregateView data={panelData} />
+            {!emailCaptureEnabled ? (
+              <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                Email capture is off for your user. Enable it under{' '}
+                <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a>, then run this
+                command again to see logged mail.
+              </div>
+            ) : panelData ? (
+              <EmailAggregateView data={panelData} />
+            ) : (
+              <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>
+            )}
           </div>
         ) : null}
 
@@ -1141,6 +1239,11 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           className="flux-one-modal-backdrop"
           role="presentation"
           onMouseDown={(e) => {
+            if (e.target === e.currentTarget) {
+              setCommandsModalOpen(false);
+            }
+          }}
+          onClick={(e) => {
             if (e.target === e.currentTarget) {
               setCommandsModalOpen(false);
             }
@@ -1198,10 +1301,9 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                     {row.details ? (
                       <div style={{ opacity: 0.72, fontSize: 12, lineHeight: 1.45, marginTop: 4 }}>{row.details}</div>
                     ) : null}
-                    <div style={{ opacity: 0.6, fontSize: 11, marginTop: 4 }}>
-                      {row.aliases?.length ? `Aliases: ${row.aliases.join(', ')} · ` : ''}
-                      Data: {row.backend === 'none' ? 'client index or inline' : row.backend === 'command' ? 'POST /command' : 'POST /command + GET'}
-                    </div>
+                    {row.aliases?.length ? (
+                      <div style={{ opacity: 0.6, fontSize: 11, marginTop: 4 }}>Aliases: {row.aliases.join(', ')}</div>
+                    ) : null}
                   </div>
                 ))}
                 {filteredCommandDocs.length === 0 ? (

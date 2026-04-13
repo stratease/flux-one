@@ -21,7 +21,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   {
     canonical: 'plugin',
     kind: 'root',
-    summary: 'Prefix for plugin subcommands (list, update, activate, deactivate, delete, install).',
+    summary: 'Prefix for plugin subcommands (list, update, activate, deactivate, delete, upload, add, install).',
     details: 'Does nothing by itself; choose a subcommand from suggestions or type one.',
     backend: 'none',
   },
@@ -30,7 +30,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     kind: 'sub',
     summary: 'Shows every installed plugin in the widget panel.',
     details:
-      'Uses the cached plugins index when available (no POST). Otherwise the same data is loaded via the command API.',
+      'Client uses TanStack Query for the plugins index when available (no POST). Otherwise the same data is loaded via the command API.',
     backend: 'none',
   },
   {
@@ -69,17 +69,33 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     backend: 'command',
   },
   {
+    canonical: 'plugin upload',
+    kind: 'sub',
+    summary: 'Opens WordPress “Upload Plugin” (zip) in the admin.',
+    details:
+      'POST /command → navigation to plugin-install.php?tab=upload. Client stores fluxOneReturnAfterPluginFlow in sessionStorage. Requires install_plugins.',
+    backend: 'command',
+    aliases: ['plugin add', 'plugin install'],
+  },
+  {
+    canonical: 'plugin add',
+    kind: 'sub',
+    summary: 'Alias for plugin upload (core upload UI).',
+    details: 'Same as plugin upload.',
+    backend: 'command',
+  },
+  {
     canonical: 'plugin install',
     kind: 'sub',
-    summary: 'Installs a plugin (slug or URL), then optionally activates.',
-    details: 'POST /command → PluginsHandler install flow. Requires install_plugins.',
+    summary: 'Alias for plugin upload (zip upload tab).',
+    details: 'Same as plugin upload.',
     backend: 'command',
   },
 
   {
     canonical: 'user',
     kind: 'root',
-    summary: 'Prefix for user listing, lock/unlock, role changes, or opening a user by email.',
+    summary: 'Prefix for user listing, add, lock/unlock, role changes, or opening a user by email.',
     details: 'Does nothing by itself without a subcommand or email.',
     backend: 'none',
   },
@@ -87,7 +103,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     canonical: 'user list',
     kind: 'sub',
     summary: 'Lists users (email, display name) in the widget panel.',
-    details: 'Client fast path from cached users index when possible; otherwise POST returns the same panel payload.',
+    details: 'Client fast path from TanStack-cached users index when possible; otherwise POST returns the same panel payload.',
     backend: 'none',
   },
   {
@@ -95,6 +111,14 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     kind: 'sub',
     summary: 'Opens a small user detail panel for that email.',
     details: 'POST /command when not served from cache. Requires list_users–level access for meaningful data.',
+    backend: 'command',
+  },
+  {
+    canonical: 'user add',
+    kind: 'root',
+    summary: 'Creates a user with username, email, and role (no password prompt).',
+    details:
+      'POST /command → wp_insert_user with generated password; wp_send_new_user_notifications when available. Requires create_users. Role must be one of your editable roles (from bootstrap). Form: user add {login} {email} {role}.',
     backend: 'command',
   },
   {

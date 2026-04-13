@@ -48,7 +48,6 @@ class AdminController {
 
 		$menu_service = MenuService::get_instance();
 		$menu_service->register_license_page();
-		$menu_service->register_settings_page( 'FluxOneSettingsTab', __( 'Flux One', 'flux-one' ) );
 	}
 
 	/**
@@ -76,7 +75,10 @@ class AdminController {
 	 * @return void
 	 */
 	public function render_settings_page() {
-		echo '<div class="wrap"><h1>' . esc_html__( 'Flux One', 'flux-one' ) . '</h1></div>';
+		printf(
+			'<div class="wrap flux-one-plugin-admin-wrap"><div id="flux-one-plugin-app" class="flux-one-plugin-app" data-initial-hash="%s"></div></div>',
+			esc_attr( '#/overview' )
+		);
 	}
 
 	/**
@@ -114,53 +116,41 @@ class AdminController {
 			]
 		);
 
-		if ( $hook === 'flux-suite_page_flux-suite-settings' ) {
-			$this->enqueue_suite_settings_scripts();
+		if ( $hook === 'flux-suite_page_flux-one' ) {
+			$this->enqueue_plugin_app_scripts();
 		}
 	}
 
 	/**
-	 * Tab shell for Flux Suite → Settings (mount + Flux One tab bundle).
+	 * Flux One submenu page: HashRouter app (Overview / Settings).
 	 *
 	 * @since 0.1.0
 	 * @return void
 	 */
-	private function enqueue_suite_settings_scripts() {
-		$handle   = 'flux-one-suite-settings';
-		$script_url = $this->get_suite_settings_script_url();
+	private function enqueue_plugin_app_scripts() {
+		$handle     = 'flux-one-plugin-app';
+		$script_url = $this->get_plugin_app_script_url();
 
 		wp_enqueue_script(
 			$handle,
 			$script_url,
-			[ 'wp-element', 'wp-api-fetch' ],
+			[ 'wp-element', 'wp-api-fetch', 'flux-one-admin' ],
 			FLUX_ONE_VERSION,
 			true
-		);
-
-		$tabs = MenuService::get_instance()->get_settings_tabs();
-
-		wp_localize_script(
-			$handle,
-			'fluxOneSuiteSettings',
-			[
-				'tabs'   => $tabs,
-				'apiUrl' => esc_url_raw( rest_url( 'flux-one/v1/' ) ),
-				'nonce'  => wp_create_nonce( 'wp_rest' ),
-			]
 		);
 	}
 
 	/**
-	 * Built suite settings script URL.
+	 * Built plugin admin app script URL.
 	 *
 	 * @since 0.1.0
 	 * @return string
 	 */
-	private function get_suite_settings_script_url() {
+	private function get_plugin_app_script_url() {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {
-			return 'http://localhost:3004/suite-settings.bundle.js';
+			return 'http://localhost:3004/plugin-app.bundle.js';
 		}
-		return plugin_dir_url( FLUX_ONE_PLUGIN_FILE ) . 'assets/js/dist/suite-settings.bundle.js';
+		return plugin_dir_url( FLUX_ONE_PLUGIN_FILE ) . 'assets/js/dist/plugin-app.bundle.js';
 	}
 
 	/**

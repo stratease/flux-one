@@ -10,8 +10,21 @@ export type IndexData = {
   sites?: Array<{ blogId: number; domain: string; path: string }>;
   destinations?: Array<{ id: string; label: string; value: string; url: string }>;
   /** Active Flux suite config keys (from GET /index/suite-config). */
-  suiteConfig?: Array<{ id: string; label: string; plugin: string; type: string; searchText: string }>;
+  suiteConfig?: Array<{
+    id: string;
+    label: string;
+    plugin: string;
+    type: string;
+    searchText: string;
+    choices?: string[];
+  }>;
+  /** Role slugs the current user may assign (from GET /bootstrap editableRoles). */
+  editableRoles?: string[];
 };
+
+function isCompleteEmailToken(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+$/.test((s || '').trim());
+}
 
 export type SuggestionsResult = {
   parsed: ParsedInput;
@@ -264,6 +277,93 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
       return pack([], matches);
     }
 
+    if (t1 === 'add') {
+      const tailM = rawLower.match(/^.*?user\s+add\s*(.*)$/i);
+      const rest = (tailM && tailM[1] != null ? String(tailM[1]) : '').trim();
+      const parts = rest.split(/\s+/).filter(Boolean);
+      const roleKeys =
+        indices.editableRoles && indices.editableRoles.length > 0
+          ? indices.editableRoles
+          : [...WP_DEFAULT_ROLES];
+
+      if (parts.length === 0) {
+        return pack(
+          [],
+          [
+            {
+              id: 'user.add.template',
+              kind: 'subcommand',
+              label: 'user add username email role',
+              value: 'user add ',
+            },
+          ]
+        );
+      }
+
+      if (parts.length === 1) {
+        const login = parts[0];
+        return pack(
+          [],
+          [
+            {
+              id: 'user.add.need-email',
+              kind: 'subcommand',
+              label: `${login} — then email and role`,
+              value: `user add ${login} `,
+            },
+          ]
+        );
+      }
+
+      if (parts.length === 2) {
+        const [login, email] = parts;
+        if (!isCompleteEmailToken(email)) {
+          return pack(
+            [],
+            [
+              {
+                id: 'user.add.need-complete-email',
+                kind: 'subcommand',
+                label: `${login} — finish email, then pick role`,
+                value: `user add ${login} ${email}`,
+              },
+            ]
+          );
+        }
+        return pack(
+          [],
+          roleKeys.map<Suggestion>((r) => ({
+            id: `user.add.role.${r}`,
+            kind: 'subcommand',
+            label: r,
+            value: `user add ${login} ${email} ${r}`,
+          }))
+        );
+      }
+
+      const [login, email, ...roleParts] = parts;
+      const roleQuery = roleParts.join(' ');
+      const rfuse = new Fuse(
+        roleKeys.map((name) => ({ name })),
+        { keys: ['name'], threshold: 0.35, ignoreLocation: true }
+      );
+      const rhits = roleQuery
+        ? rfuse.search(roleQuery).slice(0, 10).map((r) => r.item.name)
+        : roleKeys.slice(0, 12);
+      const roles = rhits.length
+        ? rhits
+        : roleKeys.filter((r) => r.startsWith(roleQuery.toLowerCase())).slice(0, 10);
+      return pack(
+        [],
+        roles.map<Suggestion>((r) => ({
+          id: `user.add.role.${r}`,
+          kind: 'subcommand',
+          label: r,
+          value: `user add ${login} ${email} ${r}`,
+        }))
+      );
+    }
+
     const t2 = rt[2] || '';
     if (t1 === 'role' && t2 === 'set') {
       const tailM = rawLower.match(/^.*?user\s+role\s+set\s*(.*)$/i);
@@ -443,6 +543,31 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
         const valuePart = fs === -1 ? '' : rest.slice(fs + 1).trim();
 
         if (!valuePart) {
+          const exact = list.find((x) => String(x.id).toLowerCase() === partialId.toLowerCase());
+          if (exact && exact.type === 'bool') {
+            return pack(
+              [],
+              (['true', 'false'] as const).map<Suggestion>((b) => ({
+                id: `cfg.bool.${exact.id}.${b}`,
+                kind: 'entity',
+                entityType: 'configValue',
+                label: b,
+                value: `config set ${exact.id} ${b}`,
+              }))
+            );
+          }
+          if (exact && exact.type === 'enum' && Array.isArray(exact.choices) && exact.choices.length > 0) {
+            return pack(
+              [],
+              exact.choices.map<Suggestion>((ch) => ({
+                id: `cfg.enum.${exact.id}.${ch}`,
+                kind: 'entity',
+                entityType: 'configValue',
+                label: String(ch),
+                value: `config set ${exact.id} ${ch}`,
+              }))
+            );
+          }
           const fuse = new Fuse(list, {
             keys: ['id', 'label', 'plugin', 'searchText'],
             threshold: 0.35,
@@ -472,9 +597,26 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
               [],
               hints.map<Suggestion>((b) => ({
                 id: `cfg.bool.${def.id}.${b}`,
-                kind: 'subcommand',
+                kind: 'entity',
+                entityType: 'configValue',
                 label: b,
                 value: `config set ${def.id} ${b}`,
+              }))
+            );
+          }
+        }
+        if (def && def.type === 'enum' && Array.isArray(def.choices) && def.choices.length > 0 && !/\s/.test(valuePart)) {
+          const pv = valuePart.toLowerCase();
+          const hints = def.choices.filter((ch) => String(ch).toLowerCase().startsWith(pv));
+          if (hints.length) {
+            return pack(
+              [],
+              hints.map<Suggestion>((ch) => ({
+                id: `cfg.enum.${def.id}.${ch}`,
+                kind: 'entity',
+                entityType: 'configValue',
+                label: String(ch),
+                value: `config set ${def.id} ${ch}`,
               }))
             );
           }

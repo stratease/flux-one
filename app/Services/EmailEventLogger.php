@@ -24,12 +24,13 @@ class EmailEventLogger {
 	 * @return array
 	 */
 	public function capture_wp_mail( $args ) {
-		if ( ! FluxOneSettings::is_email_capture_enabled() ) {
+		$uid = get_current_user_id();
+		if ( $uid <= 0 || ! FluxOneSettings::is_email_capture_enabled_for_user( $uid ) ) {
 			return $args;
 		}
 
 		try {
-			$this->log_email_event( (array) $args );
+			$this->log_email_event( (array) $args, $uid );
 		} catch ( \Throwable $e ) {
 			// Never break wp_mail due to logging.
 		}
@@ -44,24 +45,36 @@ class EmailEventLogger {
 	 * @param array $args wp_mail args.
 	 * @return void
 	 */
-	private function log_email_event( $args ) {
+	private function log_email_event( $args, $user_id ) {
 		global $wpdb;
 
 		$table = Database::events_table_name();
-		$user_id = get_current_user_id();
 
 		$to      = $args['to'] ?? '';
 		$subject = (string) ( $args['subject'] ?? '' );
+		$message = isset( $args['message'] ) ? (string) $args['message'] : '';
+		$preview = '';
+		if ( $message !== '' ) {
+			$plain = wp_strip_all_tags( $message );
+			$plain = preg_replace( '/\s+/', ' ', $plain );
+			$plain = trim( (string) $plain );
+			if ( function_exists( 'mb_substr' ) ) {
+				$preview = mb_substr( $plain, 0, 500 );
+			} else {
+				$preview = substr( $plain, 0, 500 );
+			}
+		}
 
 		$payload = [
-			'to'      => $to,
-			'headers' => $args['headers'] ?? [],
+			'to'             => $to,
+			'headers'        => $args['headers'] ?? [],
+			'messagePreview' => $preview,
 		];
 
 		$wpdb->insert(
 			$table,
 			[
-				'user_id'    => $user_id ? (int) $user_id : null,
+				'user_id'    => (int) $user_id,
 				'source'     => 'wp_mail',
 				'event_type' => 'email',
 				'subject'    => $subject,

@@ -28,7 +28,7 @@ class UsersHandler {
 	/**
 	 * Handle user subcommands.
 	 *
-	 * Supported (v1): lock/unlock {email}, user role set {email} {role} (alias: role set …).
+	 * Supported: lock/unlock {email}, user add {login} {email} {role}, user role set {email} {role} (alias: role set …).
 	 *
 	 * @since 0.1.0
 	 * @param array $tokens Tokens after "user" or canonicalized.
@@ -63,6 +63,13 @@ class UsersHandler {
 		if ( 'unlock' === $op ) {
 			$email = (string) ( $tokens[1] ?? '' );
 			return $this->lock_user( $email, false );
+		}
+
+		if ( 'add' === $op ) {
+			$login = (string) ( $tokens[1] ?? '' );
+			$email = (string) ( $tokens[2] ?? '' );
+			$role  = (string) ( $tokens[3] ?? '' );
+			return $this->add_user( $login, $email, $role );
 		}
 
 		if ( 'role' === $op && 'set' === ( $tokens[1] ?? '' ) ) {
@@ -139,6 +146,114 @@ class UsersHandler {
 				'userId' => (int) $user->ID,
 				'email'  => (string) $email,
 				'locked' => (bool) $locked,
+			],
+		];
+	}
+
+	/**
+	 * Create a user (username, email, role). Password is generated and new-user emails are sent when WP supports it.
+	 *
+	 * @since 0.1.0
+	 * @param string $login User login.
+	 * @param string $email Email.
+	 * @param string $role  Role slug (must be editable by current user).
+	 * @return array
+	 */
+	private function add_user( $login, $email, $role ) {
+		if ( ! current_user_can( 'create_users' ) ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user add',
+				'message' => __( 'You do not have permission to create users.', 'flux-one' ),
+			];
+		}
+
+		$login = sanitize_user( $login, true );
+		if ( '' === $login ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user add',
+				'message' => __( 'A valid username is required.', 'flux-one' ),
+			];
+		}
+
+		$email = sanitize_email( $email );
+		if ( '' === $email || ! is_email( $email ) ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user add ' . $login,
+				'message' => __( 'A valid email address is required.', 'flux-one' ),
+			];
+		}
+
+		$role = sanitize_key( $role );
+		if ( '' === $role ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user add ' . $login . ' ' . $email,
+				'message' => __( 'A role is required. Use a role you are allowed to assign (see user list / autocomplete).', 'flux-one' ),
+			];
+		}
+
+		if ( ! function_exists( 'get_editable_roles' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+		}
+		$allowed_roles = function_exists( 'get_editable_roles' ) ? array_keys( get_editable_roles() ) : [];
+		if ( ! in_array( $role, $allowed_roles, true ) ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
+				'message' => __( 'That role is not available for your account.', 'flux-one' ),
+			];
+		}
+
+		if ( username_exists( $login ) ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
+				'message' => __( 'That username is already taken.', 'flux-one' ),
+			];
+		}
+
+		if ( email_exists( $email ) ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
+				'message' => __( 'That email address is already registered.', 'flux-one' ),
+			];
+		}
+
+		$user_id = wp_insert_user(
+			[
+				'user_login' => $login,
+				'user_email' => $email,
+				'user_pass'  => wp_generate_password( 24, true, true ),
+				'role'       => $role,
+			]
+		);
+
+		if ( is_wp_error( $user_id ) ) {
+			return [
+				'type'    => 'error',
+				'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
+				'message' => $user_id->get_error_message(),
+			];
+		}
+
+		if ( function_exists( 'wp_send_new_user_notifications' ) ) {
+			wp_send_new_user_notifications( (int) $user_id, 'both' );
+		}
+
+		return [
+			'type'    => 'action',
+			'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
+			'status'  => 'success',
+			'message' => __( 'User created. A generated password was emailed when your site sends new-user notifications.', 'flux-one' ),
+			'data'    => [
+				'userId' => (int) $user_id,
+				'login'  => (string) $login,
+				'email'  => (string) $email,
+				'role'   => (string) $role,
 			],
 		];
 	}

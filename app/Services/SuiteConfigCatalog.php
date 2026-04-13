@@ -172,7 +172,7 @@ final class SuiteConfigCatalog {
 				'id'          => 'flux_one.email_capture_enabled',
 				'plugin_file' => 'flux-one/flux-one.php',
 				'plugin'      => 'Flux One',
-				'label'       => 'Email capture (log outbound mail)',
+				'label'       => 'Email capture (log outbound mail for your user)',
 				'type'        => 'bool',
 				'handler'     => 'flux_one:email_capture_enabled',
 				'search'      => 'email wp_mail log capture aggregate',
@@ -182,7 +182,7 @@ final class SuiteConfigCatalog {
 				'id'          => 'flux_one.suppress_mail_to_self',
 				'plugin_file' => 'flux-one/flux-one.php',
 				'plugin'      => 'Flux One',
-				'label'       => 'Suppress mail to self',
+				'label'       => 'Suppress your addresses on outbound mail',
 				'type'        => 'bool',
 				'handler'     => 'flux_one:suppress_mail_to_self',
 				'search'      => 'suppress self email cancel to-self',
@@ -501,9 +501,9 @@ final class SuiteConfigCatalog {
 	private static function invoke_get( string $handler ) {
 		switch ( $handler ) {
 			case 'flux_one:email_capture_enabled':
-				return FluxOneSettings::is_email_capture_enabled();
+				return FluxOneSettings::is_email_capture_enabled_for_user( get_current_user_id() );
 			case 'flux_one:suppress_mail_to_self':
-				return FluxOneSettings::is_suppress_mail_to_self_enabled();
+				return FluxOneSettings::is_suppress_mail_enabled_for_user( get_current_user_id() );
 			case 'flux_one:aggregate_default_days':
 				return FluxOneSettings::get_aggregate_default_days();
 		}
