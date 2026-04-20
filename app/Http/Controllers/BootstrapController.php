@@ -87,6 +87,9 @@ class BootstrapController extends BaseController {
 				'emailPrefs'      => [
 					'emailCaptureEnabled' => FluxOneSettings::is_email_capture_enabled_for_user( get_current_user_id() ),
 				],
+				'uiPrefs'         => [
+					'commandShortcut' => FluxOneSettings::get_command_shortcut_for_user( get_current_user_id() ),
+				],
 			],
 			'Bootstrap loaded'
 		);

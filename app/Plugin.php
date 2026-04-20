@@ -19,6 +19,7 @@ use FluxOne\App\Http\Controllers\SettingsController;
 use FluxOne\App\Services\Database;
 use FluxOne\App\Services\CleanupService;
 use FluxOne\App\Services\CommandHandlers\UsersHandler;
+use FluxOne\App\Services\AdminDestinations;
 use FluxOne\App\Services\EmailEventLogger;
 use FluxOne\App\Services\EmailMailPolicy;
 use FluxOne\App\Services\FluxOneSettings;
@@ -45,6 +46,7 @@ class Plugin {
 
 		if ( is_admin() ) {
 			( new AdminController() )->init();
+			AdminDestinations::register();
 		}
 
 		add_action( CleanupService::CRON_HOOK, [ CleanupService::class, 'run' ] );

@@ -14,6 +14,14 @@ namespace FluxOne\App\Services;
  * @since 0.1.0
  */
 class EmailMailPolicy {
+	/**
+	 * Marker header used to prevent re-suppress during release resend.
+	 *
+	 * @since 0.1.0
+	 * @var string
+	 */
+	private const RELEASE_HEADER = 'X-Flux-One-Release: 1';
+
 
 	/**
 	 * Register WordPress hooks.
@@ -37,15 +45,39 @@ class EmailMailPolicy {
 	public static function maybe_strip_suppressed_recipients( $args ) {
 		$args = (array) $args;
 
+		$headers = $args['headers'] ?? [];
+		if ( self::has_release_header( $headers ) ) {
+			return $args;
+		}
+
 		$strip = array_flip( FluxOneSettings::get_suppressed_delivery_emails() );
 		if ( empty( $strip ) ) {
 			return $args;
 		}
 
 		$args['to']      = self::filter_to_field( $args['to'] ?? '', $strip );
-		$args['headers'] = self::filter_headers_cc_bcc( $args['headers'] ?? [], $strip );
+		$args['headers'] = self::filter_headers_cc_bcc( $headers, $strip );
 
 		return $args;
+	}
+
+	/**
+	 * @since 0.1.0
+	 * @param mixed $headers Headers.
+	 * @return bool
+	 */
+	private static function has_release_header( $headers ) {
+		if ( is_string( $headers ) ) {
+			return false !== stripos( $headers, self::RELEASE_HEADER );
+		}
+		if ( is_array( $headers ) ) {
+			foreach ( $headers as $h ) {
+				if ( is_string( $h ) && false !== stripos( $h, self::RELEASE_HEADER ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
 	}
 
 	/**

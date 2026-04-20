@@ -197,6 +197,11 @@ class CommandRouter {
 			$tokens[0] = 'nav';
 		}
 
+		// plugin upload/install => nav add plugin (navigation command).
+		if ( 'plugin' === ( $tokens[0] ?? '' ) && in_array( (string) ( $tokens[1] ?? '' ), [ 'upload', 'install' ], true ) ) {
+			return [ 'nav', 'add', 'plugin' ];
+		}
+
 		// Plural → singular first tokens (after users lock|unlock rewrites above).
 		if ( 'plugins' === ( $tokens[0] ?? '' ) ) {
 			$tokens[0] = 'plugin';

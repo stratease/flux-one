@@ -73,16 +73,9 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     kind: 'sub',
     summary: 'Opens WordPress “Upload Plugin” (zip) in the admin.',
     details:
-      'POST /command → navigation to plugin-install.php?tab=upload. Client stores fluxOneReturnAfterPluginFlow in sessionStorage. Requires install_plugins.',
+      'Navigation alias: plugin upload → nav add plugin (client redirect to core upload tab). Requires install_plugins.',
     backend: 'command',
-    aliases: ['plugin add', 'plugin install'],
-  },
-  {
-    canonical: 'plugin add',
-    kind: 'sub',
-    summary: 'Alias for plugin upload (core upload UI).',
-    details: 'Same as plugin upload.',
-    backend: 'command',
+    aliases: ['plugin install'],
   },
   {
     canonical: 'plugin install',

@@ -90,6 +90,16 @@ export const api = {
     );
   },
 
+  async releaseAggregateEmailEvent(eventId: number) {
+    return apiFetch(
+      withNonce({
+        path: '/flux-one/v1/aggregate/email/release',
+        method: 'POST',
+        data: { eventId },
+      })
+    );
+  },
+
   async recordRecentNavigation(body: { url?: string; command?: string; label?: string }) {
     return apiFetch(
       withNonce({

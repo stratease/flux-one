@@ -181,10 +181,10 @@ class AdminController {
 		$wp_admin_bar->add_node(
 			[
 				'id'    => 'flux-one-command',
-				'title' => esc_html__( 'Command', 'flux-one' ),
+				'title' => esc_html__( 'Flux One', 'flux-one' ),
 				'href'  => '#',
 				'meta'  => [
-					'title' => esc_html__( 'Open command palette (Ctrl/Cmd+K)', 'flux-one' ),
+					'title' => esc_html__( 'Open Flux One (Ctrl/Cmd+.)', 'flux-one' ),
 				],
 			]
 		);

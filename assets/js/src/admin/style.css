@@ -102,7 +102,7 @@
 .flux-one-modal-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100001;
+  z-index: 200000;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -121,6 +121,19 @@
   box-shadow: 0 18px 60px rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(0, 0, 0, 0.12);
   overflow: hidden;
+}
+
+.flux-one-modal--wide {
+  width: min(920px, calc(100vw - 24px));
+  max-height: min(90vh, 860px);
+}
+
+.flux-one-email-html-frame {
+  width: 100%;
+  height: min(420px, 52vh);
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+  background: #fff;
 }
 
 .flux-one-modal-header {

@@ -51,6 +51,13 @@ class FluxOneSettings {
 	public const USER_META_SUPPRESS_MAIL = 'flux_one_suppress_mail_to_self';
 
 	/**
+	 * User meta: Command Central shortcut (e.g. mod+.).
+	 *
+	 * @since 0.1.1
+	 */
+	public const USER_META_COMMAND_SHORTCUT = 'flux_one_command_shortcut';
+
+	/**
 	 * Migration flag (site option).
 	 *
 	 * @since 0.1.0
@@ -138,6 +145,7 @@ class FluxOneSettings {
 			'emailCaptureEnabled'  => self::is_email_capture_enabled_for_user( $uid ),
 			'suppressMailToSelf'   => self::is_suppress_mail_enabled_for_user( $uid ),
 			'aggregateDefaultDays' => self::get_aggregate_default_days(),
+			'commandShortcut'      => self::get_command_shortcut_for_user( $uid ),
 		];
 	}
 
@@ -159,6 +167,9 @@ class FluxOneSettings {
 			if ( array_key_exists( 'suppressMailToSelf', $patch ) ) {
 				update_user_meta( $uid, self::USER_META_SUPPRESS_MAIL, (bool) $patch['suppressMailToSelf'] );
 			}
+			if ( array_key_exists( 'commandShortcut', $patch ) ) {
+				self::update_command_shortcut_for_user( $uid, $patch['commandShortcut'] );
+			}
 		}
 
 		if ( array_key_exists( 'aggregateDefaultDays', $patch ) ) {
@@ -168,6 +179,65 @@ class FluxOneSettings {
 		}
 
 		return self::get_all();
+	}
+
+	/**
+	 * Command Central shortcut string for a user.
+	 *
+	 * @since 0.1.1
+	 * @param int $user_id User ID.
+	 * @return string
+	 */
+	public static function get_command_shortcut_for_user( $user_id ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return 'mod+.';
+		}
+		$raw = (string) get_user_meta( $user_id, self::USER_META_COMMAND_SHORTCUT, true );
+		$raw = trim( strtolower( $raw ) );
+		return '' !== $raw ? $raw : 'mod+.';
+	}
+
+	/**
+	 * Update Command Central shortcut for a user (normalized).
+	 *
+	 * @since 0.1.1
+	 * @param int   $user_id User ID.
+	 * @param mixed $raw     Raw shortcut string.
+	 * @return void
+	 */
+	public static function update_command_shortcut_for_user( $user_id, $raw ) {
+		$user_id = (int) $user_id;
+		if ( $user_id <= 0 ) {
+			return;
+		}
+		$s = trim( strtolower( (string) $raw ) );
+		if ( '' === $s ) {
+			update_user_meta( $user_id, self::USER_META_COMMAND_SHORTCUT, 'mod+.' );
+			return;
+		}
+		$parts = array_values( array_filter( array_map( 'trim', explode( '+', $s ) ) ) );
+		$mods  = [];
+		$key   = '';
+		foreach ( $parts as $p ) {
+			if ( in_array( $p, [ 'mod', 'shift', 'alt', 'option' ], true ) ) {
+				$mods[] = 'option' === $p ? 'alt' : $p;
+				continue;
+			}
+			if ( '' === $key ) {
+				$key = $p;
+			}
+		}
+		if ( '' === $key ) {
+			$key = '.';
+		}
+		$mods = array_values( array_unique( $mods ) );
+		sort( $mods );
+		$norm = implode( '+', array_merge( $mods, [ $key ] ) );
+		if ( false === strpos( $norm, 'mod+' ) ) {
+			$norm = 'mod+' . $norm;
+		}
+		update_user_meta( $user_id, self::USER_META_COMMAND_SHORTCUT, $norm );
 	}
 
 	/**
@@ -201,7 +271,10 @@ class FluxOneSettings {
 	}
 
 	/**
-	 * Lowercased account emails for users who enabled suppression (cached per request).
+	 * Lowercased account emails that should be suppressed for the current request.
+	 *
+	 * Suppression is per-user (sending context), not a global admin list. When enabled,
+	 * only the current user’s account email is stripped from To/Cc/Bcc.
 	 *
 	 * @since 0.1.0
 	 * @return string[]
@@ -212,32 +285,19 @@ class FluxOneSettings {
 			return $cache;
 		}
 
-		if ( ! did_action( 'plugins_loaded' ) || ! function_exists( 'get_userdata' ) ) {
-			return [];
+		$user_id = get_current_user_id();
+		if ( $user_id <= 0 || ! self::is_suppress_mail_enabled_for_user( $user_id ) ) {
+			$cache = [];
+			return $cache;
 		}
 
-		$q = new \WP_User_Query(
-			[
-				'fields'     => 'ID',
-				'number'     => 9999,
-				'meta_query' => [
-					[
-						'key'   => self::USER_META_SUPPRESS_MAIL,
-						'value' => '1',
-					],
-				],
-			]
-		);
-
-		$emails = [];
-		foreach ( (array) $q->get_results() as $user_id ) {
-			$user = get_userdata( (int) $user_id );
-			if ( $user && is_email( $user->user_email ) ) {
-				$emails[] = strtolower( $user->user_email );
-			}
+		$user = get_userdata( (int) $user_id );
+		if ( ! $user || ! is_email( $user->user_email ) ) {
+			$cache = [];
+			return $cache;
 		}
 
-		$cache = array_values( array_unique( $emails ) );
+		$cache = [ strtolower( (string) $user->user_email ) ];
 		return $cache;
 	}
 

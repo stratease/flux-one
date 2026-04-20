@@ -85,39 +85,81 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const structuredPanelRef = useRef<HTMLDivElement | null>(null);
   const blurDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
+  const uiShortcutRaw =
+    typeof window !== 'undefined' && (window.fluxOneAdmin?.bootstrap as any)?.uiPrefs?.commandShortcut
+      ? String((window.fluxOneAdmin?.bootstrap as any).uiPrefs.commandShortcut)
+      : '';
+
+  const parseShortcut = (raw: string) => {
+    const s = String(raw || '').toLowerCase().trim();
+    const parts = s ? s.split('+').map((p) => p.trim()).filter(Boolean) : [];
+    const hasMod = parts.includes('mod');
+    const hasShift = parts.includes('shift');
+    const hasAlt = parts.includes('alt') || parts.includes('option');
+    const key = parts.find((p) => !['mod', 'shift', 'alt', 'option', 'ctrl', 'cmd', 'meta'].includes(p)) || '';
+    return { hasMod, hasShift, hasAlt, key };
+  };
+
+  const isMac = typeof navigator !== 'undefined' ? /Mac|iPhone|iPad|iPod/i.test(navigator.platform) : false;
+
+  const formatShortcutLabel = (raw: string) => {
+    const { hasMod, hasShift, hasAlt, key } = parseShortcut(raw);
+    const mod = hasMod ? (isMac ? '⌘' : 'Ctrl') : '';
+    const shift = hasShift ? (isMac ? '⇧' : 'Shift') : '';
+    const alt = hasAlt ? (isMac ? '⌥' : 'Alt') : '';
+    const k = key ? (key.length === 1 ? key.toUpperCase() : key) : '.';
+    const chunks = [mod, shift, alt, k].filter(Boolean);
+    return isMac ? chunks.join('') : chunks.join('+');
+  };
+
+  const effectiveShortcut = uiShortcutRaw && uiShortcutRaw.includes('mod+') ? uiShortcutRaw : 'mod+.';
+  const shortcutLabel = formatShortcutLabel(effectiveShortcut);
+
   const label = useMemo(() => {
     if (kind === 'dashboardWidget') return 'Command Central';
-    if (kind === 'overlay') return 'Command';
-    return 'Flux One (Dev)';
-  }, [kind]);
+    if (kind === 'overlay') return `Flux One ${shortcutLabel}`;
+    return `Flux One (Dev) ${shortcutLabel}`;
+  }, [kind, shortcutLabel]);
+
+  const openOverlay = () => {
+    setIsOpen(true);
+    setSuggestionsDismissed(false);
+    setTimeout(() => {
+      inputRef.current?.focus();
+    }, 0);
+  };
+
+  const closeOverlay = () => {
+    setIsOpen(false);
+    setInputFocused(false);
+    setSuggestionsDismissed(true);
+  };
 
   useEffect(() => {
     if (kind !== 'overlay') return;
     const onKeyDown = (e: KeyboardEvent) => {
-      const isK = e.key.toLowerCase() === 'k';
-      const wantsToggle = isK && (e.ctrlKey || e.metaKey);
+      const { hasMod, hasShift, hasAlt, key } = parseShortcut(effectiveShortcut);
+      const wantsMod = hasMod ? (e.ctrlKey || e.metaKey) : true;
+      const wantsShift = hasShift ? e.shiftKey : !e.shiftKey;
+      const wantsAlt = hasAlt ? e.altKey : !e.altKey;
+      const wantsKey = key ? e.key.toLowerCase() === key.toLowerCase() : e.key === '.';
+      const wantsToggle = wantsMod && wantsShift && wantsAlt && wantsKey;
       if (!wantsToggle) return;
       e.preventDefault();
-      setIsOpen((v) => !v);
+      if (!isOpen) {
+        openOverlay();
+      } else {
+        closeOverlay();
+      }
     };
     window.addEventListener('keydown', onKeyDown, { capture: true });
     return () => window.removeEventListener('keydown', onKeyDown, { capture: true } as any);
-  }, [kind]);
+  }, [kind, effectiveShortcut, isOpen]);
 
   useEffect(() => {
     if (kind !== 'overlay') return;
 
-    const open = () => {
-      setIsOpen(true);
-      setTimeout(() => {
-        if (inputRef.current) {
-          inputRef.current.focus();
-          return;
-        }
-        const el = document.querySelector<HTMLInputElement>('#flux-one-command-central-root input[type="text"]');
-        el?.focus();
-      }, 0);
-    };
+    const open = () => openOverlay();
 
     const node = document.getElementById('wp-admin-bar-flux-one-command');
     const anchor = node?.querySelector('a');
@@ -134,6 +176,15 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       window.removeEventListener('flux-one-open', open as EventListener);
     };
   }, [kind]);
+
+  useEffect(() => {
+    if (kind !== 'overlay') return;
+    const node = document.getElementById('wp-admin-bar-flux-one-command');
+    const anchor = node?.querySelector('a');
+    if (!anchor) return;
+    anchor.textContent = `Flux One ${shortcutLabel}`;
+    anchor.setAttribute('title', `Open Flux One (${shortcutLabel})`);
+  }, [kind, shortcutLabel]);
 
   useEffect(() => {
     if (!isOpen || bootstrapped || bootstrapping) return;
@@ -500,15 +551,18 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     structuredPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }, [isStructuredListPanel, lastResult?.panelId, panelData]);
 
+  const isInputReallyFocused =
+    typeof document !== 'undefined' && inputRef.current ? document.activeElement === inputRef.current : false;
+
   const showSuggestionOverlay =
-    inputFocused &&
+    isInputReallyFocused &&
     !suggestionsDismissed &&
     !isExecuting &&
     !bootstrapping &&
     (commandRow.length > 0 || subcommandRow.length > 0);
 
   const showSuggestionChrome =
-    inputFocused &&
+    isInputReallyFocused &&
     !suggestionsDismissed &&
     !isExecuting &&
     !bootstrapping &&
@@ -557,7 +611,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
             {kind === 'overlay' ? (
               <button
                 type="button"
-                onClick={() => setIsOpen(false)}
+                onClick={() => closeOverlay()}
                 style={{
                   border: '1px solid rgba(0,0,0,0.2)',
                   background: '#fff',

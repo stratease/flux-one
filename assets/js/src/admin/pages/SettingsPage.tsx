@@ -7,6 +7,7 @@ type SettingsShape = {
   emailCaptureEnabled: boolean;
   suppressMailToSelf: boolean;
   aggregateDefaultDays: number;
+  commandShortcut?: string;
 };
 
 function unwrapData<T>(raw: unknown): T {
@@ -22,6 +23,60 @@ export function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [recordingShortcut, setRecordingShortcut] = useState(false);
+
+  const isMac = typeof navigator !== 'undefined' ? /Mac|iPhone|iPad|iPod/i.test(navigator.platform) : false;
+
+  const normalizeShortcut = (raw: string): string => {
+    const s = String(raw || '').toLowerCase().trim();
+    if (!s) return 'mod+.';
+    const parts = s.split('+').map((p) => p.trim()).filter(Boolean);
+    const mods: string[] = [];
+    let key = '';
+    for (const p of parts) {
+      if (['mod', 'shift', 'alt', 'option'].includes(p)) {
+        mods.push(p === 'option' ? 'alt' : p);
+        continue;
+      }
+      if (!key) key = p;
+    }
+    if (!key) key = '.';
+    const uniq = Array.from(new Set(mods));
+    uniq.sort();
+    let out = [...uniq, key].join('+');
+    if (!out.includes('mod+')) out = `mod+${out}`;
+    return out;
+  };
+
+  const shortcutLabel = (raw: string): string => {
+    const s = normalizeShortcut(raw);
+    const parts = s.split('+').map((p) => p.trim()).filter(Boolean);
+    const hasMod = parts.includes('mod');
+    const hasShift = parts.includes('shift');
+    const hasAlt = parts.includes('alt');
+    const key = parts.find((p) => !['mod', 'shift', 'alt'].includes(p)) || '.';
+    const mod = hasMod ? (isMac ? '⌘' : 'Ctrl') : '';
+    const shift = hasShift ? (isMac ? '⇧' : 'Shift') : '';
+    const alt = hasAlt ? (isMac ? '⌥' : 'Alt') : '';
+    const k = key.length === 1 ? key.toUpperCase() : key;
+    const chunks = [mod, shift, alt, k].filter(Boolean);
+    return isMac ? chunks.join('') : chunks.join('+');
+  };
+
+  const captureShortcutFromEvent = (e: React.KeyboardEvent<HTMLInputElement>): string | null => {
+    const k = String(e.key || '').toLowerCase();
+    if (['shift', 'alt', 'meta', 'control'].includes(k)) {
+      return null;
+    }
+    if (!(e.ctrlKey || e.metaKey)) {
+      return null;
+    }
+    const mods: string[] = ['mod'];
+    if (e.shiftKey) mods.push('shift');
+    if (e.altKey) mods.push('alt');
+    const key = k === ' ' ? 'space' : k;
+    return normalizeShortcut([...mods, key].join('+'));
+  };
 
   const adminUrl =
     typeof window !== 'undefined' && window.fluxOneAdmin?.adminUrl
@@ -150,6 +205,46 @@ export function SettingsPage() {
           {__('This page:', 'flux-one')}{' '}
           <a href={fluxSettingsHash}>{fluxSettingsHash}</a>
         </Typography>
+      </Box>
+
+      <Box>
+        <Typography variant="h6" gutterBottom>
+          {__('Command widget', 'flux-one')}
+        </Typography>
+        <Typography variant="body2" color="text.secondary" paragraph>
+          {__(
+            'Configure the keyboard shortcut for the Flux One Command widget (overlay). Default is Ctrl/Cmd+.',
+            'flux-one'
+          )}
+        </Typography>
+        <Stack spacing={2} maxWidth={560}>
+          <TextField
+            label={__('Shortcut', 'flux-one')}
+            value={settings.commandShortcut ? settings.commandShortcut : 'mod+.'}
+            onChange={(e) => setSettings({ ...settings, commandShortcut: normalizeShortcut(e.target.value) })}
+            size="small"
+            helperText={`${__('Display:', 'flux-one')} ${shortcutLabel(settings.commandShortcut || 'mod+.')} · ${__(
+              'Format: mod+key (+shift, +alt).',
+              'flux-one'
+            )}`}
+          />
+          <TextField
+            label={__('Record shortcut', 'flux-one')}
+            value={recordingShortcut ? __('Press keys…', 'flux-one') : shortcutLabel(settings.commandShortcut || 'mod+.')}
+            size="small"
+            onFocus={() => setRecordingShortcut(true)}
+            onBlur={() => setRecordingShortcut(false)}
+            onKeyDown={(e) => {
+              if (!recordingShortcut) return;
+              const s = captureShortcutFromEvent(e);
+              if (!s) return;
+              e.preventDefault();
+              setSettings({ ...settings, commandShortcut: s });
+              setRecordingShortcut(false);
+            }}
+            inputProps={{ readOnly: true }}
+          />
+        </Stack>
       </Box>
 
       <Box>

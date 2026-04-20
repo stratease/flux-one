@@ -15,7 +15,6 @@ const TERMINAL_EXACT = new Set([
   'site show',
   'plugin update all',
   'plugin upload',
-  'plugin add',
   'plugin install',
   'aggregate email',
   'summary email',

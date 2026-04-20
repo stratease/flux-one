@@ -26,6 +26,11 @@ export function parseInput(raw: string): ParsedInput {
  * This must align with `app/Services/CommandRouter.php`.
  */
 export function canonicalizeTokens(tokens: Token[]): Token[] {
+  // "plugin upload|install" => "nav add plugin" (navigation command).
+  if (tokens[0] === 'plugin' && ['upload', 'install'].includes(tokens[1] || '')) {
+    return ['nav', 'add', 'plugin'];
+  }
+
   // "role set …" => "user role set …" (matches CommandRouter / UsersHandler).
   if (tokens[0] === 'role' && tokens[1] === 'set') return ['user', 'role', 'set', ...tokens.slice(2)];
 

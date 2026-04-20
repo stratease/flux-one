@@ -8,7 +8,7 @@ export type IndexData = {
   users?: Array<{ id: number; email: string; displayName?: string; login?: string }>;
   menus?: Array<{ id: number; name: string; slug?: string }>;
   sites?: Array<{ blogId: number; domain: string; path: string }>;
-  destinations?: Array<{ id: string; label: string; value: string; url: string }>;
+  destinations?: Array<{ id: string; label: string; value: string; url: string; searchText?: string }>;
   /** Active Flux suite config keys (from GET /index/suite-config). */
   suiteConfig?: Array<{
     id: string;
@@ -80,7 +80,7 @@ function destinationSuggestions(
   query: string
 ): Suggestion[] {
   const fuse = new Fuse(list, {
-    keys: ['label', 'value', 'id'],
+    keys: ['label', 'value', 'id', 'searchText'],
     threshold: 0.35,
     ignoreLocation: true,
   });
@@ -125,7 +125,7 @@ export function resolveNavDestinationUrl(
     return strong[0].url;
   }
   const fuse = new Fuse(destinations, {
-    keys: ['label', 'value', 'id'],
+    keys: ['label', 'value', 'id', 'searchText'],
     threshold: 0.35,
     ignoreLocation: true,
   });

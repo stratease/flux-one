@@ -249,7 +249,20 @@ class IndexController extends BaseController {
 			array_filter(
 				$destinations,
 				static function ( $d ) use ( $q ) {
-					$hay = strtolower( (string) $d['label'] . ' ' . (string) $d['value'] );
+					$url = (string) ( $d['url'] ?? '' );
+					$url_q = '';
+					$parts = wp_parse_url( $url );
+					if ( is_array( $parts ) && isset( $parts['query'] ) && is_string( $parts['query'] ) ) {
+						$url_q = strtolower( (string) $parts['query'] );
+					}
+
+					$hay = strtolower(
+						(string) ( $d['id'] ?? '' ) . ' ' .
+						(string) ( $d['label'] ?? '' ) . ' ' .
+						(string) ( $d['value'] ?? '' ) . ' ' .
+						(string) ( $d['searchText'] ?? '' ) . ' ' .
+						$url_q
+					);
 					return false !== strpos( $hay, $q );
 				}
 			)

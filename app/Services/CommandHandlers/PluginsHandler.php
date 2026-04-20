@@ -74,7 +74,7 @@ class PluginsHandler {
 			return $this->mutate_plugin( $op, $query );
 		}
 
-		if ( in_array( $op, [ 'upload', 'add', 'install' ], true ) ) {
+		if ( in_array( $op, [ 'upload', 'install' ], true ) ) {
 			if ( ! current_user_can( 'install_plugins' ) ) {
 				return [
 					'type'    => 'error',

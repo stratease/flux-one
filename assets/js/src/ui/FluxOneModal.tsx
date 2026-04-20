@@ -1,10 +1,13 @@
-import React, { useEffect, useId, useRef } from 'react';
+import React, { useEffect, useId, useMemo, useRef } from 'react';
+import { createPortal } from 'react-dom';
 
 type FluxOneModalProps = {
   open: boolean;
   onClose: () => void;
   title: string;
   children: React.ReactNode;
+  /** Optional extra class on dialog panel (width variants, etc.). */
+  className?: string;
   /** Optional: focus this element when opening (e.g. close button ref from parent). */
   initialFocusRef?: React.RefObject<HTMLElement | null>;
 };
@@ -12,15 +15,17 @@ type FluxOneModalProps = {
 /**
  * Shared modal shell matching Command Central command reference (backdrop + panel + header).
  */
-export function FluxOneModal({ open, onClose, title, children, initialFocusRef }: FluxOneModalProps) {
+export function FluxOneModal({ open, onClose, title, children, className, initialFocusRef }: FluxOneModalProps) {
   const titleId = useId();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const portalTarget = useMemo(() => (typeof document !== 'undefined' ? document.body : null), []);
 
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     };
@@ -35,10 +40,21 @@ export function FluxOneModal({ open, onClose, title, children, initialFocusRef }
     return null;
   }
 
-  return (
+  const modal = (
     <div
       className="flux-one-modal-backdrop"
       role="presentation"
+      tabIndex={-1}
+      onKeyDown={(e) => {
+        if (e.key === 'Escape') {
+          e.preventDefault();
+          e.stopPropagation();
+          onClose();
+        }
+      }}
+      onPointerDown={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -50,7 +66,8 @@ export function FluxOneModal({ open, onClose, title, children, initialFocusRef }
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className="flux-one-modal"
+        className={['flux-one-modal', className].filter(Boolean).join(' ')}
+        onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flux-one-modal-header">
@@ -65,4 +82,7 @@ export function FluxOneModal({ open, onClose, title, children, initialFocusRef }
       </div>
     </div>
   );
+
+  // Portal to <body> so fixed backdrop isn't trapped by wp-admin stacking contexts/transforms.
+  return portalTarget ? createPortal(modal, portalTarget) : modal;
 }
