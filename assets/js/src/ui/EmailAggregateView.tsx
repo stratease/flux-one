@@ -78,12 +78,38 @@ function EmailHtml({ html }: { html: string }) {
   );
 }
 
+function EmailRaw({ text }: { text: string }) {
+  const body = String(text || '');
+  if (!body.trim()) return null;
+  return (
+    <pre
+      style={{
+        margin: 0,
+        padding: 10,
+        fontSize: 12,
+        maxHeight: 360,
+        overflow: 'auto',
+        background: 'rgba(0,0,0,0.04)',
+        borderRadius: 6,
+        whiteSpace: 'pre-wrap',
+        wordBreak: 'break-word',
+      }}
+    >
+      {body}
+    </pre>
+  );
+}
+
 function EventBlock({
   ev,
   onReleased,
+  variant = 'list',
+  showSubject = false,
 }: {
   ev: EmailAggregateEvent;
   onReleased: (eventId: number) => void;
+  variant?: 'modal' | 'list';
+  showSubject?: boolean;
 }) {
   const p = ev.payload || {};
   const [releasing, setReleasing] = useState(false);
@@ -116,8 +142,20 @@ function EventBlock({
         padding: 10,
       }}
     >
+      {showSubject ? (
+        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
+          {subjectKey(ev.subject || '')}
+        </div>
+      ) : null}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-        <div style={{ fontWeight: 600, marginBottom: 6 }}>{eventLine(ev, 160)}</div>
+        {variant === 'modal' ? (
+          <div style={{ marginBottom: 6 }}>
+            <div style={{ fontWeight: 700, fontSize: 13, lineHeight: 1.25 }}>{subjectKey(ev.subject || '')}</div>
+            <div style={{ fontWeight: 600, opacity: 0.85 }}>{ev.createdAt}</div>
+          </div>
+        ) : (
+          <div style={{ fontWeight: 600, marginBottom: 6 }}>{eventLine(ev, 160)}</div>
+        )}
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <button
             type="button"
@@ -140,32 +178,23 @@ function EventBlock({
           <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 6 }}>Body</div>
           <EmailHtml html={p.messageHtml} />
         </div>
+      ) : p.message ? (
+        <div style={{ marginTop: 8 }}>
+          <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 6 }}>Body</div>
+          <EmailRaw text={String(p.message || '')} />
+        </div>
       ) : null}
-
-      <details style={{ marginTop: 8 }}>
-        <summary style={{ cursor: 'pointer', fontSize: 11, opacity: 0.85 }}>Headers</summary>
-        <pre
-          className="flux-one-email-aggregate-headers"
-          style={{
-            margin: '6px 0 0',
-            padding: 8,
-            fontSize: 11,
-            maxHeight: 160,
-            overflow: 'auto',
-            background: 'rgba(0,0,0,0.04)',
-            borderRadius: 6,
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
-        >
-          {formatHeaders(p) || '—'}
-        </pre>
-      </details>
     </div>
   );
 }
 
-export function EmailAggregateView({ data }: { data: EmailAggregatePayload | null | undefined }) {
+export function EmailAggregateView({
+  data,
+  mode = 'grouped',
+}: {
+  data: EmailAggregatePayload | null | undefined;
+  mode?: 'flat_all' | 'grouped';
+}) {
   const [modalSubject, setModalSubject] = useState<string | null>(null);
   const [releasedIds, setReleasedIds] = useState<number[]>([]);
 
@@ -206,6 +235,35 @@ export function EmailAggregateView({ data }: { data: EmailAggregatePayload | nul
 
   if (!data) {
     return <div style={{ opacity: 0.75, fontSize: 13 }}>No data.</div>;
+  }
+
+  if (mode === 'flat_all') {
+    return (
+      <div className="flux-one-email-aggregate">
+        <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 10 }}>
+          Window: {meta.days != null ? `${meta.days} day(s)` : '—'} · Events: {visibleEvents.length}
+        </div>
+        <div
+          className="flux-one-modal-doc-list"
+          style={{
+            maxHeight: 'min(70vh, 680px)',
+            overflow: 'auto',
+            WebkitOverflowScrolling: 'touch',
+          }}
+        >
+          {visibleEvents.map((ev) => (
+            <EventBlock
+              key={ev.id}
+              ev={ev}
+              variant="modal"
+              onReleased={(eventId) => {
+                setReleasedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
+              }}
+            />
+          ))}
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -276,6 +334,7 @@ export function EmailAggregateView({ data }: { data: EmailAggregatePayload | nul
             <EventBlock
               key={ev.id}
               ev={ev}
+              variant="modal"
               onReleased={(eventId) => {
                 setReleasedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
               }}

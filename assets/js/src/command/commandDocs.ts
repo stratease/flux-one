@@ -216,9 +216,9 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   {
     canonical: 'aggregate email',
     kind: 'root',
-    summary: 'Loads the email aggregate panel (counts / suppressions) for the last 7 days.',
+    summary: 'Opens a modal showing all captured emails (full context) for the last 7 days.',
     details:
-      'POST /command returns panel id aggregate_email; client may GET aggregate JSON for the chart. UI: per-subject lines with up to two recent events and a modal for the full list.',
+      'POST /command returns panel id aggregate_email; client opens a modal and loads aggregate JSON. Body display prefers HTML (iframe) when available; falls back to raw body text; headers are hidden in this view.',
     backend: 'command+get',
   },
   {

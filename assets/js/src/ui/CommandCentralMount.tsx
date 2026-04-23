@@ -74,6 +74,8 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
   const [commandsModalOpen, setCommandsModalOpen] = useState(false);
   const [commandsHelpQuery, setCommandsHelpQuery] = useState('');
+  const [aggregateEmailModalOpen, setAggregateEmailModalOpen] = useState(false);
+  const aggregateEmailDays = 7;
   const emailCaptureEnabledRef = useRef(false);
   const [emailCaptureEnabled, setEmailCaptureEnabled] = useState(false);
   const [recentNavigations, setRecentNavigations] = useState<
@@ -117,16 +119,21 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
   const label = useMemo(() => {
     if (kind === 'dashboardWidget') return 'Command Central';
-    if (kind === 'overlay') return `Flux One ${shortcutLabel}`;
-    return `Flux One (Dev) ${shortcutLabel}`;
+    if (kind === 'overlay') return `Flux One (${shortcutLabel})`;
+    return `Flux One (Dev) (${shortcutLabel})`;
   }, [kind, shortcutLabel]);
+
+  const focusAndSelectPrompt = () => {
+    setTimeout(() => {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }, 0);
+  };
 
   const openOverlay = () => {
     setIsOpen(true);
     setSuggestionsDismissed(false);
-    setTimeout(() => {
-      inputRef.current?.focus();
-    }, 0);
+    focusAndSelectPrompt();
   };
 
   const closeOverlay = () => {
@@ -182,7 +189,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     const node = document.getElementById('wp-admin-bar-flux-one-command');
     const anchor = node?.querySelector('a');
     if (!anchor) return;
-    anchor.textContent = `Flux One ${shortcutLabel}`;
+    anchor.textContent = `Flux One (${shortcutLabel})`;
     anchor.setAttribute('title', `Open Flux One (${shortcutLabel})`);
   }, [kind, shortcutLabel]);
 
@@ -214,6 +221,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     dashboardFocusAppliedRef.current = true;
     requestAnimationFrame(() => {
       inputRef.current?.focus();
+      inputRef.current?.select();
     });
   }, [kind, bootstrapped, bootstrapping]);
 
@@ -221,6 +229,8 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   useEffect(() => {
     if (commandsModalWasOpenRef.current && !commandsModalOpen) {
       commandsModalTriggerRef.current?.focus();
+      inputRef.current?.focus();
+      inputRef.current?.select();
     }
     commandsModalWasOpenRef.current = commandsModalOpen;
   }, [commandsModalOpen]);
@@ -343,10 +353,11 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       if (result.type === 'panel') {
         if (result.panelId === 'aggregate_email') {
           setAiData(null);
+          setAggregateEmailModalOpen(true);
           if (!emailCaptureEnabledRef.current) {
             setPanelData(null);
           } else {
-            api.getEmailAggregate(7).then((agg: any) => setPanelData(agg?.data ?? agg));
+            api.getEmailAggregate(aggregateEmailDays).then((agg: any) => setPanelData(agg?.data ?? agg));
             const aiRequested = !!result?.data?.aiRequested;
             if (aiRequested) {
               api.getEmailSummary().then((ai: any) => setAiData(ai?.data ?? ai));
@@ -939,11 +950,24 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                       aggregate here.
                     </div>
                   ) : (
-                    <EmailAggregateView
-                      data={
-                        ((aggregateEmailQuery.data as any)?.data ?? aggregateEmailQuery.data) as EmailAggregatePayload | null
-                      }
-                    />
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+                      <div style={{ fontSize: 13, opacity: 0.85 }}>
+                        Opens a full list of captured emails in a modal.
+                      </div>
+                      <button
+                        type="button"
+                        className="button button-small"
+                        onClick={() => {
+                          setAggregateEmailModalOpen(true);
+                          if (emailCaptureEnabledRef.current) {
+                            setPanelData(null);
+                            api.getEmailAggregate(aggregateEmailDays).then((agg: any) => setPanelData(agg?.data ?? agg));
+                          }
+                        }}
+                      >
+                        Open aggregate
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>
@@ -1228,12 +1252,34 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                 command again to see logged mail.
               </div>
             ) : panelData ? (
-              <EmailAggregateView data={panelData} />
+              <div style={{ fontSize: 13, opacity: 0.9 }}>
+                Loaded {Array.isArray((panelData as any)?.events) ? (panelData as any).events.length : '—'} events. Modal opened.
+              </div>
             ) : (
               <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>
             )}
           </div>
         ) : null}
+
+      <FluxOneModal
+        open={aggregateEmailModalOpen}
+        onClose={() => {
+          setAggregateEmailModalOpen(false);
+          focusAndSelectPrompt();
+        }}
+        title={`Aggregate email (${aggregateEmailDays}d)`}
+      >
+        {!emailCaptureEnabled ? (
+          <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+            Email capture is off for your user. Enable it under{' '}
+            <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a>, then run this command again.
+          </div>
+        ) : panelData ? (
+          <EmailAggregateView data={panelData as EmailAggregatePayload | null} mode="flat_all" />
+        ) : (
+          <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>
+        )}
+      </FluxOneModal>
 
         {lastResult?.type === 'panel' && lastResult.panelId === 'user' && panelData && typeof panelData === 'object' && !Array.isArray(panelData) ? (
           <div

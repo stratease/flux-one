@@ -60,6 +60,26 @@ class EmailEventLogger {
 	}
 
 	/**
+	 * Determine if message body looks like HTML.
+	 *
+	 * @since 1.1.1
+	 * @param string $message Email body.
+	 * @return bool
+	 */
+	private function is_html_message( $message ) {
+		$s = ltrim( (string) $message );
+		if ( '' === $s ) {
+			return false;
+		}
+		$head = strtolower( substr( $s, 0, 4096 ) );
+		return false !== strpos( $head, '<!doctype' ) ||
+			false !== strpos( $head, '<html' ) ||
+			false !== strpos( $head, '<body' ) ||
+			false !== strpos( $head, '<head' ) ||
+			false !== strpos( $head, '<meta' );
+	}
+
+	/**
 	 * Truncate string to safe length (mb-safe when available).
 	 *
 	 * @since 0.1.0
@@ -149,7 +169,7 @@ class EmailEventLogger {
 		$subject = (string) ( $args['subject'] ?? '' );
 		$message = isset( $args['message'] ) ? (string) $args['message'] : '';
 		$headers = $args['headers'] ?? [];
-		$is_html = $this->is_html_headers( $headers );
+		$is_html = $this->is_html_headers( $headers ) || $this->is_html_message( $message );
 		$preview = '';
 		if ( $message !== '' ) {
 			$plain = wp_strip_all_tags( $message );
