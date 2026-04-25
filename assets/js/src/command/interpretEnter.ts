@@ -37,6 +37,11 @@ export function interpretEnter(
     return { kind: 'none' };
   }
 
+  // Client-side navigation suggestions (nav-style entities) should run immediately on Enter.
+  if (active.clientAction === 'nav' && typeof active.navUrl === 'string' && active.navUrl.trim() !== '') {
+    return { kind: 'complete_and_run', value: active.value };
+  }
+
   const activeCanon = canonicalizeInput(active.value.trim()).canonical;
   const fromActive = resolveRunnableCommand(activeCanon, ctx.indices);
 
@@ -55,6 +60,13 @@ export function interpretEnter(
  * Mouse pick on a suggestion row.
  */
 export function interpretSuggestionPick(suggestion: Suggestion, indices: IndexData): InterpretEnterResult {
+  if (
+    suggestion.clientAction === 'nav' &&
+    typeof suggestion.navUrl === 'string' &&
+    suggestion.navUrl.trim() !== ''
+  ) {
+    return { kind: 'complete_and_run', value: suggestion.value };
+  }
   const activeCanon = canonicalizeInput(suggestion.value.trim()).canonical;
   const fromActive = resolveRunnableCommand(activeCanon, indices);
   if (fromActive.ok && fromActive.command) {

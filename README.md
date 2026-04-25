@@ -181,6 +181,11 @@ Current approach:
 
 - **Next step focus**: when an overlay or modal opens, it must focus the next-step control (usually the primary input) and select text where appropriate. No extra click required.
 - **Standard modal close**: modals should have an X close affordance, close on outside click, and close on Escape; focus should return to the trigger/input that opened the modal.
+- **Running/busy operations**: show a single, consistent spinner notice whenever Command Central is “busy” so operators always get feedback and the input can be safely disabled.
+  - **Server commands**: `POST /command` uses React Query `useMutation` and drives the busy state via `commandMutation.isPending`; the label comes from the canonical executed command.
+  - **Client-side navigation** (`nav` destinations + `edit` picks): set a client-nav busy flag and label **before** calling `window.location.assign(...)`, and schedule the redirect on the next frame so the spinner can paint.
+  - **Edit search**: while the `edit` XHR index query is fetching (and the debounced query is non-empty), show a lightweight “Searching…” spinner notice.
+  - **Pattern**: keep this centralized (one `isBusy` flag + one `runningLabel` string) so new commands don’t re-implement loading UX ad hoc.
 
 ### Mount points
 
@@ -260,6 +265,10 @@ Outputs to:
 
 - `assets/js/dist/admin.bundle.js`
 - `assets/js/dist/plugin-app.bundle.js` (Flux Suite → Flux One submenu: Overview + Settings)
+
+### Repo note: `wporg/` is artifact-only
+
+This repository may include a `wporg/` folder used as a distribution/build artifact snapshot. Treat `wporg/` as **read-only** and do not make functional changes there—make changes in the primary plugin source tree (this directory) and rebuild.
 
 ---
 

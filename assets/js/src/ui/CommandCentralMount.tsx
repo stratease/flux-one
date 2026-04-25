@@ -486,6 +486,17 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     },
   });
 
+  /**
+   * Central "busy/running" UX.
+   *
+   * - Server-backed commands use `commandMutation.isPending` (+ `variables` for label)
+   * - Read-only fast path uses `fastPathLoading`
+   * - Client-side navigation (nav + edit picks) sets `clientNavPending` so the spinner can paint before redirect
+   * - Edit search (XHR suggestions) shows a lightweight spinner notice while `contentQuery` is fetching
+   */
+  const [clientNavPending, setClientNavPending] = useState(false);
+  const [clientNavLabel, setClientNavLabel] = useState('');
+
   const buildIndices = (): IndexData => ({
     plugins: ((pluginsQuery.data as any)?.data ?? pluginsQuery.data ?? []) as IndexData['plugins'],
     users: ((usersQuery.data as any)?.data ?? usersQuery.data ?? []) as IndexData['users'],
@@ -494,6 +505,11 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     destinations: ((destinationsQuery.data as any)?.data ?? destinationsQuery.data ?? []) as IndexData['destinations'],
     suiteConfig: ((suiteConfigQuery.data as any)?.data ?? suiteConfigQuery.data ?? []) as IndexData['suiteConfig'],
   });
+
+  const beginClientNav = (label: string) => {
+    setClientNavLabel(label);
+    setClientNavPending(true);
+  };
 
   const recordClientNavMemory = (opts: { url?: string; command?: string; label?: string }) => {
     if (!opts.url && !opts.command) {
@@ -561,7 +577,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
   const executeFromInput = (rawCommand: string, picked?: Suggestion | null) => {
     const cmd = rawCommand.trim();
-    if (!cmd || commandMutation.isPending || fastPathLoading) {
+    if (!cmd || commandMutation.isPending || fastPathLoading || clientNavPending) {
       return;
     }
     const displayCmd = /^config(\s|$)/i.test(cmd) ? cmd : canonicalizeInput(cmd).canonical;
@@ -580,12 +596,14 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
     if (effectivePick?.clientAction === 'nav' && effectivePick.navUrl) {
       const { canonical: navCanon } = canonicalizeInput(effectivePick.value.trim());
+      const navUrl = String(effectivePick.navUrl);
       recordClientNavMemory({
-        url: effectivePick.navUrl,
+        url: navUrl,
         command: navCanon,
         label: effectivePick.label,
       });
-      window.location.assign(effectivePick.navUrl);
+      beginClientNav(navCanon);
+      requestAnimationFrame(() => window.location.assign(navUrl));
       return;
     }
 
@@ -595,7 +613,8 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       if (url) {
         const hit = destinationsList.find((d) => d.url === url);
         recordClientNavMemory({ url, command: canonical, label: hit?.label });
-        window.location.assign(url);
+        beginClientNav(canonical);
+        requestAnimationFrame(() => window.location.assign(url));
         return;
       }
     }
@@ -652,11 +671,20 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     })();
   };
 
-  const isExecuting = commandMutation.isPending || fastPathLoading;
-  const runningLabel =
-    commandMutation.variables != null
-      ? canonicalizeInput(String(commandMutation.variables)).canonical
-      : '';
+  const isEditSearching = intent.wantsEdit && editDebouncedQ.length > 0 && contentQuery.isFetching;
+
+  const isExecuting = commandMutation.isPending || fastPathLoading || clientNavPending;
+  const isBusy = isExecuting || isEditSearching;
+
+  const runningLabel = (() => {
+    if (clientNavPending) return clientNavLabel;
+    if (commandMutation.variables != null) return canonicalizeInput(String(commandMutation.variables)).canonical;
+    if (isEditSearching) {
+      const kindLabel = editKind === 'page' ? 'page' : editKind === 'post' ? 'post' : 'p';
+      return `edit ${kindLabel} ${editDebouncedQ}`.trim();
+    }
+    return '';
+  })();
 
   const ghost = getGhostRemainder(input, mergedSuggestions[activeSuggestion] ?? null);
   const parsed = parseInput(input);
@@ -712,13 +740,13 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const showSuggestionOverlay =
     isInputReallyFocused &&
     !suggestionsDismissed &&
-    !isExecuting &&
+    !isBusy &&
     (commandRow.length > 0 || subcommandRow.length > 0);
 
   const showSuggestionChrome =
     isInputReallyFocused &&
     !suggestionsDismissed &&
-    !isExecuting &&
+    !isBusy &&
     !!selectedSuggestion &&
     (commandRow.length > 0 || subcommandRow.length > 0);
 
@@ -1016,11 +1044,19 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           ) : null}
         </div>
 
-        {isExecuting ? (
+        {isBusy ? (
           <div className="flux-one-notice flux-one-notice--running" role="status" aria-live="polite">
             <span className="flux-one-spinner" aria-hidden />
             <span>
-              Running… <span style={{ opacity: 0.75 }}>{runningLabel}</span>
+              {isEditSearching && !isExecuting ? (
+                <>
+                  Searching… <span style={{ opacity: 0.75 }}>{runningLabel}</span>
+                </>
+              ) : (
+                <>
+                  Running… <span style={{ opacity: 0.75 }}>{runningLabel}</span>
+                </>
+              )}
             </span>
           </div>
         ) : null}

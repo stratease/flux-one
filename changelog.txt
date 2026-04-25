@@ -1,3 +1,6 @@
+= 1.1.1 =
+* Some minor cleanup of entity visuals and email aggregate, optimized loader.
+
 = 1.1.0 =
 * Added new commands, some bug fixes and UX improvements.
 
