@@ -62,6 +62,11 @@ export const api = {
     return apiFetch(withNonce({ path: '/flux-one/v1/index/suite-config', method: 'GET' }));
   },
 
+  async getContentIndex(q: string = '', kind: 'any' | 'post' | 'page' = 'any') {
+    const qs = `?q=${encodeURIComponent(q)}&kind=${encodeURIComponent(kind)}`;
+    return apiFetch(withNonce({ path: `/flux-one/v1/index/content${qs}`, method: 'GET' }));
+  },
+
   async executeCommand(input: string) {
     return apiFetch(
       withNonce({

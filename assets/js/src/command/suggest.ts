@@ -2,13 +2,23 @@ import { ROOT_COMMANDS, SUBCOMMANDS_BY_ROOT } from './registry';
 import { canonicalizeTokens, parseInput } from './normalize';
 import type { ParsedInput, Suggestion } from './types';
 import Fuse from 'fuse.js';
+import { searchEntities } from './entitySearch';
+import { configKeyAdapter, destinationAdapter, pluginAdapter, siteAdapter, userAdapter } from './entityAdapters';
 
 export type IndexData = {
   plugins?: Array<{ name: string; pluginFile: string; active?: boolean; version?: string; updateAvailable?: boolean }>;
   users?: Array<{ id: number; email: string; displayName?: string; login?: string }>;
   menus?: Array<{ id: number; name: string; slug?: string }>;
   sites?: Array<{ blogId: number; domain: string; path: string }>;
-  destinations?: Array<{ id: string; label: string; value: string; url: string; searchText?: string }>;
+  destinations?: Array<{
+    id: string;
+    label: string;
+    value: string;
+    url: string;
+    searchText?: string;
+    pathLabels: string[];
+    parentId?: string;
+  }>;
   /** Active Flux suite config keys (from GET /index/suite-config). */
   suiteConfig?: Array<{
     id: string;
@@ -20,6 +30,16 @@ export type IndexData = {
   }>;
   /** Role slugs the current user may assign (from GET /bootstrap editableRoles). */
   editableRoles?: string[];
+
+  /** Content search (XHR) for edit command. */
+  content?: Array<{
+    id: number;
+    postType: 'post' | 'page';
+    title: string;
+    slug: string;
+    editUrl: string;
+    searchText?: string;
+  }>;
 };
 
 function isCompleteEmailToken(s: string): boolean {
@@ -75,27 +95,6 @@ function filterSubsForRoot(rootKey: string, normalizedInput: string): Suggestion
   return hit.length ? hit : subsAll.slice(0, 8);
 }
 
-function destinationSuggestions(
-  list: NonNullable<IndexData['destinations']>,
-  query: string
-): Suggestion[] {
-  const fuse = new Fuse(list, {
-    keys: ['label', 'value', 'id', 'searchText'],
-    threshold: 0.35,
-    ignoreLocation: true,
-  });
-  const results = query ? fuse.search(query).slice(0, 12).map((r) => r.item) : list.slice(0, 12);
-  return results.map<Suggestion>((d) => ({
-    id: `dest.${d.id}`,
-    kind: 'entity',
-    entityType: 'destination',
-    label: d.label,
-    value: `nav ${d.value}`,
-    clientAction: 'nav',
-    navUrl: d.url,
-  }));
-}
-
 /** Exported for preview UI (canonical first token after aliases). */
 export function getRouteTokens(parsed: ParsedInput): string[] {
   const withSummary =
@@ -124,8 +123,12 @@ export function resolveNavDestinationUrl(
   if (strong.length === 1 && strong[0].url) {
     return strong[0].url;
   }
-  const fuse = new Fuse(destinations, {
-    keys: ['label', 'value', 'id', 'searchText'],
+  const fuseRows = destinations.map((d) => ({
+    ...d,
+    pathText: Array.isArray(d.pathLabels) ? d.pathLabels.join(' ') : '',
+  }));
+  const fuse = new Fuse(fuseRows, {
+    keys: ['label', 'value', 'id', 'searchText', 'pathText'],
     threshold: 0.35,
     ignoreLocation: true,
   });
@@ -188,36 +191,50 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
         );
       }
       const list = indices.plugins || [];
-      const fuse = new Fuse(list, { keys: ['name', 'pluginFile'], threshold: 0.35, ignoreLocation: true });
-      const results = fuse.search(q).slice(0, 10).map((r) => r.item);
+      const results = searchEntities({
+        query: q,
+        items: list,
+        adapter: {
+          ...pluginAdapter,
+          getValue: (p) => `plugin update ${p.name}`,
+          toSuggestion: (p) => ({
+            id: `plugin.update.${p.pluginFile}`,
+            kind: 'entity',
+            entityType: 'plugin',
+            label: `${p.name}${p.updateAvailable ? ' (update available)' : ''}`,
+            value: `plugin update ${p.name}`,
+          }),
+        },
+        limit: 10,
+      });
       return pack(
         [],
-        results.map((p) => ({
-          id: `plugin.update.${p.pluginFile}`,
-          kind: 'entity' as const,
-          entityType: 'plugin' as const,
-          label: `${p.name}${p.updateAvailable ? ' (update available)' : ''}`,
-          value: `plugin update ${p.name}`,
-        }))
+        results
       );
     }
 
     if (['activate', 'deactivate', 'delete'].includes(t1)) {
       const q = tailAfterPluginVerb(rawLower, t1);
       const list = indices.plugins || [];
-      const fuse = new Fuse(list, { keys: ['name', 'pluginFile'], threshold: 0.35, ignoreLocation: true });
-      const results = q
-        ? fuse.search(q).slice(0, 10).map((r) => r.item)
-        : list.slice(0, 10);
+      const results = searchEntities({
+        query: q,
+        items: q ? list : list.slice(0, 200),
+        adapter: {
+          ...pluginAdapter,
+          getValue: (p) => `plugin ${t1} ${p.name}`,
+          toSuggestion: (p) => ({
+            id: `plugin.${t1}.${p.pluginFile}`,
+            kind: 'entity',
+            entityType: 'plugin',
+            label: `${p.name}${p.active ? ' (active)' : ''}`,
+            value: `plugin ${t1} ${p.name}`,
+          }),
+        },
+        limit: 10,
+      });
       return pack(
         [],
-        results.map((p) => ({
-          id: `plugin.${p.pluginFile}`,
-          kind: 'entity' as const,
-          entityType: 'plugin' as const,
-          label: `${p.name}${p.active ? ' (active)' : ''}`,
-          value: `plugin ${t1} ${p.name}`,
-        }))
+        results
       );
     }
 
@@ -242,38 +259,44 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
     if (t1 === 'lock') {
       const query = rawLower.replace(/^.*user\s+lock\s+/i, '').trim();
       const list = indices.users || [];
-      const fuse = new Fuse(list, {
-        keys: ['email', 'displayName', 'login'],
-        threshold: 0.35,
-        ignoreLocation: true,
+      const matches = searchEntities({
+        query,
+        items: query ? list : list.slice(0, 200),
+        adapter: {
+          ...userAdapter,
+          getValue: (u) => `user lock ${u.email}`,
+          toSuggestion: (u) => ({
+            id: `user.lock.${u.id}`,
+            kind: 'entity',
+            entityType: 'user',
+            label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
+            value: `user lock ${u.email}`,
+          }),
+        },
+        limit: 10,
       });
-      const results = query ? fuse.search(query).slice(0, 10).map((r) => r.item) : list.slice(0, 10);
-      const matches = results.map<Suggestion>((u) => ({
-        id: `user.${u.id}`,
-        kind: 'entity',
-        entityType: 'user',
-        label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
-        value: `user lock ${u.email}`,
-      }));
       return pack([], matches);
     }
 
     if (t1 === 'unlock') {
       const query = rawLower.replace(/^.*user\s+unlock\s+/i, '').trim();
       const list = indices.users || [];
-      const fuse = new Fuse(list, {
-        keys: ['email', 'displayName', 'login'],
-        threshold: 0.35,
-        ignoreLocation: true,
+      const matches = searchEntities({
+        query,
+        items: query ? list : list.slice(0, 200),
+        adapter: {
+          ...userAdapter,
+          getValue: (u) => `user unlock ${u.email}`,
+          toSuggestion: (u) => ({
+            id: `user.unlock.${u.id}`,
+            kind: 'entity',
+            entityType: 'user',
+            label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
+            value: `user unlock ${u.email}`,
+          }),
+        },
+        limit: 10,
       });
-      const results = query ? fuse.search(query).slice(0, 10).map((r) => r.item) : list.slice(0, 10);
-      const matches = results.map<Suggestion>((u) => ({
-        id: `user.${u.id}`,
-        kind: 'entity',
-        entityType: 'user',
-        label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
-        value: `user unlock ${u.email}`,
-      }));
       return pack([], matches);
     }
 
@@ -373,13 +396,22 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
       if (!rest) {
         return pack(
           [],
-          list.slice(0, 10).map<Suggestion>((u) => ({
-            id: `user.role.${u.id}`,
-            kind: 'entity',
-            entityType: 'user',
-            label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
-            value: `user role set ${u.email} `,
-          }))
+          searchEntities({
+            query: '',
+            items: list.slice(0, 200),
+            adapter: {
+              ...userAdapter,
+              getValue: (u) => `user role set ${u.email} `,
+              toSuggestion: (u) => ({
+                id: `user.role.${u.id}`,
+                kind: 'entity',
+                entityType: 'user',
+                label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
+                value: `user role set ${u.email} `,
+              }),
+            },
+            limit: 10,
+          })
         );
       }
 
@@ -415,41 +447,47 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
         );
       }
 
-      const fuse = new Fuse(list, {
-        keys: ['email', 'displayName', 'login'],
-        threshold: 0.35,
-        ignoreLocation: true,
-      });
-      const results = fuse.search(rest).slice(0, 10).map((r) => r.item);
       return pack(
         [],
-        results.map<Suggestion>((u) => ({
-          id: `user.role.${u.id}`,
-          kind: 'entity',
-          entityType: 'user',
-          label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
-          value: `user role set ${u.email} `,
-        }))
+        searchEntities({
+          query: rest,
+          items: list,
+          adapter: {
+            ...userAdapter,
+            getValue: (u) => `user role set ${u.email} `,
+            toSuggestion: (u) => ({
+              id: `user.role.${u.id}`,
+              kind: 'entity',
+              entityType: 'user',
+              label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
+              value: `user role set ${u.email} `,
+            }),
+          },
+          limit: 10,
+        })
       );
     }
 
     const q = rawLower.replace(/^user\s+/i, '').trim();
     const list = indices.users || [];
-    const fuse = new Fuse(list, {
-      keys: ['email', 'displayName', 'login'],
-      threshold: 0.35,
-      ignoreLocation: true,
-    });
-    const results = q ? fuse.search(q).slice(0, 10).map((r) => r.item) : [];
     return pack(
       [],
-      results.map<Suggestion>((u) => ({
-        id: `user.${u.id}`,
-        kind: 'entity',
-        entityType: 'user',
-        label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
-        value: `user ${u.email}`,
-      }))
+      searchEntities({
+        query: q,
+        items: list,
+        adapter: {
+          ...userAdapter,
+          getValue: (u) => `user ${u.email}`,
+          toSuggestion: (u) => ({
+            id: `user.${u.id}`,
+            kind: 'entity',
+            entityType: 'user',
+            label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
+            value: `user ${u.email}`,
+          }),
+        },
+        limit: 10,
+      })
     );
   }
 
@@ -465,6 +503,43 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
           : [];
       return pack(parsed.hasTrailingSpace ? [] : commandRow, subRow);
     }
+
+    if (t1 === 'show') {
+      const query = rawLower.replace(/^.*menu\s+show\s*/i, '').trim();
+      const list = indices.menus || [];
+      return pack(
+        [],
+        searchEntities({
+          query,
+          items: query ? list : list.slice(0, 200),
+          adapter: {
+            entityType: 'menu',
+            getId: (m) => String(m.id),
+            getLabel: (m) => `${m.name}${m.slug ? ` (${m.slug})` : ''}`,
+            getValue: (m) => `menu show ${m.name}`,
+            getSearchText: (m) => `${m.slug || ''} ${m.id}`,
+            toSuggestion: (m) => ({
+              id: `menu.${m.id}`,
+              kind: 'entity',
+              entityType: 'menu',
+              label: m.name,
+              value: `menu show ${m.name}`,
+            }),
+            rankBoost: (m, ctx) => {
+              const q = ctx.query;
+              if (!q) return 0;
+              const name = String(m.name || '').toLowerCase();
+              const slug = String(m.slug || '').toLowerCase();
+              if (q === name || q === slug) return 0.7;
+              if (name.startsWith(q) || slug.startsWith(q)) return 0.35;
+              return 0;
+            },
+          },
+          limit: 10,
+        })
+      );
+    }
+
     return pack([], []);
   }
 
@@ -482,23 +557,78 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
     if (t1 === 'switch') {
       const query = rawLower.replace(/^.*site\s+switch\s+/i, '').trim();
       const list = indices.sites || [];
-      const fuse = new Fuse(list, {
-        keys: ['domain', 'path'],
-        threshold: 0.35,
-        ignoreLocation: true,
+      const matches = searchEntities({
+        query,
+        items: query ? list : list.slice(0, 200),
+        adapter: {
+          ...siteAdapter,
+          getValue: (s) => `site switch ${s.domain}${s.path}`,
+          toSuggestion: (s) => ({
+            id: `site.${s.blogId}`,
+            kind: 'entity',
+            entityType: 'site',
+            label: `${s.domain}${s.path}`,
+            value: `site switch ${s.domain}${s.path}`,
+          }),
+        },
+        limit: 10,
       });
-      const results = query ? fuse.search(query).slice(0, 10).map((r) => r.item) : list.slice(0, 10);
-      const matches = results.map<Suggestion>((s) => ({
-        id: `site.${s.blogId}`,
-        kind: 'entity',
-        entityType: 'site',
-        label: `${s.domain}${s.path}`,
-        value: `site switch ${s.domain}${s.path}`,
-      }));
       return pack([], matches);
     }
 
     return pack([], []);
+  }
+
+  if (t0 === 'edit') {
+    if (rt.length === 1) {
+      const subsAll = SUBCOMMANDS_BY_ROOT.edit || [];
+      const subs = filterSubsForRoot('edit', normalized);
+      const subSuggestions = subs.length ? subs : subsAll;
+      const commandRow = filterRoots(normalized);
+      const subRow =
+        parsed.hasTrailingSpace || (!parsed.hasTrailingSpace && t0 === 'edit') ? subSuggestions.slice(0, 12) : [];
+      return pack(parsed.hasTrailingSpace ? [] : commandRow, subRow);
+    }
+
+    const kind = t1 === 'post' ? 'post' : t1 === 'page' ? 'page' : 'any';
+    const rest = rawLower.replace(/^edit\s+(p|post|page)\s*/i, '').trim();
+    const list = indices.content || [];
+    const results = searchEntities({
+      query: rest,
+      items: list,
+      adapter: {
+        entityType: 'destination',
+        hasHierarchy: kind === 'any',
+        getId: (r) => String(r.id),
+        getLabel: (r) => String(r.title || '(no title)'),
+        getValue: (r) => r.title,
+        getSearchText: (r) => `${r.slug || ''} ${r.searchText || ''}`,
+        getPathLabels: (r) =>
+          kind === 'any' ? [r.postType === 'page' ? 'Page' : 'Post', String(r.title || '(no title)')] : undefined,
+        toSuggestion: (r, ctx) => ({
+          id: `edit.${r.postType}.${r.id}`,
+          kind: 'entity',
+          entityType: 'destination',
+          label: String(r.title || '(no title)'),
+          displayLabel: kind === 'any' ? ctx.displayLabel : undefined,
+          pathLabels: kind === 'any' ? ctx.pathLabels : undefined,
+          value: `edit ${t1 === 'p' ? 'p' : t1} ${String(r.title || '').trim()}`,
+          clientAction: 'nav',
+          navUrl: r.editUrl,
+        }),
+        rankBoost: (r, ctx) => {
+          const q = ctx.query;
+          if (!q) return 0;
+          const title = String(r.title || '').toLowerCase();
+          const slug = String(r.slug || '').toLowerCase();
+          if (q === title || q === slug) return 0.8;
+          if (title.startsWith(q) || slug.startsWith(q)) return 0.45;
+          return 0;
+        },
+      },
+      limit: 10,
+    });
+    return pack([], results);
   }
 
   if (t0 === 'config') {
@@ -521,23 +651,24 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
       const rest = String(cfgM[2] || '').trim();
 
       if (verb === 'get') {
-        const fuse = new Fuse(list, {
-          keys: ['id', 'label', 'plugin', 'searchText'],
-          threshold: 0.35,
-          ignoreLocation: true,
-        });
-        const results = rest
-          ? fuse.search(rest).slice(0, 12).map((r) => r.item)
-          : list.slice(0, 12);
         return pack(
           [],
-          results.map<Suggestion>((row) => ({
-            id: `cfg.get.${row.id}`,
-            kind: 'entity',
-            entityType: 'configKey',
-            label: `${row.label} (${row.plugin})`,
-            value: `config get ${row.id}`,
-          }))
+          searchEntities({
+            query: rest,
+            items: rest ? list : list.slice(0, 200),
+            adapter: {
+              ...configKeyAdapter,
+              getValue: (row) => `config get ${row.id}`,
+              toSuggestion: (row) => ({
+                id: `cfg.get.${row.id}`,
+                kind: 'entity',
+                entityType: 'configKey',
+                label: `${row.label} (${row.plugin})`,
+                value: `config get ${row.id}`,
+              }),
+            },
+            limit: 12,
+          })
         );
       }
 
@@ -572,23 +703,24 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
               }))
             );
           }
-          const fuse = new Fuse(list, {
-            keys: ['id', 'label', 'plugin', 'searchText'],
-            threshold: 0.35,
-            ignoreLocation: true,
-          });
-          const results = partialId
-            ? fuse.search(partialId).slice(0, 12).map((r) => r.item)
-            : list.slice(0, 12);
           return pack(
             [],
-            results.map<Suggestion>((row) => ({
-              id: `cfg.set.${row.id}`,
-              kind: 'entity',
-              entityType: 'configKey',
-              label: `${row.label} · ${row.type} (${row.plugin})`,
-              value: `config set ${row.id} `,
-            }))
+            searchEntities({
+              query: partialId,
+              items: partialId ? list : list.slice(0, 200),
+              adapter: {
+                ...configKeyAdapter,
+                getValue: (row) => `config set ${row.id} `,
+                toSuggestion: (row) => ({
+                  id: `cfg.set.${row.id}`,
+                  kind: 'entity',
+                  entityType: 'configKey',
+                  label: `${row.label} · ${row.type} (${row.plugin})`,
+                  value: `config set ${row.id} `,
+                }),
+              },
+              limit: 12,
+            })
           );
         }
 
@@ -644,7 +776,12 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
   if (t0 === 'nav') {
     const query = rawLower.replace(/^.*(nav|go|open)\s+/i, '').trim();
     const list = indices.destinations || [];
-    const dests = destinationSuggestions(list, query);
+    const dests = searchEntities({
+      query,
+      items: list,
+      adapter: destinationAdapter,
+      limit: 12,
+    });
     if (rt.length === 1) {
       const commandRow = filterRoots(normalized);
       const subRow =

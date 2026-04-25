@@ -19,9 +19,13 @@ export function FluxOneModal({ open, onClose, title, children, className, initia
   const titleId = useId();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const portalTarget = useMemo(() => (typeof document !== 'undefined' ? document.body : null), []);
+  const restoreFocusRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
+    restoreFocusRef.current = (typeof document !== 'undefined' ? (document.activeElement as any) : null) as
+      | HTMLElement
+      | null;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault();
@@ -33,7 +37,12 @@ export function FluxOneModal({ open, onClose, title, children, className, initia
     requestAnimationFrame(() => {
       (initialFocusRef?.current ?? closeBtnRef.current)?.focus();
     });
-    return () => window.removeEventListener('keydown', onKey, true);
+    return () => {
+      window.removeEventListener('keydown', onKey, true);
+      requestAnimationFrame(() => {
+        restoreFocusRef.current?.focus?.();
+      });
+    };
   }, [open, onClose, initialFocusRef]);
 
   if (!open) {
@@ -74,8 +83,15 @@ export function FluxOneModal({ open, onClose, title, children, className, initia
           <h2 id={titleId} style={{ margin: 0, fontSize: 16 }}>
             {title}
           </h2>
-          <button ref={closeBtnRef} type="button" className="button" onClick={onClose}>
-            Close
+          <button
+            ref={closeBtnRef}
+            type="button"
+            className="flux-one-modal-close"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+          >
+            <span className="dashicons dashicons-no" aria-hidden />
           </button>
         </div>
         <div className="flux-one-modal-body">{children}</div>

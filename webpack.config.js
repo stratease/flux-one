@@ -68,6 +68,7 @@ const baseConfig = createBaseWebpackConfig({
 module.exports = {
   ...baseConfig,
   entry: {
+    'admin-loader': './assets/js/src/admin/loader.ts',
     admin: './assets/js/src/admin/index.tsx',
     'plugin-app': './assets/js/src/admin/plugin-app.tsx',
   },

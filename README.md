@@ -177,6 +177,11 @@ Current approach:
 - Data fetching uses **`@tanstack/react-query`** (`QueryClientProvider` in `assets/js/src/admin/index.tsx`).
 - HTTP uses **`@wordpress/api-fetch`** (nonce + REST paths only).
 
+### UX must-haves (Command Central)
+
+- **Next step focus**: when an overlay or modal opens, it must focus the next-step control (usually the primary input) and select text where appropriate. No extra click required.
+- **Standard modal close**: modals should have an X close affordance, close on outside click, and close on Escape; focus should return to the trigger/input that opened the modal.
+
 ### Mount points
 
 Inserted by PHP:
@@ -276,6 +281,10 @@ Outputs to:
   - **`user role set {email} {role}`** (alias typed as **`role set …`** canonicalizes to this form)
 - Menus:
   - `menu list` / `menu show` (optional **client fast path** from cached menus index; requires **`edit_theme_options`** on the server when not using the fast path)
+- Edit:
+  - `edit p {query}` — search posts + pages by title/slug (XHR), labeled results, opens wp-admin editor
+  - `edit post {query}` — posts only
+  - `edit page {query}` — pages only
 - Navigation:
   - `nav {destination}` (aliases `go`, `open` → `nav`; **client redirect** when URL is known from destinations index)
 - Multisite:

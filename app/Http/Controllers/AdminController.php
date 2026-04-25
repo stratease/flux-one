@@ -8,7 +8,11 @@
 
 namespace FluxOne\App\Http\Controllers;
 
+use FluxOne\App\Services\AdminDestinations;
 use FluxOne\App\Services\AdminVisitRecorder;
+use FluxOne\App\Services\CacheVersionService;
+use FluxOne\App\Services\FluxOneSettings;
+use FluxOne\App\Services\UserCommandMemory;
 use FluxOne\FluxPlugins\Common\Services\MenuService;
 
 /**
@@ -90,7 +94,7 @@ class AdminController {
 	 */
 	public function enqueue_admin_scripts( $hook ) {
 		$handle = 'flux-one-admin';
-		$script_url = $this->get_script_url();
+		$script_url = $this->get_loader_script_url();
 
 		wp_enqueue_script(
 			$handle,
@@ -100,6 +104,41 @@ class AdminController {
 			true
 		);
 
+		if ( ! function_exists( 'get_editable_roles' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/user.php';
+		}
+		$editable_roles = function_exists( 'get_editable_roles' )
+			? array_keys( get_editable_roles() )
+			: [];
+
+		$versions = ( new CacheVersionService() )->get_versions();
+		$memory   = new UserCommandMemory();
+
+		$bootstrap = [
+			'contractVersion' => 1,
+			'editableRoles'   => array_values( array_map( 'strval', $editable_roles ) ),
+			'features'        => [
+				'plugins'        => [ 'enabled' => true ],
+				'users'          => [ 'enabled' => true ],
+				'menus'          => [ 'enabled' => true ],
+				'multisite'       => [ 'enabled' => is_multisite() ],
+				'aggregateEmail'  => [ 'enabled' => true ],
+				'summaryEmail'    => [ 'enabled' => true ],
+				'navigation'      => [ 'enabled' => true ],
+				'suiteConfig'     => [ 'enabled' => true ],
+			],
+			'cacheVersions'   => $versions,
+			'commandMemory'   => [
+				'recentNavigations' => $memory->get_recent_navigations(),
+			],
+			'emailPrefs'      => [
+				'emailCaptureEnabled' => FluxOneSettings::is_email_capture_enabled_for_user( get_current_user_id() ),
+			],
+			'uiPrefs'         => [
+				'commandShortcut' => FluxOneSettings::get_command_shortcut_for_user( get_current_user_id() ),
+			],
+		];
+
 		wp_localize_script(
 			$handle,
 			'fluxOneAdmin',
@@ -108,10 +147,15 @@ class AdminController {
 				'nonce'     => wp_create_nonce( 'wp_rest' ),
 				'adminUrl'  => admin_url(),
 				'pluginUrl' => plugin_dir_url( FLUX_ONE_PLUGIN_FILE ),
+				'adminBundleUrl' => $this->get_admin_bundle_url(),
 				'version'   => FLUX_ONE_VERSION,
 				'features'  => [
 					'emailAggregation' => [ 'enabled' => true ],
 					'aiEmailSummary'   => [ 'enabled' => true ],
+				],
+				'bootstrap' => $bootstrap,
+				'indices'   => [
+					'destinations' => AdminDestinations::get_index_entries(),
 				],
 			]
 		);
@@ -154,12 +198,25 @@ class AdminController {
 	}
 
 	/**
-	 * Get script URL (dev server or built file).
+	 * Get loader script URL (dev server or built file).
 	 *
 	 * @since 0.1.0
 	 * @return string
 	 */
-	private function get_script_url() {
+	private function get_loader_script_url() {
+		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {
+			return 'http://localhost:3004/admin-loader.bundle.js';
+		}
+		return plugin_dir_url( FLUX_ONE_PLUGIN_FILE ) . 'assets/js/dist/admin-loader.bundle.js';
+	}
+
+	/**
+	 * Main Command Central admin bundle URL (dev server or built file).
+	 *
+	 * @since 0.1.0
+	 * @return string
+	 */
+	private function get_admin_bundle_url() {
 		if ( defined( 'WP_DEBUG' ) && WP_DEBUG && defined( 'SCRIPT_DEBUG' ) && SCRIPT_DEBUG ) {
 			return 'http://localhost:3004/admin.bundle.js';
 		}
@@ -178,13 +235,46 @@ class AdminController {
 			return;
 		}
 
+		$raw = FluxOneSettings::get_command_shortcut_for_user( get_current_user_id() );
+		$raw = is_string( $raw ) ? strtolower( trim( $raw ) ) : '';
+		$raw = preg_replace( '/\s+/', '', $raw );
+
+		if ( empty( $raw ) || false === strpos( $raw, 'mod+' ) ) {
+			$raw = 'mod+.';
+		}
+
+		// Display format: Ctrl/Cmd+Shift+K (no platform detection in PHP).
+		$parts = array_values( array_filter( array_map( 'trim', explode( '+', $raw ) ) ) );
+		$key   = '';
+		$mods  = [];
+		foreach ( $parts as $p ) {
+			if ( in_array( $p, [ 'mod', 'shift', 'alt', 'option', 'ctrl', 'cmd', 'meta' ], true ) ) {
+				$mods[] = $p;
+				continue;
+			}
+			$key = $p;
+		}
+		$label_parts = [];
+		if ( in_array( 'mod', $mods, true ) ) {
+			$label_parts[] = 'Ctrl/Cmd';
+		}
+		if ( in_array( 'shift', $mods, true ) ) {
+			$label_parts[] = 'Shift';
+		}
+		if ( in_array( 'alt', $mods, true ) || in_array( 'option', $mods, true ) ) {
+			$label_parts[] = 'Alt';
+		}
+		$key = $key ? ( 1 === strlen( $key ) ? strtoupper( $key ) : $key ) : '.';
+		$label_parts[] = $key;
+		$hotkey_label  = implode( '+', $label_parts );
+
 		$wp_admin_bar->add_node(
 			[
 				'id'    => 'flux-one-command',
-				'title' => esc_html__( 'Flux One', 'flux-one' ),
+				'title' => sprintf( 'Flux One (%s)', esc_html( $hotkey_label ) ),
 				'href'  => '#',
 				'meta'  => [
-					'title' => esc_html__( 'Open Flux One (Ctrl/Cmd+.)', 'flux-one' ),
+					'title' => sprintf( 'Open Flux One (%s)', esc_html( $hotkey_label ) ),
 				],
 			]
 		);

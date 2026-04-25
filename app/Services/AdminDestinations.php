@@ -234,7 +234,7 @@ class AdminDestinations {
 		$seen_value = [];
 		$seen_url   = [];
 
-		$add_entry = function ( $id, $label, $value, $url, $slug_for_search ) use ( &$out, &$seen_value, &$seen_url, $admin_base ) {
+		$add_entry = function ( $id, $label, $value, $url, $slug_for_search, $path_labels = [], $parent_id = '' ) use ( &$out, &$seen_value, &$seen_url, $admin_base ) {
 			$label = trim( wp_strip_all_tags( (string) $label ) );
 			if ( '' === $label ) {
 				return;
@@ -267,13 +267,29 @@ class AdminDestinations {
 
 			$search_text = self::build_destination_search_text( $label, (string) $slug_for_search, $url );
 
-			$out[] = [
+			$row = [
 				'id'         => (string) $id,
 				'label'      => $label,
 				'value'      => $value,
 				'url'        => $url,
 				'searchText' => $search_text,
 			];
+			$pls = array_values(
+				array_filter(
+					array_map( 'strval', is_array( $path_labels ) ? $path_labels : [] ),
+					static function ( $v ) {
+						return '' !== trim( (string) $v );
+					}
+				)
+			);
+			if ( [] !== $pls ) {
+				$row['pathLabels'] = $pls;
+			}
+			if ( is_string( $parent_id ) && '' !== trim( $parent_id ) ) {
+				$row['parentId'] = trim( $parent_id );
+			}
+
+			$out[] = $row;
 		};
 
 		foreach ( $menu as $top ) {
@@ -302,8 +318,9 @@ class AdminDestinations {
 				}
 			}
 
+			$top_id = 'dyn.' . $slug;
 			if ( '' !== $url ) {
-				$add_entry( 'dyn.' . $slug, $label, $label . ' ' . $slug, $url, $slug );
+				$add_entry( $top_id, $label, $label . ' ' . $slug, $url, $slug, [ $label ] );
 			}
 
 			if ( isset( $submenu[ $slug ] ) && is_array( $submenu[ $slug ] ) ) {
@@ -330,7 +347,15 @@ class AdminDestinations {
 					}
 
 					if ( '' !== $sub_url ) {
-						$add_entry( 'dyn.' . $slug . '.' . $sub_slug, $sub_label, $sub_label . ' ' . $sub_slug . ' ' . $slug, $sub_url, $sub_slug );
+						$add_entry(
+							'dyn.' . $slug . '.' . $sub_slug,
+							$sub_label,
+							$sub_label . ' ' . $sub_slug . ' ' . $slug,
+							$sub_url,
+							$sub_slug,
+							[ $label, $sub_label ],
+							$top_id
+						);
 					}
 				}
 			}
@@ -542,6 +567,7 @@ class AdminDestinations {
 				'value'      => (string) $def['value'],
 				'url'        => $url,
 				'searchText' => $search_text,
+				'pathLabels' => [ (string) $def['label'] ],
 			];
 		}
 
@@ -558,13 +584,35 @@ class AdminDestinations {
 			if ( '' === trim( $search_text ) ) {
 				$search_text = self::build_destination_search_text( $label, $value, $url );
 			}
-			$out[] = [
+			$entry = [
 				'id'         => (string) $row['id'],
 				'label'      => $label,
 				'value'      => $value,
 				'url'        => $url,
 				'searchText' => $search_text,
 			];
+			if ( isset( $row['pathLabels'] ) && is_array( $row['pathLabels'] ) ) {
+				$pls = array_values(
+					array_filter(
+						array_map( 'strval', (array) $row['pathLabels'] ),
+						static function ( $v ) {
+							return '' !== trim( (string) $v );
+						}
+					)
+				);
+				if ( [] !== $pls ) {
+					$entry['pathLabels'] = $pls;
+				}
+			}
+			if ( isset( $row['parentId'] ) && is_string( $row['parentId'] ) && '' !== trim( $row['parentId'] ) ) {
+				$entry['parentId'] = trim( (string) $row['parentId'] );
+			}
+
+			if ( ! isset( $entry['pathLabels'] ) ) {
+				$entry['pathLabels'] = [ $label ];
+			}
+
+			$out[] = $entry;
 		}
 
 		/**

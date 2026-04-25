@@ -153,6 +153,13 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     details: 'Client fast path from cached menus index when possible.',
     backend: 'none',
   },
+  {
+    canonical: 'menu show',
+    kind: 'sub',
+    summary: 'Resolves a menu by name and opens it in the WordPress menu editor.',
+    details: 'Uses cached menus index for suggestions and client-side redirect when unambiguous.',
+    backend: 'none',
+  },
 
   {
     canonical: 'site',
@@ -203,6 +210,35 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     summary: 'Updates one setting: `config set {id} {value}`.',
     details: 'Value is taken from the raw command after the id (spaces allowed for secrets).',
     backend: 'command',
+  },
+
+  {
+    canonical: 'edit',
+    kind: 'root',
+    summary: 'Edit a post or page by searching title/slug.',
+    details: 'Client-only navigation; search runs as you type (XHR) and results link directly to edit screens.',
+    backend: 'none',
+  },
+  {
+    canonical: 'edit p',
+    kind: 'sub',
+    summary: 'Search posts + pages by title/slug and open the editor for the selected item.',
+    details: 'XHR search while typing. Results are labeled as Post/Page.',
+    backend: 'none',
+  },
+  {
+    canonical: 'edit post',
+    kind: 'sub',
+    summary: 'Search posts by title/slug and open the editor.',
+    details: 'XHR search while typing.',
+    backend: 'none',
+  },
+  {
+    canonical: 'edit page',
+    kind: 'sub',
+    summary: 'Search pages by title/slug and open the editor.',
+    details: 'XHR search while typing.',
+    backend: 'none',
   },
   {
     canonical: 'nav',

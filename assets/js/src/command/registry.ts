@@ -49,6 +49,11 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
     { id: 'cmd.config.get', kind: 'subcommand', label: 'config get', value: 'config get ' },
     { id: 'cmd.config.set', kind: 'subcommand', label: 'config set', value: 'config set ' },
   ],
+  edit: [
+    { id: 'cmd.edit.p', kind: 'subcommand', label: 'edit p', value: 'edit p ' , description: 'Edit a post or page (search as you type)' },
+    { id: 'cmd.edit.post', kind: 'subcommand', label: 'edit post', value: 'edit post ', description: 'Edit a post (search as you type)' },
+    { id: 'cmd.edit.page', kind: 'subcommand', label: 'edit page', value: 'edit page ', description: 'Edit a page (search as you type)' },
+  ],
 };
 
 /**
@@ -74,6 +79,14 @@ export const ROOT_COMMANDS: Suggestion[] = [
     value: 'config ',
     description: 'Flux suite settings (active plugins only)',
   },
+  {
+    id: 'cmd.edit',
+    kind: 'command',
+    label: 'edit',
+    value: 'edit ',
+    description: 'Edit a post or page by searching title/slug',
+    searchText: 'post page p',
+  },
   { id: 'cmd.aggregate.email', kind: 'command', label: 'aggregate email', value: 'aggregate email' },
   { id: 'cmd.summary.email', kind: 'command', label: 'summary email', value: 'summary email' },
 ];
@@ -86,4 +99,5 @@ export const COMMANDS: Suggestion[] = [
   ...SUBCOMMANDS_BY_ROOT.menu,
   ...SUBCOMMANDS_BY_ROOT.site,
   ...SUBCOMMANDS_BY_ROOT.config,
+  ...SUBCOMMANDS_BY_ROOT.edit,
 ];

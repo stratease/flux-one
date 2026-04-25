@@ -9,6 +9,7 @@ import { filterCommandDocs } from '../command/commandDocs';
 import { interpretEnter, interpretSuggestionPick } from '../command/interpretEnter';
 import { EmailAggregateView, type EmailAggregatePayload } from './EmailAggregateView';
 import { FluxOneModal } from './FluxOneModal';
+import Fuse from 'fuse.js';
 
 type CommandResponse =
   | { type: 'panel'; panelId: string; command: string; data?: any }
@@ -55,7 +56,11 @@ function getInvalidatedIndexKeys(canonical: string): FluxIndexQueryKey[] {
 
 export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidget' | 'dev' }) {
   const queryClient = useQueryClient();
-  const [isOpen, setIsOpen] = useState(kind !== 'overlay' ? true : false);
+  const [isOpen, setIsOpen] = useState(() => {
+    if (kind !== 'overlay') return true;
+    const wantsOpen = typeof window !== 'undefined' && (window as any).__fluxOneOpenOnLoad === true;
+    return wantsOpen;
+  });
   const [input, setInput] = useState('');
   const [bootstrapped, setBootstrapped] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(false);
@@ -136,11 +141,89 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     focusAndSelectPrompt();
   };
 
+  useEffect(() => {
+    if (kind !== 'overlay') return;
+    if (!isOpen) return;
+    // Make focus reliable even if open was triggered before input mounted.
+    requestAnimationFrame(() => {
+      focusAndSelectPrompt();
+    });
+  }, [kind, isOpen]);
+
   const closeOverlay = () => {
     setIsOpen(false);
     setInputFocused(false);
     setSuggestionsDismissed(true);
   };
+
+  const seedBootstrapFromWindow = () => {
+    const boot = typeof window !== 'undefined' ? (window.fluxOneAdmin?.bootstrap as any) : null;
+    if (!boot || typeof boot !== 'object') return false;
+
+    const navs = boot?.commandMemory?.recentNavigations;
+    if (Array.isArray(navs)) {
+      setRecentNavigations(navs);
+    }
+    const cap = !!(boot?.emailPrefs && boot.emailPrefs.emailCaptureEnabled === true);
+    emailCaptureEnabledRef.current = cap;
+    setEmailCaptureEnabled(cap);
+    setBootstrapped(true);
+    return true;
+  };
+
+  useEffect(() => {
+    // If PHP already embedded bootstrap data, avoid an initial REST call.
+    if (bootstrapped) return;
+    if (kind === 'dashboardWidget' || kind === 'dev') {
+      seedBootstrapFromWindow();
+    }
+  }, [bootstrapped, kind]);
+
+  useEffect(() => {
+    // Seed pre-serialized destinations into React Query cache (instant nav suggestions).
+    const dests =
+      typeof window !== 'undefined' ? ((window.fluxOneAdmin as any)?.indices?.destinations as any) : null;
+    if (!Array.isArray(dests) || dests.length === 0) return;
+    queryClient.setQueryData(['flux-one', 'index', 'destinations'], dests as any);
+  }, [queryClient]);
+
+  const intent = useMemo(() => {
+    const p = parseInput(input);
+    const rt = getRouteTokens(p);
+    const rt0 = rt[0] || '';
+    const rt1 = rt[1] || '';
+    const root = rt0 === 'summary' ? rt1 : rt0;
+    return {
+      root,
+      wantsPlugins: root === 'plugin',
+      wantsUsers: root === 'user',
+      wantsMenus: root === 'menu',
+      wantsSites: root === 'site',
+      wantsDestinations: root === 'nav',
+      wantsSuiteConfig: root === 'config',
+      wantsEdit: root === 'edit',
+    };
+  }, [input]);
+
+  const canFetchIndices = bootstrapped && (kind !== 'overlay' || isOpen);
+
+  const [editDebouncedQ, setEditDebouncedQ] = useState('');
+  const [editKind, setEditKind] = useState<'any' | 'post' | 'page'>('any');
+  useEffect(() => {
+    if (intent.root !== 'edit') {
+      setEditDebouncedQ('');
+      setEditKind('any');
+      return;
+    }
+    const rawLower = input.toLowerCase();
+    const kindFromInput = rawLower.startsWith('edit page') ? 'page' : rawLower.startsWith('edit post') ? 'post' : 'any';
+    setEditKind(kindFromInput);
+    const rest = rawLower.replace(/^edit\s+(p|post|page)\s*/i, '').trim();
+    const t = window.setTimeout(() => {
+      setEditDebouncedQ(rest);
+    }, 160);
+    return () => window.clearTimeout(t);
+  }, [input, intent.root]);
 
   useEffect(() => {
     if (kind !== 'overlay') return;
@@ -189,12 +272,19 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     const node = document.getElementById('wp-admin-bar-flux-one-command');
     const anchor = node?.querySelector('a');
     if (!anchor) return;
-    anchor.textContent = `Flux One (${shortcutLabel})`;
-    anchor.setAttribute('title', `Open Flux One (${shortcutLabel})`);
+    // Admin bar label is rendered by PHP for immediate, stable UX.
   }, [kind, shortcutLabel]);
 
   useEffect(() => {
     if (!isOpen || bootstrapped || bootstrapping) return;
+    if (seedBootstrapFromWindow()) {
+      try {
+        (window as any).__fluxOneOpenOnLoad = false;
+      } catch {
+        /* ignore */
+      }
+      return;
+    }
     setBootstrapping(true);
     api
       .getBootstrap()
@@ -239,33 +329,40 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const pluginsQuery = useQuery({
     queryKey: ['flux-one', 'index', 'plugins'],
     queryFn: () => api.getPluginsIndex(),
-    enabled: bootstrapped,
+    enabled: canFetchIndices && intent.wantsPlugins,
   });
   const usersQuery = useQuery({
     queryKey: ['flux-one', 'index', 'users'],
     queryFn: () => api.getUsersIndex(),
-    enabled: bootstrapped,
+    enabled: canFetchIndices && intent.wantsUsers,
   });
   const menusQuery = useQuery({
     queryKey: ['flux-one', 'index', 'menus'],
     queryFn: () => api.getMenusIndex(),
-    enabled: bootstrapped,
+    enabled: canFetchIndices && intent.wantsMenus,
   });
   const sitesQuery = useQuery({
     queryKey: ['flux-one', 'index', 'sites'],
     queryFn: () => api.getSitesIndex(),
-    enabled: bootstrapped,
+    enabled: canFetchIndices && intent.wantsSites,
   });
   const destinationsQuery = useQuery({
     queryKey: ['flux-one', 'index', 'destinations'],
     queryFn: () => api.getDestinationsIndex(),
-    enabled: bootstrapped,
+    enabled: canFetchIndices && intent.wantsDestinations,
   });
   const suiteConfigQuery = useQuery({
     queryKey: ['flux-one', 'index', 'suite-config'],
     queryFn: () => api.getSuiteConfigIndex(),
-    enabled: bootstrapped,
+    enabled: canFetchIndices && intent.wantsSuiteConfig,
     staleTime: 60_000,
+  });
+
+  const contentQuery = useQuery({
+    queryKey: ['flux-one', 'index', 'content', editKind, editDebouncedQ],
+    queryFn: () => api.getContentIndex(editDebouncedQ, editKind),
+    enabled: canFetchIndices && intent.wantsEdit && editDebouncedQ.length > 0,
+    staleTime: 10_000,
   });
 
   const aggregateEmailQuery = useQuery({
@@ -291,6 +388,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       sites: (sitesQuery.data as any)?.data ?? sitesQuery.data ?? [],
       destinations: (destinationsQuery.data as any)?.data ?? destinationsQuery.data ?? [],
       suiteConfig: (suiteConfigQuery.data as any)?.data ?? suiteConfigQuery.data ?? [],
+      content: (contentQuery.data as any)?.data ?? contentQuery.data ?? [],
       editableRoles,
     };
     const split = getSuggestions(input, indices);
@@ -307,6 +405,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     sitesQuery.data,
     destinationsQuery.data,
     suiteConfigQuery.data,
+    contentQuery.data,
     bootstrapped,
   ]);
 
@@ -475,8 +574,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     setLastResult(null);
     setLastDurationMs(null);
 
-    const destinationsList: Array<{ id: string; label: string; value: string; url: string }> =
-      ((destinationsQuery.data as any)?.data ?? destinationsQuery.data ?? []) as any[];
+    const destinationsList: any[] = ((destinationsQuery.data as any)?.data ?? destinationsQuery.data ?? []) as any[];
 
     const effectivePick = picked ?? mergedSuggestions[activeSuggestion] ?? null;
 
@@ -499,6 +597,41 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         recordClientNavMemory({ url, command: canonical, label: hit?.label });
         window.location.assign(url);
         return;
+      }
+    }
+
+    if (canonical.startsWith('menu show')) {
+      const rest = canonical.replace(/^menu\s+show\s*/i, '').trim();
+      const list = menusIndex || [];
+      if (list.length) {
+        const q = rest.toLowerCase();
+        const strong = q
+          ? list.filter(
+              (m: any) => q === String(m.name || '').toLowerCase() || q === String(m.slug || '').toLowerCase()
+            )
+          : [];
+        const strongHit = strong.length === 1 ? strong[0] : null;
+        if (strongHit) {
+          window.open(
+            `${adminBase}nav-menus.php?action=edit&menu=${encodeURIComponent(String(strongHit.id))}`,
+            '_blank'
+          );
+          return;
+        }
+        if (q) {
+          const fuse = new Fuse(list, { keys: ['name', 'slug'], threshold: 0.35, ignoreLocation: true });
+          const r = fuse.search(q);
+          if (r.length === 1) {
+            const m = r[0]?.item as any;
+            if (m) {
+              window.open(
+                `${adminBase}nav-menus.php?action=edit&menu=${encodeURIComponent(String(m.id))}`,
+                '_blank'
+              );
+              return;
+            }
+          }
+        }
       }
     }
 
@@ -551,8 +684,8 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
   const isStructuredListPanel =
     lastResult?.type === 'panel' &&
-    lastResult.panelId &&
-    ['plugins', 'users', 'sites', 'menus', 'suite_config'].includes(lastResult.panelId) &&
+    !!(lastResult as any).panelId &&
+    ['plugins', 'users', 'sites', 'menus', 'suite_config'].includes((lastResult as any).panelId) &&
     Array.isArray(panelData);
 
   useLayoutEffect(() => {
@@ -560,23 +693,32 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       return;
     }
     structuredPanelRef.current.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-  }, [isStructuredListPanel, lastResult?.panelId, panelData]);
+  }, [isStructuredListPanel, (lastResult as any)?.panelId, panelData]);
 
   const isInputReallyFocused =
     typeof document !== 'undefined' && inputRef.current ? document.activeElement === inputRef.current : false;
+
+  const intentLoadingLabel = (() => {
+    if (intent.root === 'nav' && destinationsQuery.isFetching && destinationsQuery.data == null) return 'Loading destinations…';
+    if (intent.root === 'plugin' && pluginsQuery.isFetching && pluginsQuery.data == null) return 'Loading plugins…';
+    if (intent.root === 'user' && usersQuery.isFetching && usersQuery.data == null) return 'Loading users…';
+    if (intent.root === 'menu' && menusQuery.isFetching && menusQuery.data == null) return 'Loading menus…';
+    if (intent.root === 'site' && sitesQuery.isFetching && sitesQuery.data == null) return 'Loading sites…';
+    if (intent.root === 'config' && suiteConfigQuery.isFetching && suiteConfigQuery.data == null) return 'Loading configuration…';
+    if (intent.root === 'edit' && contentQuery.isFetching && contentQuery.data == null) return 'Searching…';
+    return '';
+  })();
 
   const showSuggestionOverlay =
     isInputReallyFocused &&
     !suggestionsDismissed &&
     !isExecuting &&
-    !bootstrapping &&
     (commandRow.length > 0 || subcommandRow.length > 0);
 
   const showSuggestionChrome =
     isInputReallyFocused &&
     !suggestionsDismissed &&
     !isExecuting &&
-    !bootstrapping &&
     !!selectedSuggestion &&
     (commandRow.length > 0 || subcommandRow.length > 0);
 
@@ -624,14 +766,17 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                 type="button"
                 onClick={() => closeOverlay()}
                 style={{
-                  border: '1px solid rgba(0,0,0,0.2)',
+                  border: '1px solid rgba(0,0,0,0.16)',
                   background: '#fff',
                   borderRadius: 6,
-                  padding: '6px 10px',
+                  padding: 6,
                   cursor: 'pointer',
+                  lineHeight: 1,
                 }}
+                aria-label="Close"
+                title="Close"
               >
-                Close
+                <span className="dashicons dashicons-no" aria-hidden style={{ width: 18, height: 18, fontSize: 18 }} />
               </button>
             ) : null}
           </span>
@@ -710,7 +855,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
               }}
               placeholder={'Try “plugin list”, “nav plugins”, or “user list”'}
               ref={inputRef}
-              disabled={isExecuting || bootstrapping}
+              disabled={isExecuting}
               aria-busy={isExecuting}
               aria-expanded={showSuggestionOverlay}
               aria-controls={showSuggestionOverlay ? 'flux-one-command-suggest-listbox' : undefined}
@@ -722,7 +867,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                 borderRadius: 6,
                 border: '1px solid rgba(0,0,0,0.2)',
                 fontSize: 13,
-                opacity: isExecuting || bootstrapping ? 0.75 : 1,
+                opacity: isExecuting ? 0.75 : 1,
                 position: 'relative',
                 zIndex: 1,
                 background: '#fff',
@@ -780,6 +925,9 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
               onMouseDown={(e) => e.preventDefault()}
             >
               <div className="flux-one-suggest-dropdown__scroll">
+                {intentLoadingLabel ? (
+                  <div className="flux-one-suggest-dropdown__section">{intentLoadingLabel}</div>
+                ) : null}
                 {commandRow.length ? (
                   <div className="flux-one-suggest-dropdown__section">Commands</div>
                 ) : null}
@@ -800,7 +948,9 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                           setInput(outcome.value);
                           return;
                         }
-                        executeFromInput(outcome.value, s);
+                        if (outcome.kind === 'complete_and_run' || outcome.kind === 'run') {
+                          executeFromInput(outcome.value, s);
+                        }
                       }}
                       className={
                         idx === activeSuggestion
@@ -812,7 +962,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                         opacity: isExecuting ? 0.55 : 1,
                       }}
                     >
-                      <span>{s.label}</span>
+                      <span>{s.displayLabel || s.label}</span>
                       <span style={{ opacity: 0.6, fontSize: 12 }}>{s.kind}</span>
                     </div>
                   );
@@ -842,7 +992,9 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                           setInput(outcome.value);
                           return;
                         }
-                        executeFromInput(outcome.value, s);
+                        if (outcome.kind === 'complete_and_run' || outcome.kind === 'run') {
+                          executeFromInput(outcome.value, s);
+                        }
                       }}
                       className={
                         idx === activeSuggestion
@@ -854,7 +1006,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                         opacity: isExecuting ? 0.55 : 1,
                       }}
                     >
-                      <span>{s.label}</span>
+                      <span>{s.displayLabel || s.label}</span>
                       <span style={{ opacity: 0.6, fontSize: 12 }}>{s.kind}</span>
                     </div>
                   );

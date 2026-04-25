@@ -19,6 +19,10 @@ export type Suggestion = {
   id: string;
   kind: SuggestionKind;
   label: string;
+  /** Optional display label for UI (e.g. breadcrumb). */
+  displayLabel?: string;
+  /** Hierarchy path labels from root -> leaf (when entity supports hierarchy). */
+  pathLabels?: string[];
   value: string; // the full input value to place in the textbox
   description?: string;
   /** Extra Fuse terms for root search (not shown as a duplicate row). */

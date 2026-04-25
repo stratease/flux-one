@@ -60,6 +60,10 @@ export function canonicalizeTokens(tokens: Token[]): Token[] {
   if (out[0] === 'sites') {
     out[0] = 'site';
   }
+  if (out[0] === 'edit') {
+    if (out[1] === 'posts') out[1] = 'post';
+    if (out[1] === 'pages') out[1] = 'page';
+  }
   return out;
 }
 
