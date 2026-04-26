@@ -2,7 +2,8 @@
 set -euo pipefail
 
 PROJECT_SLUG="flux-one"
-ENV_PROFILE="${1:-sandbox-clean}"
+SUITE="${1:-smoke}"
+ENV_PROFILE="${2:-sandbox-clean}"
 HARNESS_DIR="${FLUX_EPHEMERAL_HARNESS_DIR:-/home/edaniels/repos/wp-local/ephemeral-wp-test}"
 LOG_ROOT="/home/edaniels/repos/logs/flux-ephemeral/${PROJECT_SLUG}"
 
@@ -13,16 +14,17 @@ fi
 
 echo "==> Running ephemeral test"
 echo "Project: $PROJECT_SLUG"
+echo "Suite: $SUITE"
 echo "Profile: $ENV_PROFILE"
 echo "Harness: $HARNESS_DIR"
 
 set +e
 cd "$HARNESS_DIR"
-bash scripts/test-project.sh "$PROJECT_SLUG" "$ENV_PROFILE"
+bash scripts/test-project.sh "$PROJECT_SLUG" "$SUITE" "$ENV_PROFILE"
 HARNESS_EXIT=$?
 set -e
 
-LATEST_RESULT="$(ls -1dt "$LOG_ROOT"/*_${PROJECT_SLUG}_${ENV_PROFILE}/result.json 2>/dev/null | head -n1 || true)"
+LATEST_RESULT="$(ls -1dt "$LOG_ROOT"/*_${PROJECT_SLUG}_${SUITE}_${ENV_PROFILE}/result.json 2>/dev/null | head -n1 || true)"
 
 if [[ -n "$LATEST_RESULT" && -f "$LATEST_RESULT" ]]; then
   echo
@@ -31,23 +33,24 @@ if [[ -n "$LATEST_RESULT" && -f "$LATEST_RESULT" ]]; then
 const fs = require('fs');
 const file = process.argv[2];
 const j = JSON.parse(fs.readFileSync(file, 'utf8'));
-const routes = Array.isArray(j.smokeRoutesChecked) ? j.smokeRoutesChecked : [];
-const passed = routes.filter(r => r.status === 'passed').length;
-const failed = routes.filter(r => r.status === 'failed').length;
+const checks = Array.isArray(j.smokeRoutesChecked) ? j.smokeRoutesChecked : [];
+const passed = checks.filter(r => r.status === 'passed').length;
+const failed = checks.filter(r => r.status === 'failed').length;
 
 console.log(`Run ID: ${j.runId}`);
 console.log(`Status: ${String(j.status || 'unknown').toUpperCase()}`);
-console.log(`Suite: ${j.suiteLevel || 'n/a'}`);
+console.log(`Suite: ${j.suiteLevel || j.suite || 'n/a'}`);
 console.log(`ZIP: ${j.zipPath || 'n/a'}`);
 console.log(`Started: ${j.startedAt || 'n/a'}`);
 console.log(`Finished: ${j.finishedAt || 'n/a'}`);
-console.log(`Routes: ${routes.length} total (${passed} passed, ${failed} failed)`);
+console.log(`Checks: ${checks.length} total (${passed} passed, ${failed} failed)`);
 
-if (routes.length) {
-  console.log('Routes checked:');
-  for (const r of routes) {
+if (checks.length) {
+  console.log('Checks run:');
+  for (const r of checks) {
     const mark = r.status === 'passed' ? '✅' : '❌';
-    console.log(`  ${mark} ${r.route || '(unknown route)'}`);
+    const prefix = r.type === 'route' ? 'route' : 'check';
+    console.log(`  ${mark} [${prefix}] ${r.route || '(unknown)'}`);
     if (r.error) console.log(`     error: ${r.error}`);
   }
 }
@@ -66,7 +69,7 @@ if (j.artifactPaths) {
 NODE
   echo "Result JSON: $LATEST_RESULT"
 else
-  echo "No result.json found for profile '$ENV_PROFILE' under $LOG_ROOT" >&2
+  echo "No result.json found for suite '$SUITE' profile '$ENV_PROFILE' under $LOG_ROOT" >&2
 fi
 
 exit "$HARNESS_EXIT"

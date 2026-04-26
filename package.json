@@ -1,15 +1,15 @@
 {
   "name": "flux-one-admin",
-  "version": "1.1.1",
+  "version": "1.2.0",
   "description": "Flux One - Command Central by Flux Plugins (admin UI)",
   "private": true,
   "scripts": {
-    "build": "webpack --mode=production",
+    "validate:docs": "node scripts/validate-docs-triangle.js",
+    "build": "npm run validate:docs && webpack --mode=production",
     "dev": "webpack --mode=development --watch",
     "start": "webpack serve --mode=development",
-    "test:ephemeral": "bash scripts/run-ephemeral-local.sh",
-    "test:ephemeral:woo": "bash scripts/run-ephemeral-local.sh sandbox-woo",
-    "test:ephemeral:mocked": "bash scripts/run-ephemeral-local.sh sandbox-mocked-services"
+    "test:ephemeral:smoke": "bash scripts/run-ephemeral-local.sh smoke",
+    "test:ephemeral:regression": "bash scripts/run-ephemeral-local.sh regression"
   },
   "dependencies": {
     "@emotion/react": "^11.11.1",
