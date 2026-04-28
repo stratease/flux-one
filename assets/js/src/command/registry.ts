@@ -1,5 +1,34 @@
 import type { Suggestion } from './types';
 
+export type MultiStepFieldKind = 'text' | 'email' | 'entity' | 'enum';
+
+export type MultiStepCommandField = {
+  field: string;
+  kind: MultiStepFieldKind;
+  prompt: string;
+  source?: 'roles' | 'users' | 'plugins' | 'sites' | 'menus' | 'destinations' | 'configKeys';
+};
+
+export type MultiStepCommandDefinition = {
+  id: string;
+  canonical: string;
+  type: 'multistep';
+  steps: MultiStepCommandField[];
+};
+
+export const MULTISTEP_COMMANDS: Record<string, MultiStepCommandDefinition> = {
+  'user add': {
+    id: 'cmd.user.add',
+    canonical: 'user add',
+    type: 'multistep',
+    steps: [
+      { field: 'login', kind: 'text', prompt: 'Enter username, then email and role.' },
+      { field: 'email', kind: 'email', prompt: 'Now add email, then role.' },
+      { field: 'role', kind: 'entity', source: 'roles', prompt: 'Choose a role.' },
+    ],
+  },
+};
+
 /**
  * Subcommands keyed by first route token (after alias canonicalization).
  * Multi-word roots (user lock, aggregate email, …) have no entries here.

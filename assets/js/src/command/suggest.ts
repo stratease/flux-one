@@ -1,4 +1,4 @@
-import { ROOT_COMMANDS, SUBCOMMANDS_BY_ROOT } from './registry';
+import { MULTISTEP_COMMANDS, ROOT_COMMANDS, SUBCOMMANDS_BY_ROOT } from './registry';
 import { canonicalizeTokens, parseInput } from './normalize';
 import type { ParsedInput, Suggestion } from './types';
 import Fuse from 'fuse.js';
@@ -85,6 +85,11 @@ function tailAfterPluginVerb(rawLower: string, verb: string): string {
 }
 
 const WP_DEFAULT_ROLES = ['administrator', 'editor', 'author', 'contributor', 'subscriber'] as const;
+
+function getMultiStepPrompt(commandKey: string, stepIndex: number, fallback: string): string {
+  const def = MULTISTEP_COMMANDS[commandKey];
+  return def?.steps?.[stepIndex]?.prompt || fallback;
+}
 
 function filterSubsForRoot(rootKey: string, normalizedInput: string): Suggestion[] {
   const subsAll = SUBCOMMANDS_BY_ROOT[rootKey] || [];
@@ -324,7 +329,7 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
             {
               id: 'user.add.template',
               kind: 'subcommand',
-              label: 'user add username email role',
+              label: getMultiStepPrompt('user add', 0, 'Enter username, then email and role.'),
               value: 'user add ',
             },
           ]
@@ -339,7 +344,7 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
             {
               id: 'user.add.need-email',
               kind: 'subcommand',
-              label: `${login} — then email and role`,
+              label: `${login} — ${getMultiStepPrompt('user add', 1, 'now add email, then role.')}`,
               value: `user add ${login} `,
             },
           ]
@@ -355,7 +360,7 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
               {
                 id: 'user.add.need-complete-email',
                 kind: 'subcommand',
-                label: `${login} — finish email, then pick role`,
+                label: `${login} — finish email, then ${getMultiStepPrompt('user add', 2, 'choose a role.').toLowerCase()}`,
                 value: `user add ${login} ${email}`,
               },
             ]
@@ -366,7 +371,7 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
           roleKeys.map<Suggestion>((r) => ({
             id: `user.add.role.${r}`,
             kind: 'subcommand',
-            label: r,
+            label: `${r} — ${getMultiStepPrompt('user add', 2, 'Choose a role.')}`,
             value: `user add ${login} ${email} ${r}`,
           }))
         );
@@ -389,7 +394,7 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
         roles.map<Suggestion>((r) => ({
           id: `user.add.role.${r}`,
           kind: 'subcommand',
-          label: r,
+          label: `${r} — ${getMultiStepPrompt('user add', 2, 'Choose a role.')}`,
           value: `user add ${login} ${email} ${r}`,
         }))
       );

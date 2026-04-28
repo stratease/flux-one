@@ -201,6 +201,66 @@ Current UI implementation (v1 shell):
 
 - Command input with ghost autocomplete and stepwise suggestions (`assets/js/src/command/*`, Fuse.js for entity match)
 - **Hierarchical autocomplete**: an empty field lists **true root** commands only (`plugin`, `user`, `menu`, …). After **`user `** (trailing space or typing the root), **Next steps** includes `user list`, `user lock`, `user unlock`, `user add`, `user role set`, etc. Deeper paths (e.g. `plugin update {name}`) stay entity-driven as before.
+
+### Multi-step command UX pattern (iterative field prompts)
+
+Flux One supports **iterative, field-by-field command completion** for open-ended commands. The canonical example is:
+
+- `user add {login} {email} {role}`
+
+As the operator types, Command Central should adapt suggestions and helper copy in real time so the next expected field is obvious (e.g. “then email and role”, then “then role”). This avoids dumping full syntax up front and gives a guided, low-friction flow.
+
+#### Example: `user add` progressive UX
+
+1. User types: `user add`
+   - Next-step helper: “Enter username, then email and role.”
+   - Suggestions: none yet (free-text username expected).
+
+2. User types: `user add jane`
+   - Next-step helper: “Great — now add email, then role.”
+   - Suggestions: none yet (free-text email expected).
+
+3. User types: `user add jane jane@site.com`
+   - Next-step helper: “Now choose a role.”
+   - Suggestions: role entities from user/role index (autocomplete list).
+
+4. User types: `user add jane jane@site.com editor`
+   - Command becomes runnable; Enter executes.
+
+This same interaction pattern should be reused for any multi-input command where fields are open-ended or mixed (free text + entity picks).
+
+#### Systemizing this as a command type in registry
+
+Define a dedicated **multi-step command type** in the command registry layer (parallel to existing registry patterns), with explicit step metadata. Each step declares:
+
+- `field`: semantic field id (e.g. `login`, `email`, `role`)
+- `kind`: input type (`text`, `email`, `entity`, `enum`)
+- `prompt`: helper message shown while this step is active
+- `source` (optional): entity source mapping for autocomplete (`users`, `roles`, `plugins`, `sites`, etc.)
+- `validate` (optional): lightweight client validation hint/gate for enabling run state
+
+Suggested shape (documentation-level example):
+
+```ts
+{
+  id: 'cmd.user.add',
+  canonical: 'user add',
+  type: 'multistep',
+  steps: [
+    { field: 'login', kind: 'text',  prompt: 'Enter username, then email and role.' },
+    { field: 'email', kind: 'email', prompt: 'Now add email, then role.' },
+    { field: 'role',  kind: 'entity', source: 'roles', prompt: 'Choose a role.' }
+  ]
+}
+```
+
+Implementation intent:
+
+- Keep this in the **command registry** so step behavior is declarative.
+- Keep entity-source mappings **field-specific** (not command-global).
+- Keep router canonicalization unchanged (`CommandRouter` remains source of truth for execution forms).
+- Keep docs synchronized across README + `commandDocs.ts` + registry definitions.
+
 - **Client-side `nav`**: destination rows from `GET /index/destinations` include **`url`**. Choosing a destination suggestion uses **`window.location.assign(url)`** and **does not** call `POST /command`. Typed `nav …` with an **unambiguous** match against the cached index also redirects client-side; otherwise execution falls back to `POST /command` (same as `NavigationHandler`).
 - **Read-only list fast path**: `plugin list` / `user list` / `site list` / `menu list` (and `show` variants) can render the structured panel from **React Query cache** when the corresponding index is already loaded, skipping `POST /command`. **`aggregate email` and `summary email` always use the backend** (no client shortcut for aggregates or AI).
 - **`useMutation`** for commands that still need the server: disabled input + “Running…” notice while `POST /command` is in flight

@@ -111,7 +111,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     kind: 'sub',
     summary: 'Creates a user with username, email, and role (no password prompt).',
     details:
-      'POST /command → wp_insert_user with generated password; wp_send_new_user_notifications when available. Requires create_users. Role must be one of your editable roles (from bootstrap). Form: user add {login} {email} {role}.',
+      'POST /command → wp_insert_user with generated password; wp_send_new_user_notifications when available. Requires create_users. Role must be one of your editable roles (from bootstrap). Form: user add {login} {email} {role}. UX is multistep and prompt-driven via registry metadata (username → email → role suggestions).',
     backend: 'command',
   },
   {
