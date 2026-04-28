@@ -12,8 +12,6 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
     { id: 'cmd.plugin.activate', kind: 'subcommand', label: 'plugin activate', value: 'plugin activate ' },
     { id: 'cmd.plugin.deactivate', kind: 'subcommand', label: 'plugin deactivate', value: 'plugin deactivate ' },
     { id: 'cmd.plugin.delete', kind: 'subcommand', label: 'plugin delete', value: 'plugin delete ' },
-    { id: 'cmd.plugin.upload', kind: 'subcommand', label: 'plugin upload', value: 'plugin upload' },
-    { id: 'cmd.plugin.install', kind: 'subcommand', label: 'plugin install', value: 'plugin install' },
   ],
   user: [
     { id: 'cmd.user.list', kind: 'subcommand', label: 'user list', value: 'user list' },

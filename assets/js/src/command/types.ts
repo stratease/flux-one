@@ -10,6 +10,7 @@ export type EntityType =
   | 'menu'
   | 'site'
   | 'destination'
+  | 'content'
   | 'configKey'
   | 'configValue';
 

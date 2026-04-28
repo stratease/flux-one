@@ -199,6 +199,13 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     backend: 'command',
   },
   {
+    canonical: 'config search',
+    kind: 'sub',
+    summary: 'Search config keys by label/id/plugin and show a filtered table.',
+    details: 'POST /command (server filters using same catalog as `config list`).',
+    backend: 'command',
+  },
+  {
     canonical: 'config get',
     kind: 'sub',
     summary: 'Prints one setting: `config get {id}`.',

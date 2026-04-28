@@ -110,6 +110,8 @@ module.exports = {
     },
     compress: true,
     port: 3004,
+    allowedHosts: 'all',
+    host: '0.0.0.0',
     hot: true,
     headers: {
       'Access-Control-Allow-Origin': '*',

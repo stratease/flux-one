@@ -124,7 +124,7 @@
 }
 
 .flux-one-modal--wide {
-  width: min(1120px, calc(100vw - 24px));
+  width: min(1280px, calc(100vw - 24px));
   max-height: min(90vh, 860px);
 }
 

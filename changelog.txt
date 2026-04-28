@@ -1,3 +1,6 @@
+= 1.2.0 =
+* Improving UX of the Email Aggregate feature.y
+
 = 1.1.1 =
 * Some minor cleanup of entity visuals and email aggregate, optimized loader.
 

@@ -22,6 +22,16 @@ class EmailMailPolicy {
 	 */
 	private const RELEASE_HEADER = 'X-Flux-One-Release: 1';
 
+	/**
+	 * Marker header used to bypass suppression for operational emails (password reset, welcome, etc.).
+	 *
+	 * This header is intended for internal use and should be stripped before sending.
+	 *
+	 * @since 1.3.0
+	 * @var string
+	 */
+	private const NEVER_SUPPRESS_HEADER = 'X-Flux-One-Never-Suppress: 1';
+
 
 	/**
 	 * Register WordPress hooks.
@@ -47,6 +57,16 @@ class EmailMailPolicy {
 
 		$headers = $args['headers'] ?? [];
 		if ( self::has_release_header( $headers ) ) {
+			return $args;
+		}
+
+		if ( self::has_never_suppress_header( $headers ) ) {
+			$args['headers'] = self::strip_never_suppress_header( $headers );
+			return $args;
+		}
+
+		$skip = apply_filters( 'flux_one_skip_suppress_mail_to_self', false, $args );
+		if ( true === $skip ) {
 			return $args;
 		}
 
@@ -78,6 +98,82 @@ class EmailMailPolicy {
 			}
 		}
 		return false;
+	}
+
+	/**
+	 * @since 1.3.0
+	 * @param mixed $headers Headers.
+	 * @return bool
+	 */
+	private static function has_never_suppress_header( $headers ) {
+		if ( is_string( $headers ) ) {
+			return false !== stripos( $headers, self::NEVER_SUPPRESS_HEADER );
+		}
+		if ( is_array( $headers ) ) {
+			foreach ( $headers as $h ) {
+				if ( is_string( $h ) && false !== stripos( $h, self::NEVER_SUPPRESS_HEADER ) ) {
+					return true;
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Remove the internal never-suppress marker header from header lines.
+	 *
+	 * @since 1.3.0
+	 * @param mixed $headers Headers.
+	 * @return string|array
+	 */
+	private static function strip_never_suppress_header( $headers ) {
+		if ( is_array( $headers ) ) {
+			$out = [];
+			foreach ( $headers as $h ) {
+				$h = (string) $h;
+				if ( false !== stripos( $h, self::NEVER_SUPPRESS_HEADER ) ) {
+					continue;
+				}
+				$out[] = $h;
+			}
+			return array_values( array_filter( $out, static fn( $l ) => '' !== trim( (string) $l ) ) );
+		}
+
+		$lines = preg_split( "/\r\n|\n|\r/", (string) $headers );
+		$lines = is_array( $lines ) ? $lines : [];
+		$built = [];
+		foreach ( $lines as $line ) {
+			$line = (string) $line;
+			if ( false !== stripos( $line, self::NEVER_SUPPRESS_HEADER ) ) {
+				continue;
+			}
+			if ( '' !== trim( $line ) ) {
+				$built[] = $line;
+			}
+		}
+		return implode( "\r\n", $built );
+	}
+
+	/**
+	 * Append internal never-suppress marker to headers.
+	 *
+	 * Intended for core email filter hooks (e.g. password reset notifications).
+	 *
+	 * @since 1.3.0
+	 * @param array $email Email attrs.
+	 * @return array
+	 */
+	public static function mark_never_suppress_email( $email ) {
+		$email = is_array( $email ) ? $email : [];
+		$h     = $email['headers'] ?? [];
+		if ( is_array( $h ) ) {
+			$h[] = self::NEVER_SUPPRESS_HEADER;
+		} else {
+			$s = trim( (string) $h );
+			$h = '' === $s ? self::NEVER_SUPPRESS_HEADER : $s . "\r\n" . self::NEVER_SUPPRESS_HEADER;
+		}
+		$email['headers'] = $h;
+		return $email;
 	}
 
 	/**

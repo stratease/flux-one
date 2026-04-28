@@ -39,6 +39,32 @@ class EmailEventLogger {
 	private const RELEASE_HEADER = 'X-Flux-One-Release: 1';
 
 	/**
+	 * Best-effort decode for entity-escaped HTML.
+	 *
+	 * Only used for the stored HTML preview (`messageHtml`), never for the raw
+	 * stored message used by release resend (`message`).
+	 *
+	 * @since 1.1.2
+	 * @param string $message Email body.
+	 * @return string
+	 */
+	private function maybe_decode_entity_html( $message ) {
+		$s = (string) $message;
+		// Quick guard: avoid work unless it looks entity-escaped.
+		if ( false === strpos( $s, '&lt;' ) || false === strpos( $s, '&gt;' ) ) {
+			return $s;
+		}
+
+		$decoded = html_entity_decode( $s, ENT_QUOTES | ENT_HTML5, 'UTF-8' );
+		// Only accept decode if it produces actual tags (prevents mangling plain text with < > symbols).
+		if ( preg_match( '/<\s*\/?\s*[a-z][a-z0-9-]*\b[^>]*>/i', $decoded ) ) {
+			return $decoded;
+		}
+
+		return $s;
+	}
+
+	/**
 	 * Determine if headers indicate HTML content.
 	 *
 	 * @since 0.1.0
@@ -71,6 +97,25 @@ class EmailEventLogger {
 		if ( '' === $s ) {
 			return false;
 		}
+
+		// Common case: HTML fragment without a full document wrapper.
+		// (Many WP mails are `<p>…</p>` / `<table>…</table>` with or without headers.)
+		if ( preg_match( '/<\s*\/?\s*(p|br|div|span|table|tr|td|th|thead|tbody|tfoot|a|img|h[1-6]|ul|ol|li|strong|em|b|i|hr|pre|code|blockquote)\b/i', $s ) ) {
+			return true;
+		}
+
+		// If stripping tags changes content materially, treat as HTML-ish.
+		// Guard against false positives: require at least one `<...>`-looking tag.
+		if ( wp_strip_all_tags( $s ) !== $s && preg_match( '/<\s*\/?\s*[a-z][a-z0-9-]*\b[^>]*>/i', $s ) ) {
+			return true;
+		}
+
+		// Entity-escaped HTML.
+		if ( preg_match( '/&lt;\s*\/?\s*[a-z][a-z0-9-]*\b/i', $s ) ) {
+			return true;
+		}
+
+		// Document wrapper tags (legacy heuristic).
 		$head = strtolower( substr( $s, 0, 4096 ) );
 		return false !== strpos( $head, '<!doctype' ) ||
 			false !== strpos( $head, '<html' ) ||
@@ -184,7 +229,7 @@ class EmailEventLogger {
 
 		$message_html = '';
 		if ( '' !== $message && $is_html ) {
-			$message_html = $this->truncate( $message, self::MAX_MESSAGE_HTML_CHARS );
+			$message_html = $this->truncate( $this->maybe_decode_entity_html( $message ), self::MAX_MESSAGE_HTML_CHARS );
 		}
 
 		$message_raw = '';

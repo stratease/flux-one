@@ -5,8 +5,10 @@ type PluginRow = { name: string; pluginFile: string; active?: boolean; version?:
 type UserRow = { id: number; email: string; displayName?: string; login?: string };
 type SiteRow = { blogId: number; domain: string; path: string };
 type DestinationRow = { id: string; label: string; value: string; url: string; searchText?: string; pathLabels: string[] };
+type MenuRow = { id: number; name: string; slug?: string };
 type ConfigKeyRow = { id: string; label: string; plugin: string; type: string; searchText: string; choices?: string[] };
 type ConfigValueRow = { id: string; value: string; label?: string; searchText?: string };
+type ContentRow = { id: number; postType: 'post' | 'page'; title: string; slug: string; editUrl: string; searchText?: string };
 
 export const pluginAdapter: EntityAdapter<PluginRow> = {
   entityType: 'plugin',
@@ -101,6 +103,67 @@ export const destinationAdapter: EntityAdapter<DestinationRow> = {
   },
 };
 
+export const menuShowAdapter: EntityAdapter<MenuRow> = {
+  entityType: 'menu',
+  getId: (m) => String(m.id),
+  getLabel: (m) => String(m.name || ''),
+  getValue: (m) => `menu show ${String(m.name || '').trim()}`,
+  getSearchText: (m) => `${m.slug || ''} ${m.id}`,
+  toSuggestion: (m) => ({
+    id: `menu.${m.id}`,
+    kind: 'entity',
+    entityType: 'menu',
+    label: String(m.name || ''),
+    value: `menu show ${String(m.name || '').trim()}`,
+  }),
+  rankBoost: (m, ctx) => {
+    const q = ctx.query;
+    if (!q) return 0;
+    const name = String(m.name || '').toLowerCase();
+    const slug = String(m.slug || '').toLowerCase();
+    if (q === name || q === slug) return 0.7;
+    if (name.startsWith(q) || slug.startsWith(q)) return 0.35;
+    return 0;
+  },
+};
+
+export function makeEditContentAdapter(opts: {
+  kind: 'any' | 'post' | 'page';
+  typedSub: 'p' | 'post' | 'page';
+}): EntityAdapter<ContentRow> {
+  const { kind, typedSub } = opts;
+  return {
+    entityType: 'content',
+    hasHierarchy: kind === 'any',
+    getId: (r) => String(r.id),
+    getLabel: (r) => String(r.title || '(no title)'),
+    getValue: (r) => `edit ${typedSub} ${String(r.title || '').trim()}`,
+    getSearchText: (r) => `${r.slug || ''} ${r.searchText || ''}`,
+    getPathLabels: (r) =>
+      kind === 'any' ? [r.postType === 'page' ? 'Page' : 'Post', String(r.title || '(no title)')] : undefined,
+    toSuggestion: (r, ctx) => ({
+      id: `edit.${r.postType}.${r.id}`,
+      kind: 'entity',
+      entityType: 'content',
+      label: String(r.title || '(no title)'),
+      displayLabel: kind === 'any' ? ctx.displayLabel : undefined,
+      pathLabels: kind === 'any' ? ctx.pathLabels : undefined,
+      value: `edit ${typedSub} ${String(r.title || '').trim()}`,
+      clientAction: 'nav',
+      navUrl: r.editUrl,
+    }),
+    rankBoost: (r, ctx) => {
+      const q = ctx.query;
+      if (!q) return 0;
+      const title = String(r.title || '').toLowerCase();
+      const slug = String(r.slug || '').toLowerCase();
+      if (q === title || q === slug) return 0.8;
+      if (title.startsWith(q) || slug.startsWith(q)) return 0.45;
+      return 0;
+    },
+  };
+}
+
 export const configKeyAdapter: EntityAdapter<ConfigKeyRow> = {
   entityType: 'configKey',
   getId: (c) => c.id,
@@ -144,22 +207,10 @@ export type EntityAdapterMap = Record<NonNullable<Suggestion['entityType']>, Ent
 export const ENTITY_ADAPTERS: EntityAdapterMap = {
   plugin: pluginAdapter,
   user: userAdapter,
-  menu: {
-    entityType: 'menu',
-    getId: (m: any) => String(m.id),
-    getLabel: (m: any) => String(m.name || ''),
-    getValue: (m: any) => String(m.name || ''),
-    getSearchText: (m: any) => `${m.slug || ''} ${m.id || ''}`,
-    toSuggestion: (m: any) => ({
-      id: `menu.${m.id}`,
-      kind: 'entity',
-      entityType: 'menu',
-      label: String(m.name || ''),
-      value: String(m.name || ''),
-    }),
-  },
+  menu: menuShowAdapter,
   site: siteAdapter,
   destination: destinationAdapter,
+  content: makeEditContentAdapter({ kind: 'any', typedSub: 'p' }),
   configKey: configKeyAdapter,
   configValue: configValueAdapter,
 };

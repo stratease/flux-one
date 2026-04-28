@@ -62,8 +62,23 @@ function eventLine(ev: EmailAggregateEvent, previewMax: number): string {
 }
 
 function EmailHtml({ html }: { html: string }) {
+  function maybeDecodeEntities(s: string): string {
+    const raw = String(s || '');
+    // If it already contains real tags, don't decode (avoid unintended changes).
+    if (/[<][a-zA-Z!/]/.test(raw)) return raw;
+    // Only decode if it looks like escaped HTML.
+    if (!raw.includes('&lt;') || !raw.includes('&gt;')) return raw;
+    try {
+      const ta = document.createElement('textarea');
+      ta.innerHTML = raw;
+      return ta.value || raw;
+    } catch {
+      return raw;
+    }
+  }
+
   const srcDoc = useMemo(() => {
-    const body = String(html || '');
+    const body = maybeDecodeEntities(html);
     // Keep srcDoc simple + self-contained; rely on browser default styles.
     return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head><body>${body}</body></html>`;
   }, [html]);
@@ -103,17 +118,21 @@ function EmailRaw({ text }: { text: string }) {
 function EventBlock({
   ev,
   onReleased,
+  onDeleted,
   variant = 'list',
   showSubject = false,
 }: {
   ev: EmailAggregateEvent;
   onReleased: (eventId: number) => void;
+  onDeleted?: (eventId: number) => void;
   variant?: 'modal' | 'list';
   showSubject?: boolean;
 }) {
   const p = ev.payload || {};
   const [releasing, setReleasing] = useState(false);
   const [releaseError, setReleaseError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   async function onRelease() {
     if (releasing) return;
@@ -127,6 +146,23 @@ function EventBlock({
       setReleaseError(msg);
     } finally {
       setReleasing(false);
+    }
+  }
+
+  async function onDelete() {
+    if (deleting) return;
+    const ok = window.confirm('Delete this captured email? This cannot be undone.');
+    if (!ok) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await api.deleteAggregateEmailEvent(ev.id);
+      onDeleted?.(ev.id);
+    } catch (e: any) {
+      const msg = String(e?.message || e?.data?.message || e?.message || 'Delete failed.');
+      setDeleteError(msg);
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -166,11 +202,23 @@ function EventBlock({
           >
             {releasing ? 'Releasing…' : 'Release'}
           </button>
+          <button
+            type="button"
+            className="button button-small"
+            onClick={onDelete}
+            disabled={deleting}
+            aria-disabled={deleting}
+          >
+            {deleting ? 'Deleting…' : 'Delete'}
+          </button>
         </div>
       </div>
 
       {releaseError ? (
         <div style={{ marginTop: 8, fontSize: 12, color: '#8a2424' }}>{releaseError}</div>
+      ) : null}
+      {deleteError ? (
+        <div style={{ marginTop: 8, fontSize: 12, color: '#8a2424' }}>{deleteError}</div>
       ) : null}
 
       {p.messageHtml ? (
@@ -197,15 +245,16 @@ export function EmailAggregateView({
 }) {
   const [modalSubject, setModalSubject] = useState<string | null>(null);
   const [releasedIds, setReleasedIds] = useState<number[]>([]);
+  const [deletedIds, setDeletedIds] = useState<number[]>([]);
 
   const meta = data?.meta || {};
 
   const visibleEvents = useMemo(() => {
     const events = Array.isArray(data?.events) ? data!.events! : [];
-    if (!releasedIds.length) return events;
-    const gone = new Set(releasedIds);
+    if (!releasedIds.length && !deletedIds.length) return events;
+    const gone = new Set([...releasedIds, ...deletedIds]);
     return events.filter((e) => !gone.has(e.id));
-  }, [data?.events, releasedIds]);
+  }, [data?.events, releasedIds, deletedIds]);
 
   const eventsBySubject = useMemo(() => {
     const map: Record<string, EmailAggregateEvent[]> = {};
@@ -258,6 +307,9 @@ export function EmailAggregateView({
               variant="modal"
               onReleased={(eventId) => {
                 setReleasedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
+              }}
+              onDeleted={(eventId) => {
+                setDeletedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
               }}
             />
           ))}
@@ -337,6 +389,9 @@ export function EmailAggregateView({
               variant="modal"
               onReleased={(eventId) => {
                 setReleasedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
+              }}
+              onDeleted={(eventId) => {
+                setDeletedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
               }}
             />
           ))}

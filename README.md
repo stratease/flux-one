@@ -111,14 +111,13 @@ Main file: `flux-one.php`
 
 - **Events table:** `{wpdb->prefix}flux_one_events`
   - Created via `dbDelta()` in `app/Services/Database.php`
-  - Retention: **7 days** (deleted by daily cron)
+  - Retention: **indefinite** (retained until explicitly deleted)
 - **User memory:** `_flux_one_command_memory` user meta
   - `recent_commands`, `recent_navigations` (max 5 admin URLs and/or `nav` commands with labels), `pinned_commands`, `frequent_entities`, `last_site_context`
 
 ### Cron
 
-- Hook: `flux_one_daily_cleanup`
-- Schedules on activation; clears on deactivation.
+- (No default retention cleanup cron; events are retained until explicitly deleted.)
 
 ### Multisite
 
@@ -219,6 +218,20 @@ When you add or change commands in **PHP** (`CommandRouter`, handlers) or **JS**
 3. **User-facing strings** / registry labels as needed
 
 Treat **README + commandDocs + registry** as the operator-facing documentation triangle.
+
+### Bugfix + cleanup priorities (P0/P1/P2)
+
+Use this as a running “intent alignment” checklist when changing Command Central.
+
+- **P0**
+  - **Client-nav UX consistency**: any suggestion that redirects (`clientAction: 'nav'`) must set centralized busy state + label before `window.location.assign` (spinner paints on next frame).
+  - **Nav destination correctness**: destination indexer must avoid unloadable `admin.php?page=slug` targets and preserve SPA/query-style slugs for modern admin apps (WooCommerce, etc.).
+- **P1**
+  - **Docs drift prevention**: keep `registry.ts` and `commandDocs.ts` in sync. Run `npm run validate:docs` (part of `npm run build`).
+  - **Modal focus/close regressions**: ensure all modal open flows provide predictable initial focus and all close paths restore focus to opener.
+- **P2**
+  - **Entity adapter reuse**: add new entity suggestion flows by extending adapters (`entityAdapters.ts`) rather than ad-hoc inline ranking rules in `suggest.ts`.
+  - **Intent reuse**: use `getIntent()` (`assets/js/src/command/intent.ts`) for query gating and other UI intent decisions (single source of truth).
 
 ---
 

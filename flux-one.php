@@ -1,9 +1,9 @@
 <?php
 /**
- * Plugin Name: Flux One - Command Central by Flux Plugins
+ * Plugin Name: Flux One - Command Center by Flux Plugins
  * Plugin URI: https://fluxplugins.com/flux-one
  * Description: Command-driven control panel for WordPress admin (command palette, dashboard widget, and operational actions).
- * Version: 1.1.1
+ * Version: 1.2.0
  * Author: Flux Plugins
  * Author URI: https://fluxplugins.com
  * License: GPL-2.0-or-later
@@ -26,7 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'FLUX_ONE_VERSION', '1.1.1' );
+define( 'FLUX_ONE_VERSION', '1.2.0' );
 define( 'FLUX_ONE_PLUGIN_FILE', __FILE__ );
 define( 'FLUX_ONE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'FLUX_ONE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -136,7 +136,8 @@ function flux_one_activate() {
 	}
 
 	Database::create_tables();
-	CleanupService::maybe_schedule();
+	// v1 retention originally scheduled a daily cleanup; email events are now retained until explicitly deleted.
+	CleanupService::clear_schedule();
 }
 
 /**

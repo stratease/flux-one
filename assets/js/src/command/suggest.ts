@@ -3,7 +3,15 @@ import { canonicalizeTokens, parseInput } from './normalize';
 import type { ParsedInput, Suggestion } from './types';
 import Fuse from 'fuse.js';
 import { searchEntities } from './entitySearch';
-import { configKeyAdapter, destinationAdapter, pluginAdapter, siteAdapter, userAdapter } from './entityAdapters';
+import {
+  configKeyAdapter,
+  destinationAdapter,
+  makeEditContentAdapter,
+  menuShowAdapter,
+  pluginAdapter,
+  siteAdapter,
+  userAdapter,
+} from './entityAdapters';
 
 export type IndexData = {
   plugins?: Array<{ name: string; pluginFile: string; active?: boolean; version?: string; updateAvailable?: boolean }>;
@@ -512,29 +520,7 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
         searchEntities({
           query,
           items: query ? list : list.slice(0, 200),
-          adapter: {
-            entityType: 'menu',
-            getId: (m) => String(m.id),
-            getLabel: (m) => `${m.name}${m.slug ? ` (${m.slug})` : ''}`,
-            getValue: (m) => `menu show ${m.name}`,
-            getSearchText: (m) => `${m.slug || ''} ${m.id}`,
-            toSuggestion: (m) => ({
-              id: `menu.${m.id}`,
-              kind: 'entity',
-              entityType: 'menu',
-              label: m.name,
-              value: `menu show ${m.name}`,
-            }),
-            rankBoost: (m, ctx) => {
-              const q = ctx.query;
-              if (!q) return 0;
-              const name = String(m.name || '').toLowerCase();
-              const slug = String(m.slug || '').toLowerCase();
-              if (q === name || q === slug) return 0.7;
-              if (name.startsWith(q) || slug.startsWith(q)) return 0.35;
-              return 0;
-            },
-          },
+          adapter: menuShowAdapter,
           limit: 10,
         })
       );
@@ -591,41 +577,13 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
     }
 
     const kind = t1 === 'post' ? 'post' : t1 === 'page' ? 'page' : 'any';
+    const typedSub = t1 === 'post' ? 'post' : t1 === 'page' ? 'page' : 'p';
     const rest = rawLower.replace(/^edit\s+(p|post|page)\s*/i, '').trim();
     const list = indices.content || [];
     const results = searchEntities({
       query: rest,
       items: list,
-      adapter: {
-        entityType: 'destination',
-        hasHierarchy: kind === 'any',
-        getId: (r) => String(r.id),
-        getLabel: (r) => String(r.title || '(no title)'),
-        getValue: (r) => r.title,
-        getSearchText: (r) => `${r.slug || ''} ${r.searchText || ''}`,
-        getPathLabels: (r) =>
-          kind === 'any' ? [r.postType === 'page' ? 'Page' : 'Post', String(r.title || '(no title)')] : undefined,
-        toSuggestion: (r, ctx) => ({
-          id: `edit.${r.postType}.${r.id}`,
-          kind: 'entity',
-          entityType: 'destination',
-          label: String(r.title || '(no title)'),
-          displayLabel: kind === 'any' ? ctx.displayLabel : undefined,
-          pathLabels: kind === 'any' ? ctx.pathLabels : undefined,
-          value: `edit ${t1 === 'p' ? 'p' : t1} ${String(r.title || '').trim()}`,
-          clientAction: 'nav',
-          navUrl: r.editUrl,
-        }),
-        rankBoost: (r, ctx) => {
-          const q = ctx.query;
-          if (!q) return 0;
-          const title = String(r.title || '').toLowerCase();
-          const slug = String(r.slug || '').toLowerCase();
-          if (q === title || q === slug) return 0.8;
-          if (title.startsWith(q) || slug.startsWith(q)) return 0.45;
-          return 0;
-        },
-      },
+      adapter: makeEditContentAdapter({ kind, typedSub }),
       limit: 10,
     });
     return pack([], results);

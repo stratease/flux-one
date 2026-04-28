@@ -56,6 +56,18 @@ class AggregationController extends BaseController {
 							'type'     => 'integer',
 							'required' => false,
 						],
+						'q' => [
+							'type'     => 'string',
+							'required' => false,
+						],
+						'page' => [
+							'type'     => 'integer',
+							'required' => false,
+						],
+						'perPage' => [
+							'type'     => 'integer',
+							'required' => false,
+						],
 					],
 				],
 			]
@@ -90,6 +102,24 @@ class AggregationController extends BaseController {
 				],
 			]
 		);
+
+		register_rest_route(
+			$this->namespace,
+			'/aggregate/email/delete',
+			[
+				[
+					'methods'             => 'POST',
+					'callback'            => [ $this, 'delete_email' ],
+					'permission_callback' => [ $this, 'check_permissions' ],
+					'args'                => [
+						'eventId' => [
+							'type'     => 'integer',
+							'required' => true,
+						],
+					],
+				],
+			]
+		);
 	}
 
 	/**
@@ -101,12 +131,20 @@ class AggregationController extends BaseController {
 	 */
 	public function aggregate_email( WP_REST_Request $request ) {
 		$days = (int) $request->get_param( 'days' );
-		if ( $days <= 0 || $days > 30 ) {
+		if ( $days <= 0 || $days > 365 ) {
 			$days = 7;
 		}
 
 		$svc    = new EmailAggregationService();
-		$report = $svc->get_report( $days, get_current_user_id() );
+		$report = $svc->get_report(
+			$days,
+			get_current_user_id(),
+			[
+				'q'       => (string) $request->get_param( 'q' ),
+				'page'    => (int) $request->get_param( 'page' ),
+				'perPage' => (int) $request->get_param( 'perPage' ),
+			]
+		);
 
 		return $this->create_success_response( $report, 'Email aggregation' );
 	}
@@ -208,6 +246,57 @@ class AggregationController extends BaseController {
 				'to'      => (string) $user->user_email,
 			],
 			'Email released'
+		);
+	}
+
+	/**
+	 * Delete a captured email event (without releasing).
+	 *
+	 * Per-user: only deletes events owned by current user.
+	 *
+	 * @since 1.2.0
+	 * @param WP_REST_Request $request Request.
+	 * @return \WP_REST_Response
+	 */
+	public function delete_email( WP_REST_Request $request ) {
+		global $wpdb;
+
+		$event_id = (int) $request->get_param( 'eventId' );
+		if ( $event_id <= 0 ) {
+			return $this->create_error_response( 'Missing eventId.', 'flux_one_bad_request', 400 );
+		}
+
+		$user_id = (int) get_current_user_id();
+		if ( $user_id <= 0 ) {
+			return $this->create_error_response( 'Not logged in.', 'flux_one_forbidden', 403 );
+		}
+
+		$table = Database::events_table_name();
+		$deleted = $wpdb->delete(
+			$table,
+			[
+				'id'        => $event_id,
+				'user_id'   => $user_id,
+				'event_type'=> 'email',
+			],
+			[
+				'%d',
+				'%d',
+				'%s',
+			]
+		);
+		if ( false === $deleted ) {
+			return $this->create_error_response( 'Delete failed.', 'flux_one_delete_failed', 500 );
+		}
+		if ( 0 === (int) $deleted ) {
+			return $this->create_error_response( 'Email event not found.', 'flux_one_not_found', 404 );
+		}
+
+		return $this->create_success_response(
+			[
+				'eventId' => $event_id,
+			],
+			'Email deleted'
 		);
 	}
 

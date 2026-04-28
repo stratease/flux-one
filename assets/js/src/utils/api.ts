@@ -77,10 +77,22 @@ export const api = {
     );
   },
 
-  async getEmailAggregate(days: number = 7) {
+  async getEmailAggregate(params?: { days?: number; q?: string; page?: number; perPage?: number }) {
+    const days = params?.days ?? 7;
+    const q = (params?.q ?? '').trim();
+    const page = params?.page ?? 1;
+    const perPage = params?.perPage ?? 20;
+    const qs = [
+      `days=${encodeURIComponent(String(days))}`,
+      q ? `q=${encodeURIComponent(q)}` : '',
+      page ? `page=${encodeURIComponent(String(page))}` : '',
+      perPage ? `perPage=${encodeURIComponent(String(perPage))}` : '',
+    ]
+      .filter(Boolean)
+      .join('&');
     return apiFetch(
       withNonce({
-        path: `/flux-one/v1/aggregate/email?days=${encodeURIComponent(String(days))}`,
+        path: `/flux-one/v1/aggregate/email?${qs}`,
         method: 'GET',
       })
     );
@@ -99,6 +111,16 @@ export const api = {
     return apiFetch(
       withNonce({
         path: '/flux-one/v1/aggregate/email/release',
+        method: 'POST',
+        data: { eventId },
+      })
+    );
+  },
+
+  async deleteAggregateEmailEvent(eventId: number) {
+    return apiFetch(
+      withNonce({
+        path: '/flux-one/v1/aggregate/email/delete',
         method: 'POST',
         data: { eventId },
       })

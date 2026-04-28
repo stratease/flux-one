@@ -7,6 +7,7 @@ import { canonicalizeInput, parseInput } from '../command/normalize';
 import type { Suggestion } from '../command/types';
 import { filterCommandDocs } from '../command/commandDocs';
 import { interpretEnter, interpretSuggestionPick } from '../command/interpretEnter';
+import { getIntent } from '../command/intent';
 import { EmailAggregateView, type EmailAggregatePayload } from './EmailAggregateView';
 import { FluxOneModal } from './FluxOneModal';
 import Fuse from 'fuse.js';
@@ -75,12 +76,20 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const inputRef = useRef<HTMLInputElement | null>(null);
   const commandsModalTriggerRef = useRef<HTMLButtonElement | null>(null);
   const commandsModalSearchRef = useRef<HTMLInputElement | null>(null);
+  const aggregateEmailSearchRef = useRef<HTMLInputElement | null>(null);
   const dashboardFocusAppliedRef = useRef(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
   const [commandsModalOpen, setCommandsModalOpen] = useState(false);
   const [commandsHelpQuery, setCommandsHelpQuery] = useState('');
   const [aggregateEmailModalOpen, setAggregateEmailModalOpen] = useState(false);
-  const aggregateEmailDays = 7;
+  const [aggregateEmailDays, setAggregateEmailDays] = useState<number>(7);
+  const [aggregateEmailQ, setAggregateEmailQ] = useState<string>('');
+  const [aggregateEmailPage, setAggregateEmailPage] = useState<number>(1);
+  const [aggregateEmailPerPage, setAggregateEmailPerPage] = useState<number>(20);
+  const [aggregateEmailDebouncedQ, setAggregateEmailDebouncedQ] = useState<string>('');
+  const [aggregateEmailSummary, setAggregateEmailSummary] = useState<{ status: 'idle' | 'loading' | 'error' | 'pending'; message?: string }>(
+    { status: 'idle' }
+  );
   const emailCaptureEnabledRef = useRef(false);
   const [emailCaptureEnabled, setEmailCaptureEnabled] = useState(false);
   const [recentNavigations, setRecentNavigations] = useState<
@@ -187,23 +196,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     queryClient.setQueryData(['flux-one', 'index', 'destinations'], dests as any);
   }, [queryClient]);
 
-  const intent = useMemo(() => {
-    const p = parseInput(input);
-    const rt = getRouteTokens(p);
-    const rt0 = rt[0] || '';
-    const rt1 = rt[1] || '';
-    const root = rt0 === 'summary' ? rt1 : rt0;
-    return {
-      root,
-      wantsPlugins: root === 'plugin',
-      wantsUsers: root === 'user',
-      wantsMenus: root === 'menu',
-      wantsSites: root === 'site',
-      wantsDestinations: root === 'nav',
-      wantsSuiteConfig: root === 'config',
-      wantsEdit: root === 'edit',
-    };
-  }, [input]);
+  const intent = useMemo(() => getIntent(input), [input]);
 
   const canFetchIndices = bootstrapped && (kind !== 'overlay' || isOpen);
 
@@ -224,6 +217,15 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     }, 160);
     return () => window.clearTimeout(t);
   }, [input, intent.root]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => setAggregateEmailDebouncedQ(aggregateEmailQ.trim()), 250);
+    return () => window.clearTimeout(t);
+  }, [aggregateEmailQ]);
+
+  useEffect(() => {
+    setAggregateEmailPage(1);
+  }, [aggregateEmailDays, aggregateEmailDebouncedQ, aggregateEmailPerPage]);
 
   useEffect(() => {
     if (kind !== 'overlay') return;
@@ -365,15 +367,28 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     staleTime: 10_000,
   });
 
-  const aggregateEmailQuery = useQuery({
-    queryKey: ['flux-one', 'aggregate', 'email', 7],
-    queryFn: () => api.getEmailAggregate(7),
-    enabled:
-      bootstrapped &&
-      !!selectedSuggestion &&
-      selectedSuggestion.value === 'aggregate email' &&
-      emailCaptureEnabled,
-    staleTime: 60_000,
+  const aggregateEmailModalQuery = useQuery({
+    queryKey: [
+      'flux-one',
+      'aggregate',
+      'email',
+      aggregateEmailDays,
+      aggregateEmailDebouncedQ,
+      aggregateEmailPage,
+      aggregateEmailPerPage,
+    ],
+    queryFn: async () => {
+      const raw = await api.getEmailAggregate({
+        days: aggregateEmailDays,
+        q: aggregateEmailDebouncedQ,
+        page: aggregateEmailPage,
+        perPage: aggregateEmailPerPage,
+      });
+      return (raw as any)?.data ?? raw;
+    },
+    enabled: bootstrapped && aggregateEmailModalOpen && emailCaptureEnabled,
+    staleTime: 5_000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {
@@ -452,14 +467,42 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       if (result.type === 'panel') {
         if (result.panelId === 'aggregate_email') {
           setAiData(null);
+          setAggregateEmailSummary({ status: 'idle' });
           setAggregateEmailModalOpen(true);
           if (!emailCaptureEnabledRef.current) {
             setPanelData(null);
           } else {
-            api.getEmailAggregate(aggregateEmailDays).then((agg: any) => setPanelData(agg?.data ?? agg));
             const aiRequested = !!result?.data?.aiRequested;
             if (aiRequested) {
-              api.getEmailSummary().then((ai: any) => setAiData(ai?.data ?? ai));
+              setAggregateEmailDays(7);
+              setAggregateEmailQ('');
+              setAggregateEmailPage(1);
+              setAggregateEmailPerPage(20);
+            }
+            if (aiRequested) {
+              setAggregateEmailSummary({ status: 'loading' });
+              api
+                .getEmailSummary()
+                .then((ai: any) => {
+                  const payload = ai?.data ?? ai;
+                  const inner = payload?.ai ?? payload;
+                  const msg = String(inner?.message || 'Summary unavailable.');
+                  const st = String(inner?.status || 'pending');
+                  if (st === 'pending') {
+                    setAggregateEmailSummary({ status: 'pending', message: msg });
+                  } else if (st === 'disabled') {
+                    setAggregateEmailSummary({ status: 'error', message: msg });
+                  } else {
+                    setAggregateEmailSummary({ status: 'pending', message: msg });
+                  }
+                  setAiData(payload);
+                })
+                .catch((e: any) => {
+                  setAggregateEmailSummary({
+                    status: 'error',
+                    message: String(e?.message || e?.data?.message || 'Summary failed.'),
+                  });
+                });
             }
           }
         } else {
@@ -1148,8 +1191,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                         onClick={() => {
                           setAggregateEmailModalOpen(true);
                           if (emailCaptureEnabledRef.current) {
-                            setPanelData(null);
-                            api.getEmailAggregate(aggregateEmailDays).then((agg: any) => setPanelData(agg?.data ?? agg));
+                            void aggregateEmailModalQuery.refetch();
                           }
                         }}
                       >
@@ -1439,10 +1481,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                 <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a>, then run this
                 command again to see logged mail.
               </div>
-            ) : panelData ? (
-              <div style={{ fontSize: 13, opacity: 0.9 }}>
-                Loaded {Array.isArray((panelData as any)?.events) ? (panelData as any).events.length : '—'} events. Modal opened.
-              </div>
             ) : (
               <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>
             )}
@@ -1456,16 +1494,126 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           focusAndSelectPrompt();
         }}
         title={`Aggregate email (${aggregateEmailDays}d)`}
+        className="flux-one-modal--wide"
+        initialFocusRef={aggregateEmailSearchRef}
       >
         {!emailCaptureEnabled ? (
           <div style={{ fontSize: 13, lineHeight: 1.5 }}>
             Email capture is off for your user. Enable it under{' '}
             <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a>, then run this command again.
           </div>
-        ) : panelData ? (
-          <EmailAggregateView data={panelData as EmailAggregatePayload | null} mode="flat_all" />
         ) : (
-          <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>
+          <>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
+                <span style={{ opacity: 0.8 }}>Days</span>
+                <select
+                  value={aggregateEmailDays}
+                  onChange={(e) => setAggregateEmailDays(parseInt(e.currentTarget.value || '7', 10) || 7)}
+                >
+                  {[7, 14, 30, 60, 90, 180, 365].map((d) => (
+                    <option key={d} value={d}>
+                      {d}d
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <input
+                type="search"
+                ref={aggregateEmailSearchRef}
+                value={aggregateEmailQ}
+                onChange={(e) => setAggregateEmailQ(e.currentTarget.value)}
+                placeholder="Search subject + content…"
+                style={{ flex: '1 1 260px', minWidth: 200 }}
+              />
+
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
+                <span style={{ opacity: 0.8 }}>Per page</span>
+                <select
+                  value={aggregateEmailPerPage}
+                  onChange={(e) => setAggregateEmailPerPage(parseInt(e.currentTarget.value || '20', 10) || 20)}
+                >
+                  {[10, 20, 50, 100].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <button
+                type="button"
+                className="button button-small"
+                disabled
+                aria-disabled="true"
+                title="Requires Flux Suite license (coming soon)."
+              >
+                Summary (license)
+              </button>
+
+              {aggregateEmailSummary.status !== 'idle' ? (
+                <span style={{ fontSize: 12, opacity: 0.85 }}>
+                  {aggregateEmailSummary.status === 'loading'
+                    ? 'Summary: loading…'
+                    : aggregateEmailSummary.message
+                      ? `Summary: ${aggregateEmailSummary.message}`
+                      : 'Summary: unavailable.'}
+                </span>
+              ) : null}
+
+              <button
+                type="button"
+                className="button button-small"
+                onClick={() => {
+                  void aggregateEmailModalQuery.refetch();
+                }}
+              >
+                Refresh
+              </button>
+            </div>
+
+            {aggregateEmailModalQuery.data ? (
+              <>
+                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+                  <div style={{ fontSize: 12, opacity: 0.8 }}>
+                    {(() => {
+                      const m = (aggregateEmailModalQuery.data as any)?.meta || {};
+                      const page = Number(m.page || 1);
+                      const totalPages = Number(m.totalPages || 0);
+                      const total = Number(m.total || 0);
+                      return `Total: ${isFinite(total) ? total : '—'} · Page: ${page}${totalPages ? `/${totalPages}` : ''}`;
+                    })()}
+                  </div>
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      className="button button-small"
+                      onClick={() => setAggregateEmailPage((p) => Math.max(1, p - 1))}
+                      disabled={aggregateEmailPage <= 1}
+                      aria-disabled={aggregateEmailPage <= 1}
+                    >
+                      Prev
+                    </button>
+                    <button
+                      type="button"
+                      className="button button-small"
+                      onClick={() => setAggregateEmailPage((p) => p + 1)}
+                      disabled={
+                        Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0) > 0 &&
+                        aggregateEmailPage >= Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0)
+                      }
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+                <EmailAggregateView data={aggregateEmailModalQuery.data as EmailAggregatePayload | null} mode="flat_all" />
+              </>
+            ) : (
+              <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>
+            )}
+          </>
         )}
       </FluxOneModal>
 
