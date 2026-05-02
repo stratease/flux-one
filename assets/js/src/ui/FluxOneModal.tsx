@@ -51,7 +51,7 @@ export function FluxOneModal({ open, onClose, title, children, className, initia
 
   const modal = (
     <div
-      className="flux-one-modal-backdrop"
+      className="flux-one-theme flux-one-modal-backdrop"
       role="presentation"
       tabIndex={-1}
       onKeyDown={(e) => {
@@ -80,7 +80,7 @@ export function FluxOneModal({ open, onClose, title, children, className, initia
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flux-one-modal-header">
-          <h2 id={titleId} style={{ margin: 0, fontSize: 16 }}>
+          <h2 id={titleId} className="flux-one-modal-title">
             {title}
           </h2>
           <button

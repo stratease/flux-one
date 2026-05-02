@@ -173,7 +173,8 @@ Command Central is built as a **standalone admin bundle** using **`react` / `rea
 
 Current approach:
 
-- UI primitives are plain HTML + inline/CSS-module-friendly styles in `assets/js/src/admin/style.css` (no WordPress component library in the Command Central tree).
+- UI primitives are plain HTML + class-based CSS in `assets/js/src/admin/style.css` (no WordPress component library in the Command Central tree).
+- **Theming contract:** design tokens live in `assets/js/src/admin/theme-tokens.css` as `--flux-one-*` CSS custom properties on `.flux-one-theme`. Command Central mount and portaled modal backdrops both use `flux-one-theme` so tokens inherit inside `FluxOneModal` (portaled to `body`). Future themes override variables via an extra class or data attribute on those same roots—avoid duplicating component selectors per theme.
 - Data fetching uses **`@tanstack/react-query`** (`QueryClientProvider` in `assets/js/src/admin/index.tsx`).
 - HTTP uses **`@wordpress/api-fetch`** (nonce + REST paths only).
 

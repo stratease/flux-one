@@ -10,6 +10,9 @@ import { interpretEnter, interpretSuggestionPick } from '../command/interpretEnt
 import { getIntent } from '../command/intent';
 import { EmailAggregateView, type EmailAggregatePayload, type EmailSummaryMap } from './EmailAggregateView';
 import { FluxOneModal } from './FluxOneModal';
+import { CommandCentralHeader } from './command-central/CommandCentralHeader';
+import { RecentAdminPages } from './command-central/RecentAdminPages';
+import { StructuredListPanels } from './command-central/StructuredListPanels';
 import Fuse from 'fuse.js';
 
 type CommandResponse =
@@ -808,15 +811,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       ? String(window.fluxOneAdmin.adminUrl).replace(/\/?$/, '/')
       : '/wp-admin/';
 
-  const btnSmall: React.CSSProperties = {
-    fontSize: 12,
-    padding: '4px 8px',
-    borderRadius: 4,
-    border: '1px solid rgba(0,0,0,0.2)',
-    background: '#fff',
-    cursor: 'pointer',
-  };
-
   const isStructuredListPanel =
     lastResult?.type === 'panel' &&
     !!(lastResult as any).panelId &&
@@ -864,107 +858,31 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   }
 
   return (
-    <div className={`flux-one-mount flux-one-mount--${kind}`}>
+    <div className={`flux-one-theme flux-one-mount flux-one-mount--${kind}`}>
       <div>
-        <div className="flux-one-header">
-          <strong>{label}</strong>
-          <span className="flux-one-header-actions" style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              ref={commandsModalTriggerRef}
-              type="button"
-              className="flux-one-command-reference-trigger"
-              onClick={() => setCommandsModalOpen(true)}
-              aria-label="Command reference"
-              title="Command reference"
-              style={{
-                border: 'none',
-                background: 'transparent',
-                padding: 4,
-                margin: 0,
-                cursor: 'pointer',
-                lineHeight: 1,
-                borderRadius: 4,
-                color: 'inherit',
-                opacity: 0.75,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.opacity = '1';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.opacity = '0.75';
-              }}
-            >
-              <span className="dashicons dashicons-info" aria-hidden style={{ width: 18, height: 18, fontSize: 18 }} />
-            </button>
-            {kind === 'overlay' ? (
-              <button
-                type="button"
-                onClick={() => closeOverlay()}
-                style={{
-                  border: '1px solid rgba(0,0,0,0.16)',
-                  background: '#fff',
-                  borderRadius: 6,
-                  padding: 6,
-                  cursor: 'pointer',
-                  lineHeight: 1,
-                }}
-                aria-label="Close"
-                title="Close"
-              >
-                <span className="dashicons dashicons-no" aria-hidden style={{ width: 18, height: 18, fontSize: 18 }} />
-              </button>
-            ) : null}
-          </span>
-        </div>
+        <CommandCentralHeader
+          label={label}
+          kind={kind}
+          commandsModalTriggerRef={commandsModalTriggerRef}
+          onOpenCommandReference={() => setCommandsModalOpen(true)}
+          onCloseOverlay={closeOverlay}
+        />
 
         <div className="flux-one-body">
         {kind === 'dashboardWidget' && recentNavigations.length > 0 ? (
-          <div className="flux-one-recent-nav" style={{ marginBottom: 4 }}>
-            <div style={{ fontWeight: 600, fontSize: 12, marginBottom: 6 }}>Recent admin pages</div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {recentNavigations.map((item, i) => {
-                const href = item.url && typeof item.url === 'string' ? item.url : '';
-                if (!href) {
-                  return null;
-                }
-                return (
-                  <a
-                    key={`${href}-${item.label}-${i}`}
-                    href={href}
-                    className="button button-small"
-                  >
-                    {item.label}
-                  </a>
-                );
-              })}
-            </div>
-          </div>
+          <RecentAdminPages items={recentNavigations} />
         ) : null}
         {bootstrapping ? (
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <div className="flux-one-flex-center-gap">
             <span>Loading…</span>
           </div>
         ) : null}
 
-        <div className="flux-one-command-input-wrap" style={{ position: 'relative', zIndex: 5 }}>
-          <label style={{ display: 'block', fontSize: 12, marginBottom: 6, opacity: 0.8 }}>Command</label>
-          <div style={{ position: 'relative' }}>
-            <div
-              aria-hidden="true"
-              style={{
-                position: 'absolute',
-                left: 10,
-                right: 10,
-                top: 8,
-                pointerEvents: 'none',
-                color: 'rgba(0,0,0,0.35)',
-                whiteSpace: 'pre',
-                fontFamily: 'inherit',
-                fontSize: 13,
-                zIndex: 0,
-              }}
-            >
-              <span style={{ color: 'transparent' }}>{input}</span>
+        <div className="flux-one-command-input-wrap">
+          <label className="flux-one-field-label">Command</label>
+          <div className="flux-one-input-stack">
+            <div aria-hidden="true" className="flux-one-ghost-layer">
+              <span className="flux-one-ghost-transparent">{input}</span>
               <span>{ghost}</span>
             </div>
             <input
@@ -995,18 +913,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
               aria-expanded={showSuggestionOverlay}
               aria-controls={showSuggestionOverlay ? 'flux-one-command-suggest-listbox' : undefined}
               role="combobox"
-              style={{
-                width: '100%',
-                boxSizing: 'border-box',
-                padding: '8px 10px',
-                borderRadius: 6,
-                border: '1px solid rgba(0,0,0,0.2)',
-                fontSize: 13,
-                opacity: isExecuting ? 0.75 : 1,
-                position: 'relative',
-                zIndex: 1,
-                background: '#fff',
-              }}
+              className="flux-one-command-input"
               onKeyDown={(e: any) => {
                 if (isExecuting) return;
                 if (e.key === 'ArrowDown') {
@@ -1088,24 +995,28 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                         }
                       }}
                       className={
-                        idx === activeSuggestion
-                          ? 'flux-one-suggest-dropdown__row flux-one-suggest-dropdown__row--active'
-                          : 'flux-one-suggest-dropdown__row'
+                        [
+                          'flux-one-suggest-dropdown__row',
+                          'flux-one-suggest-dropdown__row--interactive',
+                          idx === activeSuggestion ? 'flux-one-suggest-dropdown__row--active' : '',
+                          isExecuting ? 'flux-one-suggest-dropdown__row--disabled' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')
                       }
-                      style={{
-                        cursor: isExecuting ? 'default' : 'pointer',
-                        opacity: isExecuting ? 0.55 : 1,
-                      }}
                     >
                       <span>{s.displayLabel || s.label}</span>
-                      <span style={{ opacity: 0.6, fontSize: 12 }}>{s.kind}</span>
+                      <span className="flux-one-suggest-dropdown__meta">{s.kind}</span>
                     </div>
                   );
                 })}
                 {subcommandRow.length ? (
                   <div
-                    className="flux-one-suggest-dropdown__section"
-                    style={{ borderTop: commandRow.length ? '1px solid rgba(0,0,0,0.08)' : undefined }}
+                    className={
+                      commandRow.length
+                        ? 'flux-one-suggest-dropdown__section flux-one-suggest-dropdown__section--divider'
+                        : 'flux-one-suggest-dropdown__section'
+                    }
                   >
                     Next steps
                   </div>
@@ -1132,17 +1043,18 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                         }
                       }}
                       className={
-                        idx === activeSuggestion
-                          ? 'flux-one-suggest-dropdown__row flux-one-suggest-dropdown__row--active'
-                          : 'flux-one-suggest-dropdown__row'
+                        [
+                          'flux-one-suggest-dropdown__row',
+                          'flux-one-suggest-dropdown__row--interactive',
+                          idx === activeSuggestion ? 'flux-one-suggest-dropdown__row--active' : '',
+                          isExecuting ? 'flux-one-suggest-dropdown__row--disabled' : '',
+                        ]
+                          .filter(Boolean)
+                          .join(' ')
                       }
-                      style={{
-                        cursor: isExecuting ? 'default' : 'pointer',
-                        opacity: isExecuting ? 0.55 : 1,
-                      }}
                     >
                       <span>{s.displayLabel || s.label}</span>
-                      <span style={{ opacity: 0.6, fontSize: 12 }}>{s.kind}</span>
+                      <span className="flux-one-suggest-dropdown__meta">{s.kind}</span>
                     </div>
                   );
                 })}
@@ -1157,11 +1069,11 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
             <span>
               {isEditSearching && !isExecuting ? (
                 <>
-                  Searching… <span style={{ opacity: 0.75 }}>{runningLabel}</span>
+                  Searching… <span className="flux-one-running-label-muted">{runningLabel}</span>
                 </>
               ) : (
                 <>
-                  Running… <span style={{ opacity: 0.75 }}>{runningLabel}</span>
+                  Running… <span className="flux-one-running-label-muted">{runningLabel}</span>
                 </>
               )}
             </span>
@@ -1170,19 +1082,19 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
         {/* Preview (single pane below, avoids “two columns” UI) */}
         {showSuggestionChrome && selectedSuggestion ? (
-          <div style={{ border: '1px solid rgba(0,0,0,0.12)', borderRadius: 6, padding: 10 }}>
-            <div style={{ fontWeight: 600, marginBottom: 6 }}>{selectedSuggestion.label}</div>
-            <div style={{ opacity: 0.7, marginBottom: 8 }}>{selectedSuggestion.description || selectedSuggestion.value}</div>
+          <div className="flux-one-preview-card">
+            <div className="flux-one-preview-title">{selectedSuggestion.label}</div>
+            <div className="flux-one-preview-desc">{selectedSuggestion.description || selectedSuggestion.value}</div>
 
             {/* Proactive previews after-space */}
             {parsed.hasTrailingSpace && rt0 === 'plugin' ? (
               <div>
-                <div style={{ fontWeight: 600, margin: '10px 0 6px' }}>Plugins</div>
-                <div style={{ maxHeight: 180, overflow: 'auto', background: '#f6f7f7', borderRadius: 6, padding: 8 }}>
+                <div className="flux-one-preview-section-title">Plugins</div>
+                <div className="flux-one-preview-scroll">
                   {(pluginsIndex || []).slice(0, 12).map((p) => (
-                    <div key={p.pluginFile} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <div key={p.pluginFile} className="flux-one-preview-row">
                       <span>{p.name}</span>
-                      <span style={{ opacity: 0.7, fontSize: 12 }}>
+                      <span className="flux-one-preview-meta">
                         {p.active ? 'active' : 'inactive'}
                         {p.updateAvailable ? ' • update' : ''}
                       </span>
@@ -1194,12 +1106,12 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
             {parsed.hasTrailingSpace && parsed.tokens[0] === 'user' && parsed.tokens[1] === 'lock' ? (
               <div>
-                <div style={{ fontWeight: 600, margin: '10px 0 6px' }}>Users</div>
-                <div style={{ maxHeight: 180, overflow: 'auto', background: '#f6f7f7', borderRadius: 6, padding: 8 }}>
+                <div className="flux-one-preview-section-title">Users</div>
+                <div className="flux-one-preview-scroll">
                   {(usersIndex || []).slice(0, 12).map((u) => (
-                    <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <div key={u.id} className="flux-one-preview-row">
                       <span>{u.email}</span>
-                      <span style={{ opacity: 0.7, fontSize: 12 }}>{u.displayName || ''}</span>
+                      <span className="flux-one-preview-meta">{u.displayName || ''}</span>
                     </div>
                   ))}
                 </div>
@@ -1208,12 +1120,12 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
             {parsed.hasTrailingSpace && rt0 === 'menu' ? (
               <div>
-                <div style={{ fontWeight: 600, margin: '10px 0 6px' }}>Menus</div>
-                <div style={{ maxHeight: 180, overflow: 'auto', background: '#f6f7f7', borderRadius: 6, padding: 8 }}>
+                <div className="flux-one-preview-section-title">Menus</div>
+                <div className="flux-one-preview-scroll">
                   {(menusIndex || []).slice(0, 12).map((m) => (
-                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <div key={m.id} className="flux-one-preview-row">
                       <span>{m.name}</span>
-                      <span style={{ opacity: 0.7, fontSize: 12 }}>{m.slug || ''}</span>
+                      <span className="flux-one-preview-meta">{m.slug || ''}</span>
                     </div>
                   ))}
                 </div>
@@ -1222,12 +1134,12 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
             {parsed.hasTrailingSpace && rt0 === 'site' && rt1 === 'switch' ? (
               <div>
-                <div style={{ fontWeight: 600, margin: '10px 0 6px' }}>Sites</div>
-                <div style={{ maxHeight: 180, overflow: 'auto', background: '#f6f7f7', borderRadius: 6, padding: 8 }}>
+                <div className="flux-one-preview-section-title">Sites</div>
+                <div className="flux-one-preview-scroll">
                   {(sitesIndex || []).slice(0, 12).map((s) => (
-                    <div key={s.blogId} style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
+                    <div key={s.blogId} className="flux-one-preview-row">
                       <span>{`${s.domain}${s.path}`}</span>
-                      <span style={{ opacity: 0.7, fontSize: 12 }}>#{s.blogId}</span>
+                      <span className="flux-one-preview-meta">#{s.blogId}</span>
                     </div>
                   ))}
                 </div>
@@ -1235,18 +1147,18 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
             ) : null}
 
             {selectedSuggestion.value === 'aggregate email' ? (
-              <div style={{ marginTop: 10 }}>
-                <div style={{ fontWeight: 600, marginBottom: 6 }}>Aggregate email (7d)</div>
-                <div style={{ maxHeight: 180, overflow: 'auto', background: '#f6f7f7', borderRadius: 6, padding: 8 }}>
+              <div className="flux-one-preview-stack">
+                <div className="flux-one-preview-title">Aggregate email (7d)</div>
+                <div className="flux-one-preview-scroll">
                   {!emailCaptureEnabled ? (
-                    <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+                    <div className="flux-one-body-copy">
                       Turn on email capture for your user under{' '}
                       <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a> to load an
                       aggregate here.
                     </div>
                   ) : (
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-                      <div style={{ fontSize: 13, opacity: 0.85 }}>
+                    <div className="flux-one-preview-aggregate-hint">
+                      <div className="flux-one-preview-aggregate-copy">
                         Opens a full list of captured emails in a modal.
                       </div>
                       <button
@@ -1268,7 +1180,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
             ) : null}
 
             {selectedSuggestion.value === 'summary email' ? (
-              <div style={{ marginTop: 10, padding: 8, borderRadius: 6, background: '#f6f7f7' }}>
+              <div className="flux-one-preview-stack-inner">
                 AI summary will run when executed (feature-gated).
               </div>
             ) : null}
@@ -1279,7 +1191,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           <div className="flux-one-notice flux-one-notice--success" role="status">
             {getActionDisplayMessage(lastResult) || lastResult.message || 'Done.'}
             {lastDurationMs != null && lastDurationMs >= 2000 ? (
-              <span style={{ opacity: 0.75 }}> ({(lastDurationMs / 1000).toFixed(1)}s)</span>
+              <span className="flux-one-running-label-muted"> ({(lastDurationMs / 1000).toFixed(1)}s)</span>
             ) : null}
           </div>
         ) : null}
@@ -1297,256 +1209,26 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         ) : null}
 
         {isStructuredListPanel && lastResult?.type === 'panel' ? (
-          <div ref={structuredPanelRef} className="flux-one-structured-results">
-            {lastResult.panelId === 'plugins' ? (
-              <div
-                style={{
-                  marginTop: 8,
-                  maxHeight: 320,
-                  overflow: 'auto',
-                  background: '#f6f7f7',
-                  padding: 10,
-                  borderRadius: 6,
-                  border: '1px solid rgba(0,0,0,0.08)',
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Plugins</div>
-                {(panelData as any[]).map((p) => (
-                  <div
-                    key={p.pluginFile}
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 0',
-                      borderBottom: '1px solid rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    <span style={{ flex: '1 1 160px', fontSize: 13 }}>{p.name}</span>
-                    <span style={{ fontSize: 12, opacity: 0.65 }}>
-                      {p.active ? 'Active' : 'Inactive'}
-                      {p.updateAvailable ? ' · Update available' : ''}
-                    </span>
-                    <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {!p.active ? (
-                        <button type="button" style={btnSmall} onClick={() => executeFromInput(`plugin activate ${p.name}`)}>
-                          Activate
-                        </button>
-                      ) : null}
-                      {p.active ? (
-                        <button type="button" style={btnSmall} onClick={() => executeFromInput(`plugin deactivate ${p.name}`)}>
-                          Deactivate
-                        </button>
-                      ) : null}
-                      {p.updateAvailable ? (
-                        <button type="button" style={btnSmall} onClick={() => executeFromInput(`plugin update ${p.name}`)}>
-                          Update
-                        </button>
-                      ) : null}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {lastResult.panelId === 'users' ? (
-              <div
-                style={{
-                  marginTop: 8,
-                  maxHeight: 320,
-                  overflow: 'auto',
-                  background: '#f6f7f7',
-                  padding: 10,
-                  borderRadius: 6,
-                  border: '1px solid rgba(0,0,0,0.08)',
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Users</div>
-                {(panelData as any[]).map((u) => (
-                  <div
-                    key={u.id}
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 0',
-                      borderBottom: '1px solid rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    <span style={{ flex: '1 1 200px', fontSize: 13 }}>{u.email}</span>
-                    <span style={{ fontSize: 12, opacity: 0.65 }}>{u.displayName || ''}</span>
-                    <span style={{ display: 'flex', gap: 6 }}>
-                      <button type="button" style={btnSmall} onClick={() => executeFromInput(`user lock ${u.email}`)}>
-                        Lock
-                      </button>
-                      <button type="button" style={btnSmall} onClick={() => executeFromInput(`user unlock ${u.email}`)}>
-                        Unlock
-                      </button>
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {lastResult.panelId === 'sites' ? (
-              <div
-                style={{
-                  marginTop: 8,
-                  maxHeight: 320,
-                  overflow: 'auto',
-                  background: '#f6f7f7',
-                  padding: 10,
-                  borderRadius: 6,
-                  border: '1px solid rgba(0,0,0,0.08)',
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Sites</div>
-                {(panelData as any[]).map((s) => (
-                  <div
-                    key={s.blogId}
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 0',
-                      borderBottom: '1px solid rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    <span style={{ flex: '1 1 200px', fontSize: 13 }}>{`${s.domain}${s.path}`}</span>
-                    <span style={{ fontSize: 12, opacity: 0.65 }}>#{s.blogId}</span>
-                    <button
-                      type="button"
-                      style={btnSmall}
-                      onClick={() => executeFromInput(`site switch ${s.domain}${s.path}`)}
-                    >
-                      Switch
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {lastResult.panelId === 'menus' ? (
-              <div
-                style={{
-                  marginTop: 8,
-                  maxHeight: 320,
-                  overflow: 'auto',
-                  background: '#f6f7f7',
-                  padding: 10,
-                  borderRadius: 6,
-                  border: '1px solid rgba(0,0,0,0.08)',
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Menus</div>
-                {(panelData as any[]).map((m) => (
-                  <div
-                    key={m.id}
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'center',
-                      gap: 8,
-                      padding: '8px 0',
-                      borderBottom: '1px solid rgba(0,0,0,0.06)',
-                    }}
-                  >
-                    <span style={{ flex: '1 1 160px', fontSize: 13 }}>{m.name}</span>
-                    <span style={{ fontSize: 12, opacity: 0.65 }}>{m.slug || ''}</span>
-                    <button
-                      type="button"
-                      style={btnSmall}
-                      onClick={() =>
-                        window.open(
-                          `${adminBase}nav-menus.php?action=edit&menu=${encodeURIComponent(String(m.id))}`,
-                          '_blank'
-                        )
-                      }
-                    >
-                      Edit in admin
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {lastResult.panelId === 'suite_config' ? (
-              <div
-                style={{
-                  marginTop: 8,
-                  maxHeight: 360,
-                  overflow: 'auto',
-                  background: '#f6f7f7',
-                  padding: 10,
-                  borderRadius: 6,
-                  border: '1px solid rgba(0,0,0,0.08)',
-                }}
-              >
-                <div style={{ fontWeight: 600, marginBottom: 8 }}>Suite configuration</div>
-                {(panelData as any[]).map((row) => (
-                  <div
-                    key={row.id}
-                    style={{
-                      display: 'flex',
-                      flexWrap: 'wrap',
-                      alignItems: 'flex-start',
-                      gap: 8,
-                      padding: '8px 0',
-                      borderBottom: '1px solid rgba(0,0,0,0.06)',
-                      fontSize: 13,
-                    }}
-                  >
-                    <span
-                      style={{ flex: '2 1 240px', fontWeight: 600 }}
-                      title={`Config id: ${row.id}`}
-                    >
-                      {row.label}
-                    </span>
-                    <span style={{ flex: '1 1 140px', opacity: 0.75, fontSize: 12 }}>{row.plugin}</span>
-                    <span style={{ flex: '1 1 120px', fontSize: 12, opacity: 0.65 }}>{row.type}</span>
-                    <span style={{ flex: '1 1 120px', fontWeight: 600 }}>{row.valueDisplay}</span>
-                    <span style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                      {row.type === 'bool' ? (
-                        <>
-                          <button type="button" style={btnSmall} onClick={() => executeFromInput(`config set ${row.id} true`)}>
-                            Set true
-                          </button>
-                          <button type="button" style={btnSmall} onClick={() => executeFromInput(`config set ${row.id} false`)}>
-                            Set false
-                          </button>
-                        </>
-                      ) : null}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <StructuredListPanels
+            structuredPanelRef={structuredPanelRef}
+            panelId={(lastResult as { panelId: string }).panelId}
+            panelData={panelData}
+            adminBase={adminBase}
+            executeFromInput={executeFromInput}
+          />
         ) : null}
 
         {lastResult?.type === 'panel' && lastResult.panelId === 'aggregate_email' ? (
-          <div
-            style={{
-              margin: '8px 0 0',
-              maxHeight: 320,
-              overflow: 'auto',
-              background: '#f6f7f7',
-              padding: 10,
-              borderRadius: 6,
-            }}
-          >
-            <div style={{ fontWeight: 600, marginBottom: 8 }}>Aggregate email (7d)</div>
+          <div className="flux-one-aggregate-inline">
+            <div className="flux-one-structured-panel-title">Aggregate email (7d)</div>
             {!emailCaptureEnabled ? (
-              <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+              <div className="flux-one-body-copy">
                 Email capture is off for your user. Enable it under{' '}
                 <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a>, then run this
                 command again to see logged mail.
               </div>
             ) : (
-              <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>
+              <div className="flux-one-muted-loading">Loading aggregate…</div>
             )}
           </div>
         ) : null}
@@ -1562,15 +1244,15 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         initialFocusRef={aggregateEmailSearchRef}
       >
         {!emailCaptureEnabled ? (
-          <div style={{ fontSize: 13, lineHeight: 1.5 }}>
+          <div className="flux-one-body-copy">
             Email capture is off for your user. Enable it under{' '}
             <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a>, then run this command again.
           </div>
         ) : (
           <>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
-                <span style={{ opacity: 0.8 }}>Days</span>
+            <div className="flux-one-email-toolbar">
+              <label className="flux-one-email-toolbar-label">
+                <span>Days</span>
                 <select
                   value={aggregateEmailDays}
                   onChange={(e) => setAggregateEmailDays(parseInt(e.currentTarget.value || '7', 10) || 7)}
@@ -1589,11 +1271,11 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                 value={aggregateEmailQ}
                 onChange={(e) => setAggregateEmailQ(e.currentTarget.value)}
                 placeholder="Search subject + content…"
-                style={{ flex: '1 1 260px', minWidth: 200 }}
+                className="flux-one-email-search-input"
               />
 
-              <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 12 }}>
-                <span style={{ opacity: 0.8 }}>Per page</span>
+              <label className="flux-one-email-toolbar-label">
+                <span>Per page</span>
                 <select
                   value={aggregateEmailPerPage}
                   onChange={(e) => setAggregateEmailPerPage(parseInt(e.currentTarget.value || '20', 10) || 20)}
@@ -1672,13 +1354,13 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
               (aggregateEmailModalQuery.data as any).events.length > 0 &&
               aggregateEmailSummary.status === 'idle' &&
               Object.keys(emailSummaryMap).length === 0 ? (
-                <span style={{ fontSize: 12, opacity: 0.85 }} data-testid="flux-one-summary-empty-hint">
+                <span className="flux-one-email-hint" data-testid="flux-one-summary-empty-hint">
                   Summary: none generated yet.
                 </span>
               ) : null}
 
               {aggregateEmailSummary.status !== 'idle' ? (
-                <span style={{ fontSize: 12, opacity: 0.85 }}>
+                <span className="flux-one-email-hint">
                   {aggregateEmailSummary.status === 'loading'
                     ? 'Summary: loading…'
                     : aggregateEmailSummary.message
@@ -1700,8 +1382,8 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
             {aggregateEmailModalQuery.data ? (
               <>
-                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
-                  <div style={{ fontSize: 12, opacity: 0.8 }}>
+                <div className="flux-one-email-pagination">
+                  <div className="flux-one-email-pagination-meta">
                     {(() => {
                       const m = (aggregateEmailModalQuery.data as any)?.meta || {};
                       const page = Number(m.page || 1);
@@ -1710,7 +1392,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                       return `Total: ${isFinite(total) ? total : '—'} · Page: ${page}${totalPages ? `/${totalPages}` : ''}`;
                     })()}
                   </div>
-                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <div className="flux-one-flex-row-gap">
                     <button
                       type="button"
                       className="button button-small"
@@ -1740,46 +1422,31 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                 />
               </>
             ) : (
-              <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>
+              <div className="flux-one-muted-loading">Loading aggregate…</div>
             )}
           </>
         )}
       </FluxOneModal>
 
         {lastResult?.type === 'panel' && lastResult.panelId === 'user' && panelData && typeof panelData === 'object' && !Array.isArray(panelData) ? (
-          <div
-            style={{
-              marginTop: 8,
-              padding: 10,
-              borderRadius: 6,
-              background: '#f6f7f7',
-              border: '1px solid rgba(0,0,0,0.08)',
-              fontSize: 13,
-            }}
-          >
+          <div className="flux-one-user-panel">
             <strong>User</strong> {(panelData as { email?: string }).email || ''}
           </div>
         ) : null}
 
         {lastResult?.type === 'panel' && panelData && !isStructuredListPanel && lastResult.panelId !== 'aggregate_email' && lastResult.panelId !== 'user' ? (
-          <div style={{ margin: '8px 0 0' }}>
-            {kind !== 'dev' ? <div style={{ fontWeight: 600, marginBottom: 8 }}>Result</div> : null}
-            <pre style={{ margin: 0, maxHeight: 260, overflow: 'auto', background: '#f6f7f7', padding: 10, borderRadius: 6 }}>
-              {JSON.stringify(panelData, null, 2)}
-            </pre>
+          <div className="flux-one-result-block">
+            {kind !== 'dev' ? <div className="flux-one-result-heading">Result</div> : null}
+            <pre className="flux-one-pre">{JSON.stringify(panelData, null, 2)}</pre>
           </div>
         ) : null}
 
         {aiData ? (
-          <pre style={{ margin: 0, maxHeight: 160, overflow: 'auto', background: '#f6f7f7', padding: 10, borderRadius: 6 }}>
-            {JSON.stringify(aiData, null, 2)}
-          </pre>
+          <pre className="flux-one-pre flux-one-pre--short">{JSON.stringify(aiData, null, 2)}</pre>
         ) : null}
 
         {kind === 'dev' && lastResult ? (
-          <pre style={{ margin: 0, maxHeight: 160, overflow: 'auto', background: '#f6f7f7', padding: 10, borderRadius: 6 }}>
-            {JSON.stringify(lastResult, null, 2)}
-          </pre>
+          <pre className="flux-one-pre flux-one-pre--short">{JSON.stringify(lastResult, null, 2)}</pre>
         ) : null}
       </div>
       </div>
@@ -1796,37 +1463,28 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           value={commandsHelpQuery}
           onChange={(e) => setCommandsHelpQuery(e.currentTarget.value)}
           placeholder="Filter…"
-          style={{
-            width: '100%',
-            boxSizing: 'border-box',
-            marginBottom: 8,
-            padding: '8px 10px',
-            borderRadius: 4,
-            border: '1px solid rgba(0,0,0,0.2)',
-            fontSize: 13,
-          }}
+          className="flux-one-command-ref-search"
         />
         <div className="flux-one-modal-doc-list">
           {filteredCommandDocs.map((row) => (
-            <div
-              key={row.canonical}
-              style={{
-                padding: '8px 0',
-                borderBottom: '1px solid rgba(0,0,0,0.06)',
-                fontSize: 13,
-              }}
-            >
-              <div style={{ fontWeight: row.kind === 'root' ? 600 : 400 }}>{row.canonical}</div>
-              <div style={{ opacity: 0.82, fontSize: 12, lineHeight: 1.45 }}>{row.summary}</div>
-              {row.details ? (
-                <div style={{ opacity: 0.72, fontSize: 12, lineHeight: 1.45, marginTop: 4 }}>{row.details}</div>
-              ) : null}
+            <div key={row.canonical} className="flux-one-command-ref-row">
+              <div
+                className={
+                  row.kind === 'root'
+                    ? 'flux-one-command-ref-canonical flux-one-command-ref-canonical--root'
+                    : 'flux-one-command-ref-canonical'
+                }
+              >
+                {row.canonical}
+              </div>
+              <div className="flux-one-command-ref-summary">{row.summary}</div>
+              {row.details ? <div className="flux-one-command-ref-details">{row.details}</div> : null}
               {row.aliases?.length ? (
-                <div style={{ opacity: 0.6, fontSize: 11, marginTop: 4 }}>Aliases: {row.aliases.join(', ')}</div>
+                <div className="flux-one-command-ref-aliases">Aliases: {row.aliases.join(', ')}</div>
               ) : null}
             </div>
           ))}
-          {filteredCommandDocs.length === 0 ? <div style={{ opacity: 0.7, fontSize: 13 }}>No matches.</div> : null}
+          {filteredCommandDocs.length === 0 ? <div className="flux-one-command-ref-empty">No matches.</div> : null}
         </div>
       </FluxOneModal>
     </div>

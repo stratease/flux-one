@@ -52,13 +52,6 @@ function formatTo(payload: EmailEventPayload | null | undefined): string {
   return String(t);
 }
 
-function formatHeaders(payload: EmailEventPayload | null | undefined): string {
-  const h = payload?.headers;
-  if (h == null) return '';
-  if (Array.isArray(h)) return h.join('\n');
-  return String(h);
-}
-
 function eventLine(ev: EmailAggregateEvent, previewMax: number): string {
   const p = ev.payload || {};
   const prev = trimStr(p.messagePreview || '');
@@ -105,23 +98,7 @@ function EmailHtml({ html }: { html: string }) {
 function EmailRaw({ text }: { text: string }) {
   const body = String(text || '');
   if (!body.trim()) return null;
-  return (
-    <pre
-      style={{
-        margin: 0,
-        padding: 10,
-        fontSize: 12,
-        maxHeight: 360,
-        overflow: 'auto',
-        background: 'rgba(0,0,0,0.04)',
-        borderRadius: 6,
-        whiteSpace: 'pre-wrap',
-        wordBreak: 'break-word',
-      }}
-    >
-      {body}
-    </pre>
-  );
+  return <pre className="flux-one-email-pre">{body}</pre>;
 }
 
 function scrollToEmailEvent(eventId: number) {
@@ -183,45 +160,32 @@ function EventBlock({
   }
 
   return (
-    <div
-      id={`flux-one-email-event-${ev.id}`}
-      className="flux-one-email-modal-email"
-      style={{
-        marginBottom: 12,
-        fontSize: 12,
-        background: '#fff',
-        border: '1px solid rgba(0,0,0,0.10)',
-        borderRadius: 8,
-        padding: 10,
-      }}
-    >
+    <div id={`flux-one-email-event-${ev.id}`} className="flux-one-email-modal-email flux-one-email-card">
       {showSubject ? (
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
-          {subjectKey(ev.subject || '')}
-        </div>
+        <div className="flux-one-email-card-title">{subjectKey(ev.subject || '')}</div>
       ) : null}
       {summaryEntry && trimStr(summaryEntry.summary) !== '' ? (
-        <div style={{ fontSize: 12, marginBottom: 8, lineHeight: 1.4 }}>
-          <span style={{ fontWeight: 700, opacity: 0.85 }}>AI summary: </span>
+        <div className="flux-one-email-summary-block">
+          <span className="flux-one-email-summary-label">AI summary: </span>
           <span>{summaryEntry.summary}</span>
           {summaryEntry.action && trimStr(summaryEntry.action) !== '' ? (
-            <span style={{ display: 'block', marginTop: 4, opacity: 0.9 }}>
-              <span style={{ fontWeight: 700, opacity: 0.85 }}>Action: </span>
+            <span className="flux-one-email-summary-action">
+              <span className="flux-one-email-summary-label">Action: </span>
               {summaryEntry.action}
             </span>
           ) : null}
         </div>
       ) : null}
-      <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
+      <div className="flux-one-flex-between-wrap">
         {variant === 'modal' ? (
-          <div style={{ marginBottom: 6 }}>
-            <div style={{ fontWeight: 700, fontSize: 13, lineHeight: 1.25 }}>{subjectKey(ev.subject || '')}</div>
-            <div style={{ fontWeight: 600, opacity: 0.85 }}>{ev.createdAt}</div>
+          <div className="flux-one-email-event-header">
+            <div className="flux-one-email-event-subject">{subjectKey(ev.subject || '')}</div>
+            <div className="flux-one-email-event-date">{ev.createdAt}</div>
           </div>
         ) : (
-          <div style={{ fontWeight: 600, marginBottom: 6 }}>{eventLine(ev, 160)}</div>
+          <div className="flux-one-email-event-line">{eventLine(ev, 160)}</div>
         )}
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+        <div className="flux-one-flex-row-gap">
           <button
             type="button"
             className="button button-small"
@@ -243,21 +207,17 @@ function EventBlock({
         </div>
       </div>
 
-      {releaseError ? (
-        <div style={{ marginTop: 8, fontSize: 12, color: '#8a2424' }}>{releaseError}</div>
-      ) : null}
-      {deleteError ? (
-        <div style={{ marginTop: 8, fontSize: 12, color: '#8a2424' }}>{deleteError}</div>
-      ) : null}
+      {releaseError ? <div className="flux-one-email-error">{releaseError}</div> : null}
+      {deleteError ? <div className="flux-one-email-error">{deleteError}</div> : null}
 
       {p.messageHtml ? (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 6 }}>Body</div>
+        <div className="flux-one-preview-stack">
+          <div className="flux-one-email-body-label">Body</div>
           <EmailHtml html={p.messageHtml} />
         </div>
       ) : p.message ? (
-        <div style={{ marginTop: 8 }}>
-          <div style={{ fontSize: 11, opacity: 0.75, marginBottom: 6 }}>Body</div>
+        <div className="flux-one-preview-stack">
+          <div className="flux-one-email-body-label">Body</div>
           <EmailRaw text={String(p.message || '')} />
         </div>
       ) : null}
@@ -314,7 +274,7 @@ export function EmailAggregateView({
   }, [eventsBySubject]);
 
   if (!data) {
-    return <div style={{ opacity: 0.75, fontSize: 13 }}>No data.</div>;
+    return <div className="flux-one-email-empty">No data.</div>;
   }
 
   const summaryStrip = (() => {
@@ -328,11 +288,11 @@ export function EmailAggregateView({
     }
     if (rows.length === 0) return null;
     return (
-      <div style={{ marginBottom: 12, fontSize: 12, lineHeight: 1.4 }}>
-        <div style={{ fontWeight: 700, marginBottom: 6 }}>Summaries (this page)</div>
-        <ul style={{ margin: 0, paddingLeft: 18 }}>
+      <div className="flux-one-email-summary-strip">
+        <div className="flux-one-email-summary-strip-title">Summaries (this page)</div>
+        <ul className="flux-one-email-summary-list">
           {rows.map((r) => (
-            <li key={r.id} style={{ marginBottom: 4 }}>
+            <li key={r.id} className="flux-one-email-summary-li">
               <a
                 href={`#flux-one-email-event-${r.id}`}
                 data-testid={`flux-one-email-summary-link-${r.id}`}
@@ -354,18 +314,11 @@ export function EmailAggregateView({
   if (mode === 'flat_all') {
     return (
       <div className="flux-one-email-aggregate">
-        <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 10 }}>
+        <div className="flux-one-email-window-meta">
           Window: {meta.days != null ? `${meta.days} day(s)` : '—'} · Events: {visibleEvents.length}
         </div>
         {summaryStrip}
-        <div
-          className="flux-one-modal-doc-list"
-          style={{
-            maxHeight: 'min(70vh, 680px)',
-            overflow: 'auto',
-            WebkitOverflowScrolling: 'touch',
-          }}
-        >
+        <div className="flux-one-modal-doc-list flux-one-modal-doc-list--tall">
           {visibleEvents.map((ev) => (
             <EventBlock
               key={ev.id}
@@ -387,43 +340,31 @@ export function EmailAggregateView({
 
   return (
     <div className="flux-one-email-aggregate">
-      {data.summary ? (
-        <p style={{ margin: '0 0 10px', fontSize: 13, fontWeight: 600 }}>{data.summary}</p>
-      ) : null}
-      <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 8 }}>
-        Window: {meta.days != null ? `${meta.days} day(s)` : '—'} · Events logged:{' '}
-        {visibleEvents.length}
+      {data.summary ? <p className="flux-one-email-summary-lead">{data.summary}</p> : null}
+      <div className="flux-one-email-window-meta">
+        Window: {meta.days != null ? `${meta.days} day(s)` : '—'} · Events logged: {visibleEvents.length}
       </div>
       {groups.length === 0 ? (
-        <div style={{ fontSize: 13, opacity: 0.8 }}>No grouped subjects in this window.</div>
+        <div className="flux-one-email-empty-window">No grouped subjects in this window.</div>
       ) : (
-        <div style={{ overflow: 'auto', maxHeight: 280 }}>
+        <div className="flux-one-email-group-scroll">
           {groups.map((g) => {
             const evs = eventsBySubject[g.subject] || [];
             const preview = evs.slice(0, 2);
             const canOpenModal = evs.length > 0;
             return (
-              <div
-                key={g.subject}
-                style={{
-                  borderBottom: '1px solid rgba(0,0,0,0.06)',
-                  padding: '10px 0',
-                }}
-              >
-                <div style={{ fontWeight: 600, fontSize: 13, marginBottom: 4 }}>{g.subject}</div>
-                <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 6 }}>
-                  Latest: {g.latest || '—'}
-                </div>
+              <div key={g.subject} className="flux-one-email-group-row">
+                <div className="flux-one-email-group-subject">{g.subject}</div>
+                <div className="flux-one-email-group-meta">Latest: {g.latest || '—'}</div>
                 {preview.map((ev) => (
-                  <div key={ev.id} style={{ fontSize: 12, opacity: 0.9, marginBottom: 4, paddingLeft: 4 }}>
+                  <div key={ev.id} className="flux-one-email-group-preview">
                     {eventLine(ev, 120)}
                   </div>
                 ))}
                 {canOpenModal ? (
                   <button
                     type="button"
-                    className="button button-small"
-                    style={{ marginTop: 6 }}
+                    className="button button-small flux-one-email-view-btn"
                     onClick={() => setModalSubject(g.subject)}
                   >
                     {evs.length > 2 ? `View all (${evs.length})` : 'View details'}
@@ -441,14 +382,7 @@ export function EmailAggregateView({
         title={modalSubject ? `Email: ${modalSubject}` : 'Email'}
         className="flux-one-modal--wide"
       >
-        <div
-          className="flux-one-modal-doc-list"
-          style={{
-            maxHeight: 'min(70vh, 640px)',
-            overflow: 'auto',
-            WebkitOverflowScrolling: 'touch',
-          }}
-        >
+        <div className="flux-one-modal-doc-list flux-one-modal-doc-list--modal-view">
           {modalEvents.map((ev) => (
             <EventBlock
               key={ev.id}

@@ -1,0 +1,87 @@
+/**
+ * Flux One Command Central — design tokens (CSS custom properties).
+ *
+ * Apply class `flux-one-theme` on roots that wrap themed UI (mount + modal backdrop)
+ * so portaled dialogs inherit the same palette as the command shell.
+ *
+ * @since 1.3.0
+ */
+.flux-one-theme {
+  --flux-one-font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell,
+    'Helvetica Neue', sans-serif;
+  --flux-one-font-size-xs: 11px;
+  --flux-one-font-size-sm: 12px;
+  --flux-one-font-size-base: 13px;
+  --flux-one-font-size-md: 13px;
+  --flux-one-font-size-heading: 16px;
+  --flux-one-font-weight-normal: 400;
+  --flux-one-font-weight-medium: 600;
+  --flux-one-font-weight-semibold: 600;
+  --flux-one-font-weight-bold: 700;
+  --flux-one-line-height-tight: 1.25;
+  --flux-one-line-height-body: 1.45;
+  --flux-one-line-height-snug: 1.4;
+  --flux-one-line-height-relaxed: 1.5;
+
+  --flux-one-space-1: 4px;
+  --flux-one-space-2: 6px;
+  --flux-one-space-3: 8px;
+  --flux-one-space-4: 10px;
+  --flux-one-space-5: 12px;
+  --flux-one-space-6: 14px;
+
+  --flux-one-radius-xs: 4px;
+  --flux-one-radius-sm: 6px;
+  --flux-one-radius-md: 8px;
+
+  --flux-one-color-fg: inherit;
+  --flux-one-color-fg-muted: rgba(0, 0, 0, 0.65);
+  --flux-one-color-fg-subtle: rgba(0, 0, 0, 0.7);
+  --flux-one-color-fg-secondary: rgba(0, 0, 0, 0.82);
+  --flux-one-color-fg-tertiary: rgba(0, 0, 0, 0.72);
+  --flux-one-color-fg-hint: rgba(0, 0, 0, 0.75);
+  --flux-one-color-fg-meta: rgba(0, 0, 0, 0.6);
+  --flux-one-color-fg-placeholder: rgba(0, 0, 0, 0.35);
+  --flux-one-color-fg-ghost: rgba(0, 0, 0, 0.35);
+
+  --flux-one-color-surface: #fff;
+  --flux-one-color-surface-muted: #f6f7f7;
+  --flux-one-color-surface-hover: #f6f7f7;
+  --flux-one-color-surface-code: rgba(0, 0, 0, 0.04);
+
+  --flux-one-color-border: rgba(0, 0, 0, 0.12);
+  --flux-one-color-border-strong: rgba(0, 0, 0, 0.2);
+  --flux-one-color-border-medium: rgba(0, 0, 0, 0.16);
+  --flux-one-color-border-muted: rgba(0, 0, 0, 0.1);
+  --flux-one-color-border-subtle: rgba(0, 0, 0, 0.08);
+  --flux-one-color-divider: rgba(0, 0, 0, 0.06);
+  --flux-one-color-divider-suggestion: rgba(0, 0, 0, 0.08);
+
+  --flux-one-color-accent: #2271b1;
+  --flux-one-color-link: #2271b1;
+  --flux-one-color-focus-ring: #2271b1;
+
+  --flux-one-color-success-bg: #edfaef;
+  --flux-one-color-success-border: rgba(0, 128, 0, 0.2);
+  --flux-one-color-success-text: #1e4620;
+  --flux-one-color-error-bg: #fcf0f1;
+  --flux-one-color-error-border: rgba(180, 0, 0, 0.2);
+  --flux-one-color-error-text: #3c1f1f;
+  --flux-one-color-danger: #8a2424;
+
+  --flux-one-color-scrim-overlay: rgba(0, 0, 0, 0.35);
+  --flux-one-color-scrim-modal: rgba(0, 0, 0, 0.45);
+
+  --flux-one-shadow-overlay: 0 18px 60px rgba(0, 0, 0, 0.25);
+  --flux-one-shadow-modal: 0 18px 60px rgba(0, 0, 0, 0.35);
+  --flux-one-shadow-dropdown: 0 10px 28px rgba(0, 0, 0, 0.12);
+
+  --flux-one-color-spinner-track: rgba(0, 0, 0, 0.12);
+  --flux-one-color-spinner-thumb: rgba(0, 0, 0, 0.45);
+
+  --flux-one-opacity-disabled: 0.55;
+  --flux-one-opacity-icon: 0.75;
+  --flux-one-opacity-label: 0.8;
+  --flux-one-opacity-quiet: 0.85;
+  --flux-one-opacity-muted-row: 0.7;
+}
