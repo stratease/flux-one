@@ -27,6 +27,15 @@ export type EmailAggregatePayload = {
   events?: EmailAggregateEvent[];
 };
 
+export type EmailSummaryEntry = {
+  summary: string;
+  action?: string;
+  isUrgent: boolean;
+  summarizedAt?: string;
+};
+
+export type EmailSummaryMap = Record<number, EmailSummaryEntry>;
+
 function subjectKey(subject: string): string {
   const t = trimStr(subject);
   return t === '' ? '(no subject)' : t;
@@ -115,18 +124,25 @@ function EmailRaw({ text }: { text: string }) {
   );
 }
 
+function scrollToEmailEvent(eventId: number) {
+  const el = document.getElementById(`flux-one-email-event-${eventId}`);
+  el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
 function EventBlock({
   ev,
   onReleased,
   onDeleted,
   variant = 'list',
   showSubject = false,
+  summaryEntry,
 }: {
   ev: EmailAggregateEvent;
   onReleased: (eventId: number) => void;
   onDeleted?: (eventId: number) => void;
   variant?: 'modal' | 'list';
   showSubject?: boolean;
+  summaryEntry?: EmailSummaryEntry | null;
 }) {
   const p = ev.payload || {};
   const [releasing, setReleasing] = useState(false);
@@ -168,6 +184,7 @@ function EventBlock({
 
   return (
     <div
+      id={`flux-one-email-event-${ev.id}`}
       className="flux-one-email-modal-email"
       style={{
         marginBottom: 12,
@@ -181,6 +198,18 @@ function EventBlock({
       {showSubject ? (
         <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>
           {subjectKey(ev.subject || '')}
+        </div>
+      ) : null}
+      {summaryEntry && trimStr(summaryEntry.summary) !== '' ? (
+        <div style={{ fontSize: 12, marginBottom: 8, lineHeight: 1.4 }}>
+          <span style={{ fontWeight: 700, opacity: 0.85 }}>AI summary: </span>
+          <span>{summaryEntry.summary}</span>
+          {summaryEntry.action && trimStr(summaryEntry.action) !== '' ? (
+            <span style={{ display: 'block', marginTop: 4, opacity: 0.9 }}>
+              <span style={{ fontWeight: 700, opacity: 0.85 }}>Action: </span>
+              {summaryEntry.action}
+            </span>
+          ) : null}
         </div>
       ) : null}
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
@@ -239,9 +268,11 @@ function EventBlock({
 export function EmailAggregateView({
   data,
   mode = 'grouped',
+  emailSummaries,
 }: {
   data: EmailAggregatePayload | null | undefined;
   mode?: 'flat_all' | 'grouped';
+  emailSummaries?: EmailSummaryMap | null;
 }) {
   const [modalSubject, setModalSubject] = useState<string | null>(null);
   const [releasedIds, setReleasedIds] = useState<number[]>([]);
@@ -286,12 +317,47 @@ export function EmailAggregateView({
     return <div style={{ opacity: 0.75, fontSize: 13 }}>No data.</div>;
   }
 
+  const summaryStrip = (() => {
+    if (!emailSummaries || visibleEvents.length === 0) return null;
+    const rows: { id: number; text: string; urgent: boolean }[] = [];
+    for (const ev of visibleEvents) {
+      const ent = emailSummaries[ev.id];
+      if (ent && trimStr(ent.summary) !== '') {
+        rows.push({ id: ev.id, text: ent.summary, urgent: !!ent.isUrgent });
+      }
+    }
+    if (rows.length === 0) return null;
+    return (
+      <div style={{ marginBottom: 12, fontSize: 12, lineHeight: 1.4 }}>
+        <div style={{ fontWeight: 700, marginBottom: 6 }}>Summaries (this page)</div>
+        <ul style={{ margin: 0, paddingLeft: 18 }}>
+          {rows.map((r) => (
+            <li key={r.id} style={{ marginBottom: 4 }}>
+              <a
+                href={`#flux-one-email-event-${r.id}`}
+                data-testid={`flux-one-email-summary-link-${r.id}`}
+                onClick={(e) => {
+                  e.preventDefault();
+                  scrollToEmailEvent(r.id);
+                }}
+              >
+                {r.urgent ? '⚠ ' : ''}
+                {r.text}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    );
+  })();
+
   if (mode === 'flat_all') {
     return (
       <div className="flux-one-email-aggregate">
         <div style={{ fontSize: 12, opacity: 0.75, marginBottom: 10 }}>
           Window: {meta.days != null ? `${meta.days} day(s)` : '—'} · Events: {visibleEvents.length}
         </div>
+        {summaryStrip}
         <div
           className="flux-one-modal-doc-list"
           style={{
@@ -305,6 +371,7 @@ export function EmailAggregateView({
               key={ev.id}
               ev={ev}
               variant="modal"
+              summaryEntry={emailSummaries?.[ev.id] ?? null}
               onReleased={(eventId) => {
                 setReleasedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
               }}
@@ -387,6 +454,7 @@ export function EmailAggregateView({
               key={ev.id}
               ev={ev}
               variant="modal"
+              summaryEntry={emailSummaries?.[ev.id] ?? null}
               onReleased={(eventId) => {
                 setReleasedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
               }}

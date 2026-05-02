@@ -8,7 +8,7 @@ import type { Suggestion } from '../command/types';
 import { filterCommandDocs } from '../command/commandDocs';
 import { interpretEnter, interpretSuggestionPick } from '../command/interpretEnter';
 import { getIntent } from '../command/intent';
-import { EmailAggregateView, type EmailAggregatePayload } from './EmailAggregateView';
+import { EmailAggregateView, type EmailAggregatePayload, type EmailSummaryMap } from './EmailAggregateView';
 import { FluxOneModal } from './FluxOneModal';
 import Fuse from 'fuse.js';
 
@@ -24,6 +24,35 @@ function unwrapCommandEnvelope(res: any): CommandResponse | null {
     return raw as CommandResponse;
   }
   return null;
+}
+
+function parseEmailSummaryEnvelope(raw: unknown): { inner: any; map: EmailSummaryMap } {
+  const r = raw as any;
+  const payload = r?.data ?? r;
+  const inner = payload?.ai ?? payload;
+  const by = inner?.summaries?.by_event_id ?? {};
+  const map: EmailSummaryMap = {};
+  if (by && typeof by === 'object') {
+    for (const [k, v] of Object.entries(by)) {
+      const id = parseInt(String(k), 10);
+      if (!id || !v || typeof v !== 'object') {
+        continue;
+      }
+      const o = v as Record<string, unknown>;
+      map[id] = {
+        summary: String(o.summary ?? ''),
+        action: o.action != null ? String(o.action) : undefined,
+        isUrgent: !!(o.isUrgent ?? o.is_urgent),
+        summarizedAt:
+          o.summarizedAt != null
+            ? String(o.summarizedAt)
+            : o.summarized_at != null
+              ? String(o.summarized_at)
+              : undefined,
+      };
+    }
+  }
+  return { inner, map };
 }
 
 function getActionDisplayMessage(result: CommandResponse & { type: 'action' }): string {
@@ -90,6 +119,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [aggregateEmailSummary, setAggregateEmailSummary] = useState<{ status: 'idle' | 'loading' | 'error' | 'pending'; message?: string }>(
     { status: 'idle' }
   );
+  const [emailSummaryMap, setEmailSummaryMap] = useState<EmailSummaryMap>({});
   const emailCaptureEnabledRef = useRef(false);
   const [emailCaptureEnabled, setEmailCaptureEnabled] = useState(false);
   const [recentNavigations, setRecentNavigations] = useState<
@@ -367,6 +397,21 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     staleTime: 10_000,
   });
 
+  const licenseValid = useMemo(() => {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+    const lic = (window.fluxOneAdmin?.bootstrap as { license?: { valid?: boolean } } | undefined)?.license;
+    return !!lic?.valid;
+  }, [bootstrapped]);
+
+  useEffect(() => {
+    if (!aggregateEmailModalOpen) {
+      setEmailSummaryMap({});
+      setAggregateEmailSummary({ status: 'idle' });
+    }
+  }, [aggregateEmailModalOpen]);
+
   const aggregateEmailModalQuery = useQuery({
     queryKey: [
       'flux-one',
@@ -467,12 +512,14 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       if (result.type === 'panel') {
         if (result.panelId === 'aggregate_email') {
           setAiData(null);
-          setAggregateEmailSummary({ status: 'idle' });
+          const aiRequested = !!result?.data?.aiRequested;
+          if (!aiRequested) {
+            setAggregateEmailSummary({ status: 'idle' });
+          }
           setAggregateEmailModalOpen(true);
           if (!emailCaptureEnabledRef.current) {
             setPanelData(null);
           } else {
-            const aiRequested = !!result?.data?.aiRequested;
             if (aiRequested) {
               setAggregateEmailDays(7);
               setAggregateEmailQ('');
@@ -481,28 +528,45 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
             }
             if (aiRequested) {
               setAggregateEmailSummary({ status: 'loading' });
-              api
-                .getEmailSummary()
-                .then((ai: any) => {
-                  const payload = ai?.data ?? ai;
-                  const inner = payload?.ai ?? payload;
-                  const msg = String(inner?.message || 'Summary unavailable.');
-                  const st = String(inner?.status || 'pending');
-                  if (st === 'pending') {
-                    setAggregateEmailSummary({ status: 'pending', message: msg });
-                  } else if (st === 'disabled') {
-                    setAggregateEmailSummary({ status: 'error', message: msg });
-                  } else {
-                    setAggregateEmailSummary({ status: 'pending', message: msg });
+              void (async () => {
+                try {
+                  const data = await queryClient.fetchQuery({
+                    queryKey: ['flux-one', 'aggregate', 'email', 7, '', 1, 20],
+                    queryFn: async () => {
+                      const rawAgg = await api.getEmailAggregate({ days: 7, q: '', page: 1, perPage: 20 });
+                      return (rawAgg as any)?.data ?? rawAgg;
+                    },
+                  });
+                  const events = Array.isArray((data as any)?.events) ? (data as any).events : [];
+                  const ids = events
+                    .map((e: any) => Number(e.id))
+                    .filter((n: number) => n > 0)
+                    .slice(0, 25);
+                  if (ids.length === 0) {
+                    setAggregateEmailSummary({ status: 'pending', message: 'No email events to summarize.' });
+                    return;
                   }
-                  setAiData(payload);
-                })
-                .catch((e: any) => {
+                  const raw = await api.getEmailSummary(ids);
+                  const { inner, map } = parseEmailSummaryEnvelope(raw);
+                  setEmailSummaryMap((prev) => ({ ...prev, ...map }));
+                  const msg = String(inner?.message || '');
+                  const st = String(inner?.status || '');
+                  const en = inner?.enabled !== false;
+                  if (!en) {
+                    setAggregateEmailSummary({ status: 'error', message: msg || 'Summary unavailable.' });
+                  } else if (st === 'empty') {
+                    setAggregateEmailSummary({ status: 'pending', message: msg });
+                  } else {
+                    setAggregateEmailSummary({ status: 'pending', message: msg || 'Summaries loaded.' });
+                  }
+                  setAiData((raw as any)?.data ?? raw);
+                } catch (e: any) {
                   setAggregateEmailSummary({
                     status: 'error',
                     message: String(e?.message || e?.data?.message || 'Summary failed.'),
                   });
-                });
+                }
+              })();
             }
           }
         } else {
@@ -1544,13 +1608,74 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
               <button
                 type="button"
-                className="button button-small"
-                disabled
-                aria-disabled="true"
-                title="Requires Flux Suite license (coming soon)."
+                className="button button-small flux-one-email-summarize-btn"
+                data-testid="flux-one-email-summarize"
+                disabled={
+                  !licenseValid ||
+                  !aggregateEmailModalQuery.data ||
+                  aggregateEmailSummary.status === 'loading' ||
+                  !Array.isArray((aggregateEmailModalQuery.data as any)?.events) ||
+                  (aggregateEmailModalQuery.data as any).events.length === 0
+                }
+                aria-disabled={
+                  !licenseValid ||
+                  !aggregateEmailModalQuery.data ||
+                  aggregateEmailSummary.status === 'loading' ||
+                  !Array.isArray((aggregateEmailModalQuery.data as any)?.events) ||
+                  (aggregateEmailModalQuery.data as any).events.length === 0
+                }
+                title={
+                  !licenseValid
+                    ? 'Requires active Flux Suite license.'
+                    : 'Summarize emails on this page (may use API quota).'
+                }
+                onClick={() => {
+                  const events = (aggregateEmailModalQuery.data as any)?.events ?? [];
+                  const ids = events
+                    .map((e: any) => Number(e.id))
+                    .filter((n: number) => n > 0)
+                    .slice(0, 25);
+                  if (ids.length === 0) {
+                    return;
+                  }
+                  setAggregateEmailSummary({ status: 'loading' });
+                  api
+                    .getEmailSummary(ids)
+                    .then((raw) => {
+                      const { inner, map } = parseEmailSummaryEnvelope(raw);
+                      setEmailSummaryMap((prev) => ({ ...prev, ...map }));
+                      const msg = String(inner?.message || '');
+                      const st = String(inner?.status || '');
+                      const en = inner?.enabled !== false;
+                      if (!en) {
+                        setAggregateEmailSummary({ status: 'error', message: msg || 'Summary unavailable.' });
+                      } else if (st === 'empty') {
+                        setAggregateEmailSummary({ status: 'pending', message: msg });
+                      } else {
+                        setAggregateEmailSummary({ status: 'pending', message: msg || 'Summaries loaded.' });
+                      }
+                      setAiData((raw as any)?.data ?? raw);
+                    })
+                    .catch((e: any) => {
+                      setAggregateEmailSummary({
+                        status: 'error',
+                        message: String(e?.message || e?.data?.message || 'Summary failed.'),
+                      });
+                    });
+                }}
               >
-                Summary (license)
+                Summarize
               </button>
+
+              {aggregateEmailModalQuery.data &&
+              Array.isArray((aggregateEmailModalQuery.data as any)?.events) &&
+              (aggregateEmailModalQuery.data as any).events.length > 0 &&
+              aggregateEmailSummary.status === 'idle' &&
+              Object.keys(emailSummaryMap).length === 0 ? (
+                <span style={{ fontSize: 12, opacity: 0.85 }} data-testid="flux-one-summary-empty-hint">
+                  Summary: none generated yet.
+                </span>
+              ) : null}
 
               {aggregateEmailSummary.status !== 'idle' ? (
                 <span style={{ fontSize: 12, opacity: 0.85 }}>
@@ -1608,7 +1733,11 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                     </button>
                   </div>
                 </div>
-                <EmailAggregateView data={aggregateEmailModalQuery.data as EmailAggregatePayload | null} mode="flat_all" />
+                <EmailAggregateView
+                  data={aggregateEmailModalQuery.data as EmailAggregatePayload | null}
+                  mode="flat_all"
+                  emailSummaries={emailSummaryMap}
+                />
               </>
             ) : (
               <div style={{ fontSize: 13, opacity: 0.8 }}>Loading aggregate…</div>

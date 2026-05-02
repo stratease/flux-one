@@ -98,11 +98,12 @@ export const api = {
     );
   },
 
-  async getEmailSummary() {
+  async getEmailSummary(eventIds: number[]) {
     return apiFetch(
       withNonce({
         path: '/flux-one/v1/summary/email',
         method: 'POST',
+        data: { event_ids: eventIds },
       })
     );
   },

@@ -8,9 +8,10 @@
 
 namespace FluxOne\App\Http\Controllers;
 
-use FluxOne\App\Services\AiSummaryService;
 use FluxOne\App\Services\Database;
 use FluxOne\App\Services\EmailAggregationService;
+use FluxOne\App\Services\EmailSummaryRepository;
+use FluxOne\App\Services\EmailSummaryService;
 use WP_REST_Request;
 
 /**
@@ -153,12 +154,29 @@ class AggregationController extends BaseController {
 	 * AI summary for email aggregation (feature-gated).
 	 *
 	 * @since 0.1.0
+	 * @since 1.3.0 Expects JSON `{ "event_ids": [1,2,...] }` (1..25); uses Flux API for uncached IDs.
 	 * @param WP_REST_Request $request Request.
 	 * @return \WP_REST_Response
 	 */
 	public function summary_email( WP_REST_Request $request ) {
-		$report = ( new EmailAggregationService() )->get_report( 7, get_current_user_id() );
-		$ai     = ( new AiSummaryService() )->summarize_email_report( $report );
+		$params = $request->get_json_params();
+		if ( ! is_array( $params ) ) {
+			$params = [];
+		}
+		$event_ids = isset( $params['event_ids'] ) ? $params['event_ids'] : $request->get_param( 'event_ids' );
+		if ( ! is_array( $event_ids ) ) {
+			$event_ids = [];
+		}
+
+		$svc = new EmailSummaryService();
+		$ai  = $svc->summarize_event_ids( $event_ids, get_current_user_id() );
+
+		if ( ! empty( $ai['http_error'] ) ) {
+			$status = isset( $ai['http_status'] ) ? (int) $ai['http_status'] : 400;
+			$code   = isset( $ai['code'] ) ? (string) $ai['code'] : 'flux_one_error';
+			$msg    = isset( $ai['message'] ) ? (string) $ai['message'] : 'Request failed.';
+			return $this->create_error_response( $msg, $code, $status );
+		}
 
 		return $this->create_success_response(
 			[
@@ -174,6 +192,7 @@ class AggregationController extends BaseController {
 	 * Per-user: only releases events owned by current user.
 	 *
 	 * @since 0.1.0
+	 * @since 1.3.0 Removes matching row from `flux_one_email_summaries` when event is deleted.
 	 * @param WP_REST_Request $request Request.
 	 * @return \WP_REST_Response
 	 */
@@ -240,6 +259,8 @@ class AggregationController extends BaseController {
 			]
 		);
 
+		( new EmailSummaryRepository() )->delete_by_event_id( $event_id );
+
 		return $this->create_success_response(
 			[
 				'eventId' => $event_id,
@@ -255,6 +276,7 @@ class AggregationController extends BaseController {
 	 * Per-user: only deletes events owned by current user.
 	 *
 	 * @since 1.2.0
+	 * @since 1.3.0 Removes matching row from `flux_one_email_summaries` when event is deleted.
 	 * @param WP_REST_Request $request Request.
 	 * @return \WP_REST_Response
 	 */
@@ -291,6 +313,8 @@ class AggregationController extends BaseController {
 		if ( 0 === (int) $deleted ) {
 			return $this->create_error_response( 'Email event not found.', 'flux_one_not_found', 404 );
 		}
+
+		( new EmailSummaryRepository() )->delete_by_event_id( $event_id );
 
 		return $this->create_success_response(
 			[

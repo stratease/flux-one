@@ -12,6 +12,7 @@ use WP_REST_Request;
 use FluxOne\App\Services\CacheVersionService;
 use FluxOne\App\Services\FluxOneSettings;
 use FluxOne\App\Services\UserCommandMemory;
+use FluxOne\FluxPlugins\Common\License\LicenseService;
 
 /**
  * Provides preloaded indices and flags for fast command UX.
@@ -58,6 +59,7 @@ class BootstrapController extends BaseController {
 	public function get_bootstrap( WP_REST_Request $request ) {
 		$versions = ( new CacheVersionService() )->get_versions();
 		$memory   = new UserCommandMemory();
+		$license_valid = (bool) LicenseService::get_instance()->is_license_valid();
 
 		if ( ! function_exists( 'get_editable_roles' ) ) {
 			require_once ABSPATH . 'wp-admin/includes/user.php';
@@ -76,7 +78,7 @@ class BootstrapController extends BaseController {
 					'menus'          => [ 'enabled' => true ],
 					'multisite'       => [ 'enabled' => is_multisite() ],
 					'aggregateEmail'  => [ 'enabled' => true ],
-					'summaryEmail'    => [ 'enabled' => true ],
+					'summaryEmail'    => [ 'enabled' => $license_valid ],
 					'navigation'      => [ 'enabled' => true ],
 					'suiteConfig'     => [ 'enabled' => true ],
 				],
@@ -89,6 +91,9 @@ class BootstrapController extends BaseController {
 				],
 				'uiPrefs'         => [
 					'commandShortcut' => FluxOneSettings::get_command_shortcut_for_user( get_current_user_id() ),
+				],
+				'license'         => [
+					'valid' => $license_valid,
 				],
 			],
 			'Bootstrap loaded'

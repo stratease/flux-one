@@ -27,7 +27,7 @@ class Database {
 	 *
 	 * @since 0.1.0
 	 */
-	private const DB_VERSION = '0.1.0';
+	private const DB_VERSION = '0.2.0';
 
 	/**
 	 * Create/update tables as needed.
@@ -57,6 +57,7 @@ class Database {
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
 
 		$table_name      = self::events_table_name();
+		$summaries_table = self::email_summaries_table_name();
 		$charset_collate = $wpdb->get_charset_collate();
 
 		$sql = "CREATE TABLE {$table_name} (
@@ -75,6 +76,23 @@ class Database {
 		) {$charset_collate};";
 
 		dbDelta( $sql );
+
+		// @since 1.3.0 Per-event AI summary cache (no account_id column; scoped by table prefix).
+		$sql_summaries = "CREATE TABLE {$summaries_table} (
+			id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+			event_id BIGINT(20) UNSIGNED NOT NULL,
+			summary TEXT NULL,
+			action TEXT NULL,
+			is_urgent TINYINT(1) NOT NULL DEFAULT 0,
+			raw_response LONGTEXT NULL,
+			summarized_at DATETIME NOT NULL,
+			created_at DATETIME NOT NULL,
+			PRIMARY KEY  (id),
+			UNIQUE KEY event_id (event_id),
+			KEY summarized_at (summarized_at)
+		) {$charset_collate};";
+
+		dbDelta( $sql_summaries );
 	}
 
 	/**
@@ -88,6 +106,8 @@ class Database {
 
 		$table_name = self::events_table_name();
 		$wpdb->query( "DROP TABLE IF EXISTS {$table_name}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+		$summaries = self::email_summaries_table_name();
+		$wpdb->query( "DROP TABLE IF EXISTS {$summaries}" ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.SchemaChange,WordPress.DB.PreparedSQL.InterpolatedNotPrepared
 		delete_option( self::DB_VERSION_OPTION );
 	}
 
@@ -100,6 +120,17 @@ class Database {
 	public static function events_table_name() {
 		global $wpdb;
 		return $wpdb->prefix . 'flux_one_events';
+	}
+
+	/**
+	 * Email summaries table name.
+	 *
+	 * @since 1.3.0
+	 * @return string
+	 */
+	public static function email_summaries_table_name() {
+		global $wpdb;
+		return $wpdb->prefix . 'flux_one_email_summaries';
 	}
 }
 

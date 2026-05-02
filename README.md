@@ -48,7 +48,7 @@ Flux One treats `summary` as a **prefix** that requests an AI-enhanced summary f
 Current implemented examples:
 
 - `aggregate email` → shows the email aggregation report (non‑AI)
-- `summary email` → requests AI summary for the email aggregate (currently stubbed; gated)
+- `summary email` → requests AI summary for the email aggregate (uses `POST /flux-one/v1/summary/email` with current page `event_ids`; gated by license)
 
 ### Alias commands
 
@@ -105,7 +105,8 @@ Main file: `flux-one.php`
   - Email aggregation services:
     - `EmailEventLogger`
     - `EmailAggregationService`
-    - `AiSummaryService` (feature-gated; currently stubbed)
+    - `AiSummaryService` / `EmailSummaryService` (feature-gated; Flux API `/api/v1/fo/email-summaries`)
+    - `EmailSummaryRepository` / `{prefix}flux_one_email_summaries` table
 
 ### Data layer
 
@@ -151,7 +152,7 @@ Namespace: `flux-one/v1`
   - `POST /menus/{id}` body: `{ items: [{ id, parentId, order }] }`
 - **Email aggregation**
   - `GET /aggregate/email?days=7` (non‑AI report)
-  - `POST /summary/email` (AI summary request; gated; currently stubbed)
+  - `POST /summary/email` body `{ event_ids: number[] }` (1..25); AI summary + cache in `flux_one_email_summaries`; gated by license
 - **Settings**
   - `GET /settings` → `{ emailCaptureEnabled, suppressMailToSelf, aggregateDefaultDays }`
   - `PUT /settings` → partial update of the same keys (days clamped 1–30)
@@ -375,7 +376,7 @@ This repository may include a `wporg/` folder used as a distribution/build artif
   - `site switch {query}`
 - Aggregation:
   - `aggregate email` — **always** `POST /command` + follow-up data loads (no client-only shortcut)
-  - `summary email` (AI prefix; gated; stubbed)
+  - `summary email` (AI prefix; gated; opens aggregate modal and requests summaries for first page of events)
 
 ---
 

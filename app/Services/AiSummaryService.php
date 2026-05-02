@@ -8,6 +8,8 @@
 
 namespace FluxOne\App\Services;
 
+use FluxOne\FluxPlugins\Common\License\LicenseService;
+
 /**
  * Produces AI summaries for supported aggregate reports.
  *
@@ -22,40 +24,37 @@ class AiSummaryService {
 	 * @return bool
 	 */
 	public function is_ai_enabled() {
-		$license_class = '\FluxOne\FluxPlugins\Common\License\LicenseService';
-		if ( ! class_exists( $license_class ) ) {
-			return false;
-		}
-		$svc = call_user_func( [ $license_class, 'get_instance' ] );
-		if ( ! is_object( $svc ) || ! method_exists( $svc, 'is_license_valid' ) ) {
-			return false;
-		}
-		return (bool) $svc->is_license_valid();
+		return (bool) LicenseService::get_instance()->is_license_valid();
 	}
 
 	/**
-	 * Create AI summary for email aggregate.
+	 * Legacy: summarize from aggregate report rows.
 	 *
-	 * v1: Stub response until external AI integration is wired.
-	 *
-	 * @since 0.1.0
-	 * @param array $report Aggregate report.
+	 * @since 1.3.0
+	 * @param array $report Aggregate report from {@see EmailAggregationService::get_report()}.
 	 * @return array
 	 */
 	public function summarize_email_report( $report ) {
-		if ( ! $this->is_ai_enabled() ) {
-			return [
-				'enabled' => false,
-				'status'  => 'disabled',
-				'message' => 'AI summary is unavailable (license required).',
-			];
+		$report = is_array( $report ) ? $report : [];
+		$events = isset( $report['events'] ) && is_array( $report['events'] ) ? $report['events'] : [];
+		$ids    = [];
+		foreach ( $events as $ev ) {
+			if ( is_array( $ev ) && isset( $ev['id'] ) ) {
+				$ids[] = (int) $ev['id'];
+			}
 		}
+		$ids = array_values(
+			array_unique(
+				array_filter(
+					$ids,
+					static function ( $id ) {
+						return $id > 0;
+					}
+				)
+			)
+		);
+		$ids = array_slice( $ids, 0, 25 );
 
-		return [
-			'enabled' => true,
-			'status'  => 'pending',
-			'message' => 'AI summary is not yet implemented.',
-		];
+		return ( new EmailSummaryService() )->summarize_event_ids( $ids, get_current_user_id() );
 	}
 }
-

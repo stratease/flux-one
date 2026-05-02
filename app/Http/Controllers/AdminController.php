@@ -13,6 +13,7 @@ use FluxOne\App\Services\AdminVisitRecorder;
 use FluxOne\App\Services\CacheVersionService;
 use FluxOne\App\Services\FluxOneSettings;
 use FluxOne\App\Services\UserCommandMemory;
+use FluxOne\FluxPlugins\Common\License\LicenseService;
 use FluxOne\FluxPlugins\Common\Services\MenuService;
 
 /**
@@ -113,6 +114,8 @@ class AdminController {
 
 		$versions = ( new CacheVersionService() )->get_versions();
 		$memory   = new UserCommandMemory();
+		$license  = LicenseService::get_instance();
+		$license_valid = (bool) $license->is_license_valid();
 
 		$bootstrap = [
 			'contractVersion' => 1,
@@ -123,7 +126,7 @@ class AdminController {
 				'menus'          => [ 'enabled' => true ],
 				'multisite'       => [ 'enabled' => is_multisite() ],
 				'aggregateEmail'  => [ 'enabled' => true ],
-				'summaryEmail'    => [ 'enabled' => true ],
+				'summaryEmail'    => [ 'enabled' => $license_valid ],
 				'navigation'      => [ 'enabled' => true ],
 				'suiteConfig'     => [ 'enabled' => true ],
 			],
@@ -136,6 +139,9 @@ class AdminController {
 			],
 			'uiPrefs'         => [
 				'commandShortcut' => FluxOneSettings::get_command_shortcut_for_user( get_current_user_id() ),
+			],
+			'license'         => [
+				'valid' => $license_valid,
 			],
 		];
 
@@ -151,7 +157,7 @@ class AdminController {
 				'version'   => FLUX_ONE_VERSION,
 				'features'  => [
 					'emailAggregation' => [ 'enabled' => true ],
-					'aiEmailSummary'   => [ 'enabled' => true ],
+					'aiEmailSummary'   => [ 'enabled' => $license_valid ],
 				],
 				'bootstrap' => $bootstrap,
 				'indices'   => [

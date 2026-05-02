@@ -267,9 +267,10 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   {
     canonical: 'summary email',
     kind: 'root',
-    summary: 'Opens the aggregate panel and requests an AI summary when the feature is enabled.',
-    details: 'POST /command with aiRequested; backend may call out to the summarization service.',
-    backend: 'command',
+    summary: 'Opens the aggregate panel and requests an AI summary for the first page of events (license-gated).',
+    details:
+      'POST /command with aiRequested; client loads aggregate then POST /flux-one/v1/summary/email with explicit event_ids (max 25). Cached rows skip re-summarization.',
+    backend: 'command+post',
   },
 ];
 
