@@ -6,7 +6,9 @@ type FluxOneModalProps = {
   onClose: () => void;
   title: string;
   children: React.ReactNode;
-  /** Optional extra class on dialog panel (width variants, etc.). */
+  /** Panel width preset; `wide` matches aggregate email layout. */
+  size?: 'default' | 'wide';
+  /** Optional extra class on dialog panel. */
   className?: string;
   /** Optional: focus this element when opening (e.g. close button ref from parent). */
   initialFocusRef?: React.RefObject<HTMLElement | null>;
@@ -15,11 +17,23 @@ type FluxOneModalProps = {
 /**
  * Shared modal shell matching Command Central command reference (backdrop + panel + header).
  */
-export function FluxOneModal({ open, onClose, title, children, className, initialFocusRef }: FluxOneModalProps) {
+export function FluxOneModal({
+  open,
+  onClose,
+  title,
+  children,
+  size = 'default',
+  className,
+  initialFocusRef,
+}: FluxOneModalProps) {
   const titleId = useId();
   const closeBtnRef = useRef<HTMLButtonElement>(null);
   const portalTarget = useMemo(() => (typeof document !== 'undefined' ? document.body : null), []);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
+  const panelClassName = useMemo(
+    () => ['flux-one-modal', size === 'wide' ? 'flux-one-modal--wide' : '', className].filter(Boolean).join(' '),
+    [size, className]
+  );
 
   useEffect(() => {
     if (!open) return;
@@ -75,7 +89,7 @@ export function FluxOneModal({ open, onClose, title, children, className, initia
         role="dialog"
         aria-modal="true"
         aria-labelledby={titleId}
-        className={['flux-one-modal', className].filter(Boolean).join(' ')}
+        className={panelClassName}
         onPointerDown={(e) => e.stopPropagation()}
         onMouseDown={(e) => e.stopPropagation()}
       >

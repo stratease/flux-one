@@ -25,11 +25,13 @@ class EmailAggregationService {
 	/**
 	 * Get aggregate report for last N days (only events captured for this user).
 	 *
-	 * When `q` is non-empty, the events page lists rows with a non-empty cached AI summary first
-	 * (newest within that set), then remaining matches (newest first), so search surfaces summarized hits first.
+	 * The events page lists rows with a non-empty cached AI summary first (newest within that set),
+	 * then remaining rows (newest first), whether or not `q` is set, so the UI can keep summarized
+	 * matches above unsummarized matches on every page.
 	 *
 	 * @since 0.1.0
 	 * @since 1.2.0 Search (`q`): prioritize events that have a cached summary row with non-empty `summary`.
+	 * @since 1.2.1 Summary-first ordering for the events page applies for all requests, not only when `q` is set.
 	 * @param int $days    Days.
 	 * @param int $user_id WordPress user ID.
 	 * @param array $opts  Options: q, page, perPage.
@@ -116,26 +118,18 @@ class EmailAggregationService {
 			$offset = ( $page - 1 ) * $per_page;
 		}
 
-		if ( $has_search ) {
-			$summaries_table = Database::email_summaries_table_name();
-			$rows_sql        = "SELECT e.id, e.source, e.event_type, e.subject, e.payload, e.created_at
-				FROM {$table} e
-				LEFT JOIN {$summaries_table} s ON s.event_id = e.id
-				WHERE {$where_aliased}
-				ORDER BY (
-					CASE
-						WHEN s.summary IS NOT NULL AND TRIM( s.summary ) <> '' THEN 0
-						ELSE 1
-					END
-				) ASC, e.created_at DESC
-				LIMIT %d OFFSET %d";
-		} else {
-			$rows_sql = "SELECT id, source, event_type, subject, payload, created_at
-				FROM {$table}
-				WHERE {$where_plain}
-				ORDER BY created_at DESC
-				LIMIT %d OFFSET %d";
-		}
+		$summaries_table = Database::email_summaries_table_name();
+		$rows_sql        = "SELECT e.id, e.source, e.event_type, e.subject, e.payload, e.created_at
+			FROM {$table} e
+			LEFT JOIN {$summaries_table} s ON s.event_id = e.id
+			WHERE {$where_aliased}
+			ORDER BY (
+				CASE
+					WHEN s.summary IS NOT NULL AND TRIM( s.summary ) <> '' THEN 0
+					ELSE 1
+				END
+			) ASC, e.created_at DESC
+			LIMIT %d OFFSET %d";
 
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(

@@ -261,7 +261,7 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     kind: 'root',
     summary: 'Opens the email modal with tabbed summaries/emails and full message context (search, pagination, days).',
     details:
-      'POST /command returns panel aggregate_email; client GET /aggregate/email. Response embeds cached summaries for visible events (no AI for gaps). With search `q`, API returns summarized matches first, then the rest, each newest-first. Detail panel uses HTML iframe when available.',
+      'POST /command returns panel aggregate_email; client GET /aggregate/email. Response embeds cached summaries for visible events (no AI for gaps). API orders events summarized first (cached non-empty summary), then the rest, each bucket newest-first, with or without search `q`. Detail panel uses HTML iframe when available.',
     backend: 'command+get',
   },
   {

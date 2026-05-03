@@ -77,4 +77,6 @@ require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/PluginsHandler.
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/UsersHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/MultisiteHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandRouter.php';
+require_once dirname( __DIR__ ) . '/app/Services/Database.php';
+require_once dirname( __DIR__ ) . '/app/Services/EmailAggregationService.php';
 

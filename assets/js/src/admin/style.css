@@ -1001,13 +1001,13 @@
 }
 
 .flux-one-email-list-row[aria-selected='true'] {
-  background: var(--flux-one-color-surface-muted);
+  background: color-mix(in srgb, var(--flux-one-color-accent) 18%, var(--flux-one-color-surface));
   box-shadow: inset 3px 0 0 0 var(--flux-one-color-accent);
   padding-left: calc(var(--flux-one-space-4) - 3px);
 }
 
 .flux-one-email-list-row--summarized[aria-selected='true'] {
-  background: var(--flux-one-color-surface-hover);
+  background: color-mix(in srgb, var(--flux-one-color-accent) 14%, var(--flux-one-color-success-bg));
   box-shadow: inset 3px 0 0 0 var(--flux-one-color-accent);
   border-left-color: var(--flux-one-color-accent);
 }

@@ -1302,7 +1302,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           (aggregateEmailModalQuery.data as EmailAggregatePayload | undefined)?.meta,
           aggregateEmailDays
         )}
-        className="flux-one-modal--wide"
+        size="wide"
         initialFocusRef={aggregateEmailSearchRef}
       >
         {!emailCaptureEnabled ? (

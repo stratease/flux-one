@@ -586,7 +586,7 @@ export function EmailAggregateView({
         open={modalSubject !== null}
         onClose={() => setModalSubject(null)}
         title={modalSubject ? `Email: ${modalSubject}` : 'Email'}
-        className="flux-one-modal--wide"
+        size="wide"
       >
         <div className="flux-one-modal-doc-list flux-one-modal-doc-list--modal-view">
           {modalEvents.map((ev) => (
