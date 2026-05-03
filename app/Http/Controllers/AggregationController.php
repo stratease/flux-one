@@ -147,7 +147,64 @@ class AggregationController extends BaseController {
 			]
 		);
 
+		$report['summaries'] = $this->cached_summaries_for_visible_events( $report );
+
 		return $this->create_success_response( $report, 'Email aggregation' );
+	}
+
+	/**
+	 * Reads cached AI summaries for visible aggregate events only (no AI calls).
+	 *
+	 * @since 1.4.0
+	 * @param array<string, mixed> $report Aggregate report from EmailAggregationService.
+	 * @return array<string, mixed>
+	 */
+	private function cached_summaries_for_visible_events( array $report ) {
+		$events = isset( $report['events'] ) && is_array( $report['events'] ) ? $report['events'] : [];
+		$ids    = [];
+		foreach ( $events as $ev ) {
+			if ( ! is_array( $ev ) ) {
+				continue;
+			}
+			$id = isset( $ev['id'] ) ? (int) $ev['id'] : 0;
+			if ( $id > 0 ) {
+				$ids[] = $id;
+			}
+		}
+		if ( [] === $ids ) {
+			return [
+				'by_event_id'      => [],
+				'urgent_event_ids' => [],
+			];
+		}
+
+		$repo = new EmailSummaryRepository();
+		$rows = $repo->get_by_event_ids( $ids );
+
+		$by_event_id      = [];
+		$urgent_event_ids = [];
+
+		foreach ( $ids as $eid ) {
+			if ( ! isset( $rows[ $eid ] ) ) {
+				continue;
+			}
+			$r = $rows[ $eid ];
+			$key = (string) $eid;
+			$by_event_id[ $key ] = [
+				'summary'      => (string) ( $r['summary'] ?? '' ),
+				'action'       => (string) ( $r['action'] ?? '' ),
+				'isUrgent'     => ! empty( $r['is_urgent'] ),
+				'summarizedAt' => (string) ( $r['summarized_at'] ?? '' ),
+			];
+			if ( ! empty( $r['is_urgent'] ) ) {
+				$urgent_event_ids[] = $eid;
+			}
+		}
+
+		return [
+			'by_event_id'      => $by_event_id,
+			'urgent_event_ids' => $urgent_event_ids,
+		];
 	}
 
 	/**

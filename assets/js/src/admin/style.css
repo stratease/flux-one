@@ -858,3 +858,176 @@
 .flux-one-email-view-btn {
   margin-top: var(--flux-one-space-2);
 }
+
+/* Email aggregate modal: master-detail list + detail pane (layout-only additions). */
+
+.flux-one-email-event-meta-line {
+  font-size: var(--flux-one-font-size-sm);
+  opacity: var(--flux-one-opacity-quiet);
+  margin-top: var(--flux-one-space-1);
+}
+
+.flux-one-email-detail-actions {
+  margin-top: var(--flux-one-space-3);
+}
+
+.flux-one-email-master-detail {
+  display: grid;
+  grid-template-columns: minmax(280px, 360px) 1fr;
+  gap: var(--flux-one-space-5);
+  align-items: start;
+}
+
+@media (max-width: 782px) {
+  .flux-one-email-master-detail {
+    grid-template-columns: 1fr;
+  }
+
+  .flux-one-email-list-scroll {
+    max-height: min(40vh, 420px);
+  }
+
+  .flux-one-email-detail-pane {
+    overflow-x: auto;
+  }
+}
+
+.flux-one-email-list-pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flux-one-space-3);
+  min-width: 0;
+}
+
+.flux-one-email-list-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--flux-one-space-3);
+}
+
+.flux-one-email-list-scroll {
+  max-height: min(60vh, 560px);
+  overflow: auto;
+  border: 1px solid var(--flux-one-color-divider);
+  border-radius: var(--flux-one-radius-md);
+}
+
+.flux-one-email-list {
+  display: flex;
+  flex-direction: column;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.flux-one-email-list-item {
+  margin: 0;
+  padding: 0;
+}
+
+.flux-one-email-list-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flux-one-space-1);
+  width: 100%;
+  padding: var(--flux-one-space-3) var(--flux-one-space-4);
+  border: none;
+  border-bottom: 1px solid var(--flux-one-color-divider);
+  border-radius: 0;
+  text-align: left;
+  background: transparent;
+  cursor: pointer;
+  box-sizing: border-box;
+}
+
+.flux-one-email-list-item--section {
+  border-bottom: 1px solid var(--flux-one-color-border-muted);
+}
+
+.flux-one-email-list-section-label {
+  padding: var(--flux-one-space-2) var(--flux-one-space-4);
+  font-size: var(--flux-one-font-size-xs);
+  font-weight: var(--flux-one-font-weight-semibold);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  opacity: var(--flux-one-opacity-label);
+  background: var(--flux-one-color-surface-muted);
+}
+
+.flux-one-email-list-row--summarized {
+  background: var(--flux-one-color-success-bg);
+  border-left: 3px solid var(--flux-one-color-success-border);
+  padding-left: calc(var(--flux-one-space-4) - 3px);
+}
+
+.flux-one-email-list-row-primary {
+  font-size: var(--flux-one-font-size-base);
+  font-weight: var(--flux-one-font-weight-semibold);
+  line-height: var(--flux-one-line-height-snug);
+}
+
+.flux-one-email-list-row-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flux-one-space-1);
+  min-width: 0;
+  width: 100%;
+}
+
+.flux-one-email-list-row-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.flux-one-email-list-row-secondary {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0;
+  font-size: var(--flux-one-font-size-sm);
+  opacity: var(--flux-one-opacity-secondary);
+}
+
+.flux-one-email-list-row-action-inline {
+  min-width: 0;
+  word-break: break-word;
+}
+
+.flux-one-email-list-item:last-child .flux-one-email-list-row {
+  border-bottom: 0;
+}
+
+.flux-one-email-list-row[aria-selected='true'] {
+  background: var(--flux-one-color-surface-muted);
+  box-shadow: inset 3px 0 0 0 var(--flux-one-color-accent);
+  padding-left: calc(var(--flux-one-space-4) - 3px);
+}
+
+.flux-one-email-list-row--summarized[aria-selected='true'] {
+  background: var(--flux-one-color-surface-hover);
+  box-shadow: inset 3px 0 0 0 var(--flux-one-color-accent);
+  border-left-color: var(--flux-one-color-accent);
+}
+
+.flux-one-email-list-row-meta {
+  display: flex;
+  gap: var(--flux-one-space-2);
+  font-size: inherit;
+}
+
+.flux-one-email-detail-pane {
+  min-width: 0;
+  min-height: 240px;
+}
+
+.flux-one-email-detail-pane .flux-one-email-card {
+  max-width: 100%;
+}
+
+.flux-one-email-list-empty {
+  padding: var(--flux-one-space-4);
+  text-align: center;
+}

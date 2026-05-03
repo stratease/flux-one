@@ -4,7 +4,7 @@
  * @see ./registry.ts
  */
 
-export type CommandDocBackend = 'none' | 'command' | 'command+get';
+export type CommandDocBackend = 'none' | 'command' | 'command+get' | 'command+post';
 
 export type CommandDocRow = {
   canonical: string;
@@ -259,17 +259,17 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   {
     canonical: 'aggregate email',
     kind: 'root',
-    summary: 'Opens a modal showing all captured emails (full context) for the last 7 days.',
+    summary: 'Opens the email modal with tabbed summaries/emails and full message context (search, pagination, days).',
     details:
-      'POST /command returns panel id aggregate_email; client opens a modal and loads aggregate JSON. Body display prefers HTML (iframe) when available; falls back to raw body text; headers are hidden in this view.',
+      'POST /command returns panel aggregate_email; client GET /aggregate/email. Response embeds cached summaries for visible events (no AI for gaps). With search `q`, API returns summarized matches first, then the rest, each newest-first. Detail panel uses HTML iframe when available.',
     backend: 'command+get',
   },
   {
     canonical: 'summary email',
     kind: 'root',
-    summary: 'Opens the aggregate panel and requests an AI summary for the first page of events (license-gated).',
+    summary: 'Opens the same email modal and runs AI summaries for the visible page (license-gated, max 25 events).',
     details:
-      'POST /command with aiRequested; client loads aggregate then POST /flux-one/v1/summary/email with explicit event_ids (max 25). Cached rows skip re-summarization.',
+      'POST /command with aiRequested; client loads aggregate then POST /flux-one/v1/summary/email with explicit event_ids. Same as modal Summarize. Cached rows skip re-summarization.',
     backend: 'command+post',
   },
 ];

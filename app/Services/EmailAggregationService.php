@@ -25,7 +25,11 @@ class EmailAggregationService {
 	/**
 	 * Get aggregate report for last N days (only events captured for this user).
 	 *
+	 * When `q` is non-empty, the events page lists rows with a non-empty cached AI summary first
+	 * (newest within that set), then remaining matches (newest first), so search surfaces summarized hits first.
+	 *
 	 * @since 0.1.0
+	 * @since 1.2.0 Search (`q`): prioritize events that have a cached summary row with non-empty `summary`.
 	 * @param int $days    Days.
 	 * @param int $user_id WordPress user ID.
 	 * @param array $opts  Options: q, page, perPage.
@@ -63,6 +67,7 @@ class EmailAggregationService {
 		if ( '' !== $q ) {
 			$like = '%' . $wpdb->esc_like( $q ) . '%';
 		}
+		$has_search = ( '' !== $like );
 
 		if ( $user_id <= 0 ) {
 			return [
@@ -83,17 +88,22 @@ class EmailAggregationService {
 		$table  = Database::events_table_name();
 		$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( (int) $days * DAY_IN_SECONDS ) );
 
-		$where = "event_type = %s AND user_id = %d AND created_at >= %s";
-		$args  = [ 'email', $user_id, $cutoff ];
+		$where_plain   = "event_type = %s AND user_id = %d AND created_at >= %s";
+		$where_aliased = "e.event_type = %s AND e.user_id = %d AND e.created_at >= %s";
+		$args          = [ 'email', $user_id, $cutoff ];
 		if ( '' !== $like ) {
-			$where .= " AND (subject LIKE %s OR payload LIKE %s)";
-			$args[] = $like;
-			$args[] = $like;
+			$where_plain   .= " AND (subject LIKE %s OR payload LIKE %s)";
+			$where_aliased .= " AND (e.subject LIKE %s OR e.payload LIKE %s)";
+			$args[]         = $like;
+			$args[]         = $like;
 		}
+
+		$count_from = $has_search ? "{$table} e" : $table;
+		$count_where = $has_search ? $where_aliased : $where_plain;
 
 		$total = (int) $wpdb->get_var(
 			$wpdb->prepare(
-				"SELECT COUNT(1) FROM {$table} WHERE {$where}",
+				"SELECT COUNT(1) FROM {$count_from} WHERE {$count_where}",
 				$args
 			)
 		);
@@ -106,13 +116,30 @@ class EmailAggregationService {
 			$offset = ( $page - 1 ) * $per_page;
 		}
 
+		if ( $has_search ) {
+			$summaries_table = Database::email_summaries_table_name();
+			$rows_sql        = "SELECT e.id, e.source, e.event_type, e.subject, e.payload, e.created_at
+				FROM {$table} e
+				LEFT JOIN {$summaries_table} s ON s.event_id = e.id
+				WHERE {$where_aliased}
+				ORDER BY (
+					CASE
+						WHEN s.summary IS NOT NULL AND TRIM( s.summary ) <> '' THEN 0
+						ELSE 1
+					END
+				) ASC, e.created_at DESC
+				LIMIT %d OFFSET %d";
+		} else {
+			$rows_sql = "SELECT id, source, event_type, subject, payload, created_at
+				FROM {$table}
+				WHERE {$where_plain}
+				ORDER BY created_at DESC
+				LIMIT %d OFFSET %d";
+		}
+
 		$rows = $wpdb->get_results(
 			$wpdb->prepare(
-				"SELECT id, source, event_type, subject, payload, created_at
-				 FROM {$table}
-				 WHERE {$where}
-				 ORDER BY created_at DESC
-				 LIMIT %d OFFSET %d",
+				$rows_sql,
 				array_merge( $args, [ $per_page, $offset ] )
 			),
 			ARRAY_A
@@ -132,17 +159,31 @@ class EmailAggregationService {
 			(array) $rows
 		);
 
-		$group_rows = $wpdb->get_results(
-			$wpdb->prepare(
-				"SELECT
+		if ( $has_search ) {
+			$group_sql = "SELECT
+					COALESCE(NULLIF(TRIM(e.subject), ''), '(no subject)') AS subjectKey,
+					COUNT(1) AS cnt,
+					MAX(e.created_at) AS latest
+				 FROM {$table} e
+				 WHERE {$where_aliased}
+				 GROUP BY subjectKey
+				 ORDER BY cnt DESC
+				 LIMIT %d";
+		} else {
+			$group_sql = "SELECT
 					COALESCE(NULLIF(TRIM(subject), ''), '(no subject)') AS subjectKey,
 					COUNT(1) AS cnt,
 					MAX(created_at) AS latest
 				 FROM {$table}
-				 WHERE {$where}
+				 WHERE {$where_plain}
 				 GROUP BY subjectKey
 				 ORDER BY cnt DESC
-				 LIMIT %d",
+				 LIMIT %d";
+		}
+
+		$group_rows = $wpdb->get_results(
+			$wpdb->prepare(
+				$group_sql,
 				array_merge( $args, [ self::MAX_GROUPS ] )
 			),
 			ARRAY_A

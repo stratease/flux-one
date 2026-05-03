@@ -47,8 +47,8 @@ Flux One treats `summary` as a **prefix** that requests an AI-enhanced summary f
 
 Current implemented examples:
 
-- `aggregate email` → shows the email aggregation report (non‑AI)
-- `summary email` → requests AI summary for the email aggregate (uses `POST /flux-one/v1/summary/email` with current page `event_ids`; gated by license)
+- `aggregate email` → opens unified email modal (non‑AI aggregate load). Response includes **cached** AI summaries for visible page events when rows exist in `flux_one_email_summaries`; **does not** call AI for missing summaries.
+- `summary email` → opens same modal and **explicitly** requests AI summaries for the visible page (uses `POST /flux-one/v1/summary/email` with current page `event_ids`, max 25; gated by license). Same behavior as the modal **Summarize** button.
 
 ### Alias commands
 
@@ -151,7 +151,7 @@ Namespace: `flux-one/v1`
   - `GET /menus/{id}`
   - `POST /menus/{id}` body: `{ items: [{ id, parentId, order }] }`
 - **Email aggregation**
-  - `GET /aggregate/email?days=7` (non‑AI report)
+  - `GET /aggregate/email?days=7` (non‑AI report; includes `summaries.by_event_id` + `summaries.urgent_event_ids` for **visible page** events only—DB cache read, no AI). With **`q`** set, the `events` page is ordered **summarized matches first** (non-empty cached summary), then other matches, each bucket **newest first** (`created_at DESC`).
   - `POST /summary/email` body `{ event_ids: number[] }` (1..25); AI summary + cache in `flux_one_email_summaries`; gated by license
 - **Settings**
   - `GET /settings` → `{ emailCaptureEnabled, suppressMailToSelf, aggregateDefaultDays }`
@@ -269,7 +269,7 @@ Implementation intent:
 - Success / error notices show **human-readable text only** (no `error_code` in the palette)
 - Indices loaded from decoupled **`GET /flux-one/v1/index/*`** endpoints; after successful **`plugin update` / `activate` / `deactivate` / `delete`**, the plugins index query is **invalidated** so autocomplete stays fresh
 - **Commands reference** modal (info icon) with filter (`commandDocs.ts`); keep in sync when changing commands (see maintenance rule below)
-- **Email aggregate** panel (`EmailAggregateView`): summary line, per-subject latest time, up to **two** inline event previews, and **View all** opening a modal (shared `FluxOneModal` shell with the command reference) for the full chronological list with expandable headers—no accordion rows in the palette
+- **Email aggregate** modal (`EmailAggregateView` + `FluxOneModal`): unified view for `aggregate email` and `summary email`. Master-detail layout: list pane + detail (`aggregate email` modal stacks to a single column below ~782px viewport width). Two sections (**Summarized** first, then **Not summarized**), newest-first within the page; summarized rows show AI summary plus optional suggested action and timestamp (subject stays in the detail pane only). Detail pane shows subject, timestamp, recipient, body, and actions. Cached summaries load with `GET /aggregate/email`; AI runs only via `summary email` or **Summarize**.
 
 ### Documentation maintenance (commands)
 
@@ -376,8 +376,8 @@ This repository may include a `wporg/` folder used as a distribution/build artif
   - `sites` → `site`
   - `site switch {query}`
 - Aggregation:
-  - `aggregate email` — **always** `POST /command` + follow-up data loads (no client-only shortcut)
-  - `summary email` (AI prefix; gated; opens aggregate modal and requests summaries for first page of events)
+  - `aggregate email` — **always** `POST /command` + follow-up `GET /aggregate/email` (no client-only shortcut); shows cached summaries when present
+  - `summary email` (AI prefix; gated; opens same modal and runs AI for visible page, max 25 events)
 
 ---
 

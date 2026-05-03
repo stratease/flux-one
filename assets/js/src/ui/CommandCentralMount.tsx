@@ -29,33 +29,61 @@ function unwrapCommandEnvelope(res: any): CommandResponse | null {
   return null;
 }
 
+const MAX_EMAIL_SUMMARY_EVENT_IDS = 25;
+
+function summaryMapFromByEventId(by: unknown): EmailSummaryMap {
+  const map: EmailSummaryMap = {};
+  if (!by || typeof by !== 'object') {
+    return map;
+  }
+  for (const [k, v] of Object.entries(by as Record<string, unknown>)) {
+    const id = parseInt(String(k), 10);
+    if (!id || !v || typeof v !== 'object') {
+      continue;
+    }
+    const o = v as Record<string, unknown>;
+    map[id] = {
+      summary: String(o.summary ?? ''),
+      action: o.action != null ? String(o.action) : undefined,
+      isUrgent: !!(o.isUrgent ?? o.is_urgent),
+      summarizedAt:
+        o.summarizedAt != null
+          ? String(o.summarizedAt)
+          : o.summarized_at != null
+            ? String(o.summarized_at)
+            : undefined,
+    };
+  }
+  return map;
+}
+
 function parseEmailSummaryEnvelope(raw: unknown): { inner: any; map: EmailSummaryMap } {
   const r = raw as any;
   const payload = r?.data ?? r;
   const inner = payload?.ai ?? payload;
   const by = inner?.summaries?.by_event_id ?? {};
-  const map: EmailSummaryMap = {};
-  if (by && typeof by === 'object') {
-    for (const [k, v] of Object.entries(by)) {
-      const id = parseInt(String(k), 10);
-      if (!id || !v || typeof v !== 'object') {
-        continue;
-      }
-      const o = v as Record<string, unknown>;
-      map[id] = {
-        summary: String(o.summary ?? ''),
-        action: o.action != null ? String(o.action) : undefined,
-        isUrgent: !!(o.isUrgent ?? o.is_urgent),
-        summarizedAt:
-          o.summarizedAt != null
-            ? String(o.summarizedAt)
-            : o.summarized_at != null
-              ? String(o.summarized_at)
-              : undefined,
-      };
-    }
-  }
-  return { inner, map };
+  return { inner, map: summaryMapFromByEventId(by) };
+}
+
+/** Cached summaries embedded on GET aggregate/email (no AI). */
+function parseCachedSummariesFromAggregatePayload(data: unknown): EmailSummaryMap {
+  const d = data as { summaries?: { by_event_id?: unknown } } | null | undefined;
+  return summaryMapFromByEventId(d?.summaries?.by_event_id);
+}
+
+function getVisibleEmailEventIdsForSummary(data: EmailAggregatePayload | null | undefined): number[] {
+  const events = Array.isArray(data?.events) ? data!.events! : [];
+  return events
+    .map((e) => Number(e.id))
+    .filter((n) => n > 0)
+    .slice(0, MAX_EMAIL_SUMMARY_EVENT_IDS);
+}
+
+function formatAggregateEmailModalTitle(meta: EmailAggregatePayload['meta'] | undefined, days: number): string {
+  const total = Number(meta?.total ?? 0);
+  const d = Number(days);
+  const safeDays = d > 0 ? d : 7;
+  return `Aggregate email · ${total} email${total === 1 ? '' : 's'} · last ${safeDays} day${safeDays === 1 ? '' : 's'}`;
 }
 
 function getActionDisplayMessage(result: CommandResponse & { type: 'action' }): string {
@@ -122,7 +150,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [aggregateEmailSummary, setAggregateEmailSummary] = useState<{ status: 'idle' | 'loading' | 'error' | 'pending'; message?: string }>(
     { status: 'idle' }
   );
-  const [emailSummaryMap, setEmailSummaryMap] = useState<EmailSummaryMap>({});
+  const [generatedEmailSummaryMap, setGeneratedEmailSummaryMap] = useState<EmailSummaryMap>({});
   const emailCaptureEnabledRef = useRef(false);
   const [emailCaptureEnabled, setEmailCaptureEnabled] = useState(false);
   const [recentNavigations, setRecentNavigations] = useState<
@@ -410,7 +438,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
   useEffect(() => {
     if (!aggregateEmailModalOpen) {
-      setEmailSummaryMap({});
+      setGeneratedEmailSummaryMap({});
       setAggregateEmailSummary({ status: 'idle' });
     }
   }, [aggregateEmailModalOpen]);
@@ -438,6 +466,59 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     staleTime: 5_000,
     refetchOnWindowFocus: false,
   });
+
+  const cachedEmailSummaryMap = useMemo(
+    () => parseCachedSummariesFromAggregatePayload(aggregateEmailModalQuery.data),
+    [aggregateEmailModalQuery.data]
+  );
+
+  const effectiveEmailSummaryMap = useMemo(
+    () => ({ ...cachedEmailSummaryMap, ...generatedEmailSummaryMap }),
+    [cachedEmailSummaryMap, generatedEmailSummaryMap]
+  );
+
+  const hasSummaryTextOnVisiblePage = useMemo(() => {
+    const d = aggregateEmailModalQuery.data as EmailAggregatePayload | null | undefined;
+    const events = Array.isArray(d?.events) ? d.events : [];
+    for (const e of events) {
+      const ent = effectiveEmailSummaryMap[e.id];
+      if (ent && String(ent.summary || '').trim() !== '') {
+        return true;
+      }
+    }
+    return false;
+  }, [aggregateEmailModalQuery.data, effectiveEmailSummaryMap]);
+
+  async function summarizeVisibleEmailPage(data: EmailAggregatePayload | null | undefined): Promise<void> {
+    const ids = getVisibleEmailEventIdsForSummary(data);
+    if (ids.length === 0) {
+      setAggregateEmailSummary({ status: 'pending', message: 'No email events to summarize.' });
+      return;
+    }
+    setAggregateEmailSummary({ status: 'loading' });
+    try {
+      const raw = await api.getEmailSummary(ids);
+      const { inner, map } = parseEmailSummaryEnvelope(raw);
+      setGeneratedEmailSummaryMap((prev) => ({ ...prev, ...map }));
+      const msg = String(inner?.message || '');
+      const st = String(inner?.status || '');
+      const en = inner?.enabled !== false;
+      if (!en) {
+        setAggregateEmailSummary({ status: 'error', message: msg || 'Summary unavailable.' });
+      } else if (st === 'empty') {
+        setAggregateEmailSummary({ status: 'pending', message: msg });
+      } else {
+        setAggregateEmailSummary({ status: 'pending', message: msg || 'Summaries loaded.' });
+      }
+      setAiData((raw as any)?.data ?? raw);
+      void queryClient.invalidateQueries({ queryKey: ['flux-one', 'aggregate', 'email'] });
+    } catch (e: any) {
+      setAggregateEmailSummary({
+        status: 'error',
+        message: String(e?.message || e?.data?.message || 'Summary failed.'),
+      });
+    }
+  }
 
   useEffect(() => {
     const boot = (typeof window !== 'undefined' && window.fluxOneAdmin?.bootstrap) as
@@ -540,29 +621,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                       return (rawAgg as any)?.data ?? rawAgg;
                     },
                   });
-                  const events = Array.isArray((data as any)?.events) ? (data as any).events : [];
-                  const ids = events
-                    .map((e: any) => Number(e.id))
-                    .filter((n: number) => n > 0)
-                    .slice(0, 25);
-                  if (ids.length === 0) {
-                    setAggregateEmailSummary({ status: 'pending', message: 'No email events to summarize.' });
-                    return;
-                  }
-                  const raw = await api.getEmailSummary(ids);
-                  const { inner, map } = parseEmailSummaryEnvelope(raw);
-                  setEmailSummaryMap((prev) => ({ ...prev, ...map }));
-                  const msg = String(inner?.message || '');
-                  const st = String(inner?.status || '');
-                  const en = inner?.enabled !== false;
-                  if (!en) {
-                    setAggregateEmailSummary({ status: 'error', message: msg || 'Summary unavailable.' });
-                  } else if (st === 'empty') {
-                    setAggregateEmailSummary({ status: 'pending', message: msg });
-                  } else {
-                    setAggregateEmailSummary({ status: 'pending', message: msg || 'Summaries loaded.' });
-                  }
-                  setAiData((raw as any)?.data ?? raw);
+                  await summarizeVisibleEmailPage(data as EmailAggregatePayload);
                 } catch (e: any) {
                   setAggregateEmailSummary({
                     status: 'error',
@@ -1239,7 +1298,10 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           setAggregateEmailModalOpen(false);
           focusAndSelectPrompt();
         }}
-        title={`Aggregate email (${aggregateEmailDays}d)`}
+        title={formatAggregateEmailModalTitle(
+          (aggregateEmailModalQuery.data as EmailAggregatePayload | undefined)?.meta,
+          aggregateEmailDays
+        )}
         className="flux-one-modal--wide"
         initialFocusRef={aggregateEmailSearchRef}
       >
@@ -1312,38 +1374,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                     : 'Summarize emails on this page (may use API quota).'
                 }
                 onClick={() => {
-                  const events = (aggregateEmailModalQuery.data as any)?.events ?? [];
-                  const ids = events
-                    .map((e: any) => Number(e.id))
-                    .filter((n: number) => n > 0)
-                    .slice(0, 25);
-                  if (ids.length === 0) {
-                    return;
-                  }
-                  setAggregateEmailSummary({ status: 'loading' });
-                  api
-                    .getEmailSummary(ids)
-                    .then((raw) => {
-                      const { inner, map } = parseEmailSummaryEnvelope(raw);
-                      setEmailSummaryMap((prev) => ({ ...prev, ...map }));
-                      const msg = String(inner?.message || '');
-                      const st = String(inner?.status || '');
-                      const en = inner?.enabled !== false;
-                      if (!en) {
-                        setAggregateEmailSummary({ status: 'error', message: msg || 'Summary unavailable.' });
-                      } else if (st === 'empty') {
-                        setAggregateEmailSummary({ status: 'pending', message: msg });
-                      } else {
-                        setAggregateEmailSummary({ status: 'pending', message: msg || 'Summaries loaded.' });
-                      }
-                      setAiData((raw as any)?.data ?? raw);
-                    })
-                    .catch((e: any) => {
-                      setAggregateEmailSummary({
-                        status: 'error',
-                        message: String(e?.message || e?.data?.message || 'Summary failed.'),
-                      });
-                    });
+                  void summarizeVisibleEmailPage(aggregateEmailModalQuery.data as EmailAggregatePayload);
                 }}
               >
                 Summarize
@@ -1353,7 +1384,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
               Array.isArray((aggregateEmailModalQuery.data as any)?.events) &&
               (aggregateEmailModalQuery.data as any).events.length > 0 &&
               aggregateEmailSummary.status === 'idle' &&
-              Object.keys(emailSummaryMap).length === 0 ? (
+              !hasSummaryTextOnVisiblePage ? (
                 <span className="flux-one-email-hint" data-testid="flux-one-summary-empty-hint">
                   Summary: none generated yet.
                 </span>
@@ -1368,16 +1399,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                       : 'Summary: unavailable.'}
                 </span>
               ) : null}
-
-              <button
-                type="button"
-                className="button button-small"
-                onClick={() => {
-                  void aggregateEmailModalQuery.refetch();
-                }}
-              >
-                Refresh
-              </button>
             </div>
 
             {aggregateEmailModalQuery.data ? (
@@ -1418,7 +1439,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                 <EmailAggregateView
                   data={aggregateEmailModalQuery.data as EmailAggregatePayload | null}
                   mode="flat_all"
-                  emailSummaries={emailSummaryMap}
+                  emailSummaries={effectiveEmailSummaryMap}
                 />
               </>
             ) : (
