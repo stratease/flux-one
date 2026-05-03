@@ -5,6 +5,7 @@
  * so portaled dialogs inherit the same palette as the command shell.
  *
  * @since 1.3.0
+ * @since 1.4.0 Email aggregate modal list/detail tokens.
  */
 .flux-one-theme {
   --flux-one-font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell,
@@ -84,4 +85,18 @@
   --flux-one-opacity-label: 0.8;
   --flux-one-opacity-quiet: 0.85;
   --flux-one-opacity-muted-row: 0.7;
+  --flux-one-opacity-secondary: 0.82;
+
+  /* Email aggregate modal: summarized rows, urgency, suggested action, selection. */
+  --flux-one-color-email-summary-bg: #eef3f8;
+  --flux-one-color-email-summary-border: rgba(34, 113, 177, 0.38);
+  --flux-one-color-email-urgent-bg: #fff6ed;
+  --flux-one-color-email-urgent-border: rgba(181, 71, 8, 0.55);
+  --flux-one-color-email-urgent-badge-bg: rgba(181, 71, 8, 0.12);
+  --flux-one-color-email-urgent-badge-fg: #7a3d0c;
+  --flux-one-color-email-action-fg: #0a4b78;
+  --flux-one-color-email-action-label-fg: rgba(10, 75, 120, 0.85);
+  --flux-one-color-email-row-selected-bg: #d7e4f2;
+  --flux-one-color-email-row-selected-fg: #0f1419;
+  --flux-one-color-email-row-selected-muted: rgba(15, 20, 25, 0.72);
 }

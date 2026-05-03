@@ -72,12 +72,19 @@ function getUsableSummary(
  * Accessible name for list rows; includes subject even when omitted visually on summarized rows.
  *
  * @since 1.2.0
+ * @since 1.4.0 Includes urgent flag and suggested action for summarized rows.
  */
 function ariaLabelForEmailListOption(ev: EmailAggregateEvent, summaryEnt: EmailSummaryEntry | null): string {
   const subj = subjectKey(ev.subject || '');
   if (summaryEnt) {
+    const urgent = summaryEnt.isUrgent === true ? 'Urgent. ' : '';
     const sum = trimStr(summaryEnt.summary);
-    return sum ? `${subj}. ${sum}` : subj;
+    const act = trimStr(summaryEnt.action || '');
+    const actionPart = act !== '' ? ` Action: ${act}.` : '';
+    if (sum !== '') {
+      return `${urgent}${subj}. ${sum}.${actionPart}`.trim();
+    }
+    return `${urgent}${subj}.${actionPart}`.trim();
   }
   return `${subj}. ${ev.createdAt}`;
 }
@@ -142,6 +149,7 @@ function EmailRaw({ text }: { text: string }) {
  * Detail pane for one email (body + metadata). AI summary lives in list rows only.
  *
  * @since 1.2.0
+ * @since 1.4.0 Detail shell uses flat styling (no card chrome) for readability.
  */
 function EmailEventDetailPanel({
   ev,
@@ -191,7 +199,7 @@ function EmailEventDetailPanel({
   }
 
   return (
-    <div id={`flux-one-email-event-${ev.id}`} className="flux-one-email-modal-email flux-one-email-card">
+    <div id={`flux-one-email-event-${ev.id}`} className="flux-one-email-modal-email flux-one-email-detail-shell">
       <div className="flux-one-email-event-header">
         <div className="flux-one-email-event-subject">{subjectKey(ev.subject || '')}</div>
         <div className="flux-one-email-event-meta-line">
@@ -466,27 +474,42 @@ export function EmailAggregateView({
                       return null;
                     }
                     const hasAction = trimStr(ent.action) !== '';
+                    const isUrgent = Boolean(ent.isUrgent);
+                    const rowClass = [
+                      'flux-one-email-list-row',
+                      'flux-one-email-list-row--summarized',
+                      isUrgent ? 'flux-one-email-list-row--urgent' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ');
                     return (
                       <li key={ev.id} className="flux-one-email-list-item">
                         <button
                           type="button"
                           role="option"
                           aria-selected={selectedEventId === ev.id}
-                          className="flux-one-email-list-row flux-one-email-list-row--summarized"
+                          className={rowClass}
                           data-testid={`flux-one-email-list-option-${ev.id}`}
                           title={ent.summary}
                           aria-label={ariaLabelForEmailListOption(ev, ent)}
                           onClick={() => setSelectedEventId(ev.id)}
                         >
                           <span className="flux-one-email-list-row-stack">
+                            {isUrgent ? (
+                              <span className="flux-one-email-list-row-badge-row" aria-hidden="true">
+                                <span className="flux-one-email-urgent-badge">Urgent</span>
+                              </span>
+                            ) : null}
                             <span className="flux-one-email-list-row-primary flux-one-email-list-row-summary">
                               {ent.summary}
                             </span>
-                            <span className="flux-one-email-list-row-secondary">
-                              {hasAction ? (
-                                <span className="flux-one-email-list-row-action-inline">{ent.action}</span>
-                              ) : null}
-                              {hasAction ? <span aria-hidden="true"> · </span> : null}
+                            {hasAction ? (
+                              <span className="flux-one-email-list-row-action-block">
+                                <span className="flux-one-email-list-row-action-label">Action</span>
+                                <span className="flux-one-email-list-row-action-text">{ent.action}</span>
+                              </span>
+                            ) : null}
+                            <span className="flux-one-email-list-row-secondary flux-one-email-list-row-secondary--meta">
                               <span className="flux-one-email-list-row-meta">{ev.createdAt}</span>
                             </span>
                           </span>
