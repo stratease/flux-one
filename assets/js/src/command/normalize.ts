@@ -47,6 +47,11 @@ export function canonicalizeTokens(tokens: Token[]): Token[] {
   // "email summary" => "summary email" (represented as tokens for standard mode)
   if (tokens[0] === 'email' && tokens[1] === 'summary') return ['summary', 'email', ...tokens.slice(2)];
 
+  // "menu show" => "menu list" (alias; mirrors CommandRouter::canonicalize_tokens).
+  if (tokens[0] === 'menu' && tokens[1] === 'show') {
+    return ['menu', 'list', ...tokens.slice(2)];
+  }
+
   const out = [...tokens];
   if (out[0] === 'go' || out[0] === 'open') {
     out[0] = 'nav';

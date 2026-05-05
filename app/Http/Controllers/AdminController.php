@@ -145,6 +145,10 @@ class AdminController {
 			'license'         => [
 				'valid' => $license_valid,
 			],
+			'currentUser'     => [
+				'id'    => (int) get_current_user_id(),
+				'email' => (string) wp_get_current_user()->user_email,
+			],
 		];
 
 		wp_localize_script(
@@ -227,7 +231,7 @@ class AdminController {
 	}
 
 	/**
-	 * Main Command Central admin bundle URL (dev server or built file).
+	 * Main Command Bar admin bundle URL (dev server or built file).
 	 *
 	 * @since 0.1.0
 	 * @return string
@@ -304,6 +308,7 @@ class AdminController {
 	 * Register dashboard widget.
 	 *
 	 * @since 0.1.0
+	 * @since 1.4.2 Dashboard widget title uses Command Bar branding.
 	 * @return void
 	 */
 	public function register_dashboard_widget() {
@@ -313,7 +318,7 @@ class AdminController {
 
 		wp_add_dashboard_widget(
 			'flux_one_command_central_widget',
-			esc_html__( 'Flux One — Command Central', 'flux-one' ),
+			esc_html__( 'Flux One — Command Bar', 'flux-one' ),
 			[ $this, 'render_dashboard_widget' ]
 		);
 	}
@@ -329,7 +334,7 @@ class AdminController {
 	}
 
 	/**
-	 * Once per user, prepend the Command Central widget to the normal dashboard column when no layout is saved yet.
+	 * Once per user, prepend the Command Bar widget to the normal dashboard column when no layout is saved yet.
 	 *
 	 * @since 0.1.0
 	 * @return void

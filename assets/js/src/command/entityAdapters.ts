@@ -107,14 +107,14 @@ export const menuShowAdapter: EntityAdapter<MenuRow> = {
   entityType: 'menu',
   getId: (m) => String(m.id),
   getLabel: (m) => String(m.name || ''),
-  getValue: (m) => `menu show ${String(m.name || '').trim()}`,
+  getValue: (_m) => 'menu list',
   getSearchText: (m) => `${m.slug || ''} ${m.id}`,
   toSuggestion: (m) => ({
     id: `menu.${m.id}`,
     kind: 'entity',
     entityType: 'menu',
     label: String(m.name || ''),
-    value: `menu show ${String(m.name || '').trim()}`,
+    value: 'menu list',
   }),
   rankBoost: (m, ctx) => {
     const q = ctx.query;

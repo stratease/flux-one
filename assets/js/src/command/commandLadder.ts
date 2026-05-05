@@ -10,7 +10,6 @@ const TERMINAL_EXACT = new Set([
   'user list',
   'user show',
   'menu list',
-  'menu show',
   'site list',
   'site show',
   'plugin update all',
@@ -23,6 +22,11 @@ const TERMINAL_EXACT = new Set([
 
 function normalizeCanonical(s: string): string {
   return s.trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+/** Single email token after lock/unlock; runnable without waiting for a unique Fuse hit on the users index. */
+function isCompleteEmailQuery(s: string): boolean {
+  return /^[^\s@]+@[^\s@]+$/.test((s || '').trim());
 }
 
 /**
@@ -149,7 +153,16 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
   if (mLock) {
     const q = mLock[1].trim();
     if (!q) return { ok: false };
-    const fuse = new Fuse(users, { keys: ['email', 'displayName', 'login'], threshold: 0.35, ignoreLocation: true });
+    const self = indices.currentUser;
+    if (isCompleteEmailQuery(q)) {
+      const em = self?.email?.trim().toLowerCase();
+      if (em && q.trim().toLowerCase() === em) {
+        return { ok: false };
+      }
+      return { ok: true, command: `user lock ${q.trim()}` };
+    }
+    const lockUsers = users.filter((u) => (self?.id == null ? true : u.id !== self.id));
+    const fuse = new Fuse(lockUsers, { keys: ['email', 'displayName', 'login'], threshold: 0.35, ignoreLocation: true });
     const r = fuse.search(q);
     if (r.length === 1) {
       return { ok: true, command: `user lock ${r[0].item.email}` };
@@ -161,6 +174,9 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
   if (mUnlock) {
     const q = mUnlock[1].trim();
     if (!q) return { ok: false };
+    if (isCompleteEmailQuery(q)) {
+      return { ok: true, command: `user unlock ${q.trim()}` };
+    }
     const fuse = new Fuse(users, { keys: ['email', 'displayName', 'login'], threshold: 0.35, ignoreLocation: true });
     const r = fuse.search(q);
     if (r.length === 1) {
@@ -193,11 +209,6 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
 
   const mRole = /^user role set (\S+@\S+)\s+(\S+)$/.exec(c);
   if (mRole && mRole[1].trim() && mRole[2].trim()) {
-    return { ok: true, command: c };
-  }
-
-  const mUserEmail = /^user\s+(\S+@\S+)$/.exec(c);
-  if (mUserEmail) {
     return { ok: true, command: c };
   }
 

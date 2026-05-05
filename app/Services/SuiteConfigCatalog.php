@@ -1,6 +1,6 @@
 <?php
 /**
- * Registry of Flux suite plugin settings exposed to Command Central (`config` command).
+ * Registry of Flux suite plugin settings exposed to Command Bar (`config` command).
  *
  * Only entries whose plugin is active are offered. Third-party code may append
  * definitions via {@see SuiteConfigCatalog::FILTER_DEFINITIONS}.

@@ -53,6 +53,7 @@ class BootstrapController extends BaseController {
 	 * Get bootstrap data.
 	 *
 	 * @since 0.1.0
+	 * @since 1.4.0 Adds `currentUser` (`id`, `email`) for Command Bar.
 	 * @param WP_REST_Request $request Request.
 	 * @return \WP_REST_Response
 	 */
@@ -94,6 +95,10 @@ class BootstrapController extends BaseController {
 				],
 				'license'         => [
 					'valid' => $license_valid,
+				],
+				'currentUser'     => [
+					'id'    => (int) get_current_user_id(),
+					'email' => (string) wp_get_current_user()->user_email,
 				],
 			],
 			'Bootstrap loaded'

@@ -4,17 +4,20 @@
  *
  * @package FluxOne
  * @since 1.3.0
+ * @since 1.4.1 Logging for Flux Services API failures and persist edge cases.
  */
 
 namespace FluxOne\App\Services;
 
 use FluxOne\FluxPlugins\Common\Account\AccountIdService;
 use FluxOne\FluxPlugins\Common\License\LicenseService;
+use FluxOne\FluxPlugins\Common\Logger\Logger;
 
 /**
  * Email summary orchestration.
  *
  * @since 1.3.0
+ * @since 1.4.1 Suite logger for summarization API integration.
  */
 class EmailSummaryService {
 
@@ -45,15 +48,26 @@ class EmailSummaryService {
 	private $api;
 
 	/**
+	 * Suite logger.
+	 *
+	 * @since 1.4.1
+	 * @var Logger
+	 */
+	private $logger;
+
+	/**
 	 * Constructor.
 	 *
 	 * @since 1.3.0
+	 * @since 1.4.1 Optional logger injection.
 	 * @param EmailSummaryRepository|null  $repo Repository.
 	 * @param EmailSummariesApiClient|null $api  API client.
+	 * @param Logger|null                  $logger Suite logger.
 	 */
-	public function __construct( EmailSummaryRepository $repo = null, EmailSummariesApiClient $api = null ) {
-		$this->repo = $repo ?? new EmailSummaryRepository();
-		$this->api  = $api ?? new EmailSummariesApiClient();
+	public function __construct( EmailSummaryRepository $repo = null, EmailSummariesApiClient $api = null, Logger $logger = null ) {
+		$this->repo   = $repo ?? new EmailSummaryRepository();
+		$this->api    = $api ?? new EmailSummariesApiClient();
+		$this->logger = $logger ?? Logger::get_instance();
 	}
 
 	/**
@@ -219,12 +233,29 @@ class EmailSummaryService {
 
 		$result = $this->api->post_email_summaries( $account_id, $emails );
 		if ( ! $result['ok'] ) {
+			$this->logger->warning(
+				'Email summary orchestration: summarization API returned transport or HTTP failure.',
+				[
+					'missing_id_count' => count( $missing_ids ),
+					'http_status'      => isset( $result['http_status'] ) ? $result['http_status'] : null,
+					'error_message'    => isset( $result['error_message'] ) ? (string) $result['error_message'] : '',
+					'account_id'       => AccountIdService::get_instance()->obfuscate_account_id(),
+				]
+			);
 			return $this->map_api_transport_error( $result );
 		}
 
 		$body = $result['body'];
 		if ( isset( $body['success'] ) && false === $body['success'] ) {
 			$msg = isset( $body['error'] ) && is_string( $body['error'] ) ? $body['error'] : __( 'Failed to summarize emails.', 'flux-one' );
+			$this->logger->warning(
+				'Email summary orchestration: summarization API returned success=false.',
+				[
+					'error'            => $msg,
+					'requested_count'  => count( $missing_ids ),
+					'account_id'       => AccountIdService::get_instance()->obfuscate_account_id(),
+				]
+			);
 			return [
 				'http_error'  => true,
 				'code'        => 'flux_one_summary_failed',
@@ -240,6 +271,7 @@ class EmailSummaryService {
 
 	/**
 	 * @since 1.3.0
+	 * @since 1.4.1 Log when no rows persisted for requested IDs.
 	 * @param array<string, mixed> $body API JSON body.
 	 * @param int[]                $requested_ids IDs sent.
 	 * @return void
@@ -303,6 +335,17 @@ class EmailSummaryService {
 
 		if ( [] !== $rows ) {
 			$this->repo->upsert_rows( $rows );
+			return;
+		}
+
+		if ( [] !== $requested_ids ) {
+			$this->logger->warning(
+				'Email summary orchestration: summarization API response produced no persistable rows for requested event IDs.',
+				[
+					'requested_count' => count( $requested_ids ),
+					'account_id'      => AccountIdService::get_instance()->obfuscate_account_id(),
+				]
+			);
 		}
 	}
 
@@ -323,6 +366,7 @@ class EmailSummaryService {
 
 	/**
 	 * @since 1.3.0
+	 * @since 1.4.1 Debug log for operator-facing message mapping.
 	 * @param array<string, mixed> $result API client result.
 	 * @return array
 	 */
@@ -350,11 +394,20 @@ class EmailSummaryService {
 				break;
 		}
 
+		$out_status = $code > 0 ? $code : 502;
+		$this->logger->debug(
+			'Email summary orchestration: mapped summarization API error to client response.',
+			[
+				'http_status'   => $out_status,
+				'user_message'  => $msg,
+			]
+		);
+
 		return [
 			'http_error' => true,
 			'code'       => 'flux_one_summary_api_error',
 			'message'    => $msg,
-			'http_status' => $code > 0 ? $code : 502,
+			'http_status' => $out_status,
 		];
 	}
 

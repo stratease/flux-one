@@ -1,5 +1,5 @@
 /**
- * Shared shortcut parsing for admin loader and Command Central.
+ * Shared shortcut parsing for admin loader and Command Bar.
  *
  * @since 1.2.1
  */

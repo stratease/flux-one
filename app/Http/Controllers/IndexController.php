@@ -79,7 +79,9 @@ class IndexController extends BaseController {
 				[
 					'methods'             => 'GET',
 					'callback'            => [ $this, 'menus' ],
-					'permission_callback' => [ $this, 'check_permissions' ],
+					'permission_callback' => static function () {
+						return current_user_can( 'edit_theme_options' );
+					},
 				],
 			]
 		);

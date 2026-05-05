@@ -122,5 +122,20 @@ final class CommandRouterTest extends TestCase {
 		$this->assertSame( $primary['type'], $alias['type'] );
 		$this->assertSame( $primary['command'] ?? '', $alias['command'] ?? '' );
 	}
+
+	public function test_menu_show_and_menu_list_same_panel_shape(): void {
+		$router = new CommandRouter();
+		$list   = $router->handle( 'menu list' );
+		$show   = $router->handle( 'menu show' );
+
+		$this->assertSame( 'panel', $list['type'] );
+		$this->assertSame( 'panel', $show['type'] );
+		$this->assertSame( 'menus', $list['panelId'] );
+		$this->assertSame( 'menus', $show['panelId'] );
+		$this->assertSame( 'menu list', $list['command'] ?? '' );
+		$this->assertSame( 'menu list', $show['command'] ?? '' );
+		$this->assertIsArray( $list['data'] ?? null );
+		$this->assertIsArray( $show['data'] ?? null );
+	}
 }
 

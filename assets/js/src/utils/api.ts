@@ -48,6 +48,39 @@ export const api = {
     return apiFetch(withNonce({ path: `/flux-one/v1/index/menus`, method: 'GET' }));
   },
 
+  async getMenu(id: number) {
+    return apiFetch(withNonce({ path: `/flux-one/v1/menus/${id}`, method: 'GET' }));
+  },
+
+  async saveMenuItems(id: number, items: Array<{ id: number; parentId: number; order: number }>) {
+    return apiFetch(
+      withNonce({
+        path: `/flux-one/v1/menus/${id}`,
+        method: 'POST',
+        data: { items },
+      })
+    );
+  },
+
+  async addMenuCustomItem(id: number, body: { title: string; url: string }) {
+    return apiFetch(
+      withNonce({
+        path: `/flux-one/v1/menus/${id}/items`,
+        method: 'POST',
+        data: body,
+      })
+    );
+  },
+
+  async deleteMenuItem(menuId: number, itemId: number) {
+    return apiFetch(
+      withNonce({
+        path: `/flux-one/v1/menus/${menuId}/items/${itemId}`,
+        method: 'DELETE',
+      })
+    );
+  },
+
   async getSitesIndex(q: string = '') {
     const qs = q ? `?q=${encodeURIComponent(q)}` : '';
     return apiFetch(withNonce({ path: `/flux-one/v1/index/sites${qs}`, method: 'GET' }));

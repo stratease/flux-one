@@ -3,7 +3,7 @@ import { Typography, Box, Link } from '@mui/material';
 import { __ } from '@wordpress/i18n';
 
 /**
- * Landing tab for the Flux One plugin admin app (Command Central remains in overlay / dashboard widget).
+ * Landing tab for the Flux One plugin admin app (Command Bar remains in overlay / dashboard widget).
  */
 export function OverviewPage() {
   const adminUrl =
@@ -15,7 +15,7 @@ export function OverviewPage() {
     <Box>
       <Typography variant="body1" paragraph>
         {__(
-          'Use Command Central from the dashboard widget or the admin bar to run commands. Configure email aggregation and related options on the Settings tab.',
+          'Use Command Bar from the dashboard widget or the admin bar to run commands. Configure email aggregation and related options on the Settings tab.',
           'flux-one'
         )}
       </Typography>

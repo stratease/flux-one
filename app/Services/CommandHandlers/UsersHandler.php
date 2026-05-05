@@ -28,9 +28,10 @@ class UsersHandler {
 	/**
 	 * Handle user subcommands.
 	 *
-	 * Supported: lock/unlock {email}, user add {login} {email} {role}, user role set {email} {role} (alias: role set …).
+	 * Supported: list/show, lock/unlock {email}, user add {login} {email} {role}, user role set {email} {role} (alias: role set …).
 	 *
 	 * @since 0.1.0
+	 * @since 1.4.0 Removed `user {email}` placeholder panel; use `user list` or lock/unlock flows.
 	 * @param array $tokens Tokens after "user" or canonicalized.
 	 * @return array
 	 */
@@ -78,18 +79,6 @@ class UsersHandler {
 			return $this->set_role( $email, $role );
 		}
 
-		// Shortcut: "user {email}" opens a panel (v1 placeholder).
-		if ( is_email( $op ) ) {
-			return [
-				'type'    => 'panel',
-				'panelId' => 'user',
-				'command' => 'user ' . $op,
-				'data'    => [
-					'email' => $op,
-				],
-			];
-		}
-
 		if ( '' === $op ) {
 			return [
 				'type'    => 'error',
@@ -109,6 +98,7 @@ class UsersHandler {
 	 * Lock or unlock a user by email.
 	 *
 	 * @since 0.1.0
+	 * @since 1.4.0 Refuses to lock the account of the user running the command.
 	 * @param string $email Email.
 	 * @param bool   $locked Locked state.
 	 * @return array
@@ -128,6 +118,15 @@ class UsersHandler {
 				'type'    => 'error',
 				'command' => ( $locked ? 'user lock ' : 'user unlock ' ) . $email,
 				'message' => 'User not found.',
+			];
+		}
+
+		if ( $locked && (int) $user->ID === (int) get_current_user_id() ) {
+			return [
+				'type'        => 'error',
+				'command'     => 'user lock ' . $email,
+				'message'     => __( 'You cannot lock your own account.', 'flux-one' ),
+				'error_code'  => 'flux_one_user_lock_self',
 			];
 		}
 

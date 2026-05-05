@@ -12,7 +12,7 @@ use FluxOne\App\Services\FluxOneSettings;
 use WP_REST_Request;
 
 /**
- * Email capture / aggregate defaults for Command Central.
+ * Email capture / aggregate defaults for Command Bar.
  *
  * @since 0.1.0
  */

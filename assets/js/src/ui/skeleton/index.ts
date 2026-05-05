@@ -1,5 +1,5 @@
 /**
- * Reusable skeleton primitives for Command Central loading states.
+ * Reusable skeleton primitives for Command Bar loading states.
  *
  * @since 1.4.0
  */

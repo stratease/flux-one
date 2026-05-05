@@ -61,10 +61,7 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
       description: 'Alias typed as role set … is canonicalized to this command',
     },
   ],
-  menu: [
-    { id: 'cmd.menu.list', kind: 'subcommand', label: 'menu list', value: 'menu list' },
-    { id: 'cmd.menu.show', kind: 'subcommand', label: 'menu show', value: 'menu show' },
-  ],
+  menu: [{ id: 'cmd.menu.list', kind: 'subcommand', label: 'menu list', value: 'menu list' }],
   site: [
     { id: 'cmd.site.list', kind: 'subcommand', label: 'site list', value: 'site list' },
     { id: 'cmd.site.switch', kind: 'subcommand', label: 'site switch', value: 'site switch ' },
@@ -93,7 +90,7 @@ export const ROOT_COMMANDS: Suggestion[] = [
     kind: 'command',
     label: 'user',
     value: 'user ',
-    description: 'List, add, lock, unlock, role set, or pick a user by email',
+    description: 'List, add, lock, unlock, or role set',
     searchText: 'role set lock unlock add list',
   },
   { id: 'cmd.menu', kind: 'command', label: 'menu', value: 'menu ' },

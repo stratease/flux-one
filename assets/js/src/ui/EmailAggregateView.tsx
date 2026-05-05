@@ -419,12 +419,15 @@ export function EmailAggregateDetailSkeleton() {
  * @since 1.4.1 Tab-panel wrapper frames flat list + detail like tabbed content.
  * @since 1.4.3 Flat aggregate view omits redundant window line and emails count header.
  * @since 1.4.0 Optional list header slot, list/detail skeleton during filter refetch.
+ * @since 1.5.0 Optional list footer slot (pagination controls).
+ * @since 1.6.0 Summarized suggested action: no visible Action label; color from theme token.
  */
 export function EmailAggregateView({
   data,
   mode = 'grouped',
   emailSummaries,
   listHeader,
+  listFooter,
   showListDetailSkeleton = false,
 }: {
   data: EmailAggregatePayload | null | undefined;
@@ -432,6 +435,8 @@ export function EmailAggregateView({
   emailSummaries?: EmailSummaryMap | null;
   /** Rendered above the email list (e.g. Summarize + summary hints). */
   listHeader?: React.ReactNode;
+  /** Rendered below the email list (e.g. pagination controls). */
+  listFooter?: React.ReactNode;
   /** When true, list + detail panes show skeleton placeholders (initial load or days/search refetch). */
   showListDetailSkeleton?: boolean;
 }) {
@@ -583,7 +588,6 @@ export function EmailAggregateView({
                               </span>
                               {hasAction ? (
                                 <span className="flux-one-email-list-row-action-block">
-                                  <span className="flux-one-email-list-row-action-label">Action</span>
                                   <span className="flux-one-email-list-row-action-text">{ent.action}</span>
                                 </span>
                               ) : null}
@@ -623,6 +627,7 @@ export function EmailAggregateView({
                   </ul>
                 )}
               </div>
+              {listFooter ? <div className="flux-one-email-list-footer">{listFooter}</div> : null}
             </div>
 
             <div className="flux-one-email-detail-pane" role="region" aria-label="Selected email details">

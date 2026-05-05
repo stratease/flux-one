@@ -9,7 +9,7 @@
 namespace FluxOne\App\Services;
 
 /**
- * Option names and helpers for Command Central email features.
+ * Option names and helpers for Command Bar email features.
  *
  * @since 0.1.0
  */
@@ -51,7 +51,7 @@ class FluxOneSettings {
 	public const USER_META_SUPPRESS_MAIL = 'flux_one_suppress_mail_to_self';
 
 	/**
-	 * User meta: Command Central shortcut (e.g. mod+.).
+	 * User meta: Command Bar shortcut (e.g. mod+.).
 	 *
 	 * @since 0.1.1
 	 */
@@ -182,7 +182,7 @@ class FluxOneSettings {
 	}
 
 	/**
-	 * Command Central shortcut string for a user.
+	 * Command Bar shortcut string for a user.
 	 *
 	 * @since 0.1.1
 	 * @param int $user_id User ID.
@@ -199,7 +199,7 @@ class FluxOneSettings {
 	}
 
 	/**
-	 * Update Command Central shortcut for a user (normalized).
+	 * Update Command Bar shortcut for a user (normalized).
 	 *
 	 * @since 0.1.1
 	 * @param int   $user_id User ID.

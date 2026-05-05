@@ -7,7 +7,6 @@ import {
   configKeyAdapter,
   destinationAdapter,
   makeEditContentAdapter,
-  menuShowAdapter,
   pluginAdapter,
   siteAdapter,
   userAdapter,
@@ -38,6 +37,9 @@ export type IndexData = {
   }>;
   /** Role slugs the current user may assign (from GET /bootstrap editableRoles). */
   editableRoles?: string[];
+
+  /** Logged-in user (from bootstrap); used to exclude self from `user lock` targets. */
+  currentUser?: { id: number; email: string };
 
   /** Content search (XHR) for edit command. */
   content?: Array<{
@@ -271,7 +273,8 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
 
     if (t1 === 'lock') {
       const query = rawLower.replace(/^.*user\s+lock\s+/i, '').trim();
-      const list = indices.users || [];
+      const selfId = indices.currentUser?.id;
+      const list = (indices.users || []).filter((u) => (selfId == null ? true : u.id !== selfId));
       const matches = searchEntities({
         query,
         items: query ? list : list.slice(0, 200),
@@ -481,27 +484,9 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
       );
     }
 
-    const q = rawLower.replace(/^user\s+/i, '').trim();
-    const list = indices.users || [];
-    return pack(
-      [],
-      searchEntities({
-        query: q,
-        items: list,
-        adapter: {
-          ...userAdapter,
-          getValue: (u) => `user ${u.email}`,
-          toSuggestion: (u) => ({
-            id: `user.${u.id}`,
-            kind: 'entity',
-            entityType: 'user',
-            label: `${u.email}${u.displayName ? ` — ${u.displayName}` : ''}`,
-            value: `user ${u.email}`,
-          }),
-        },
-        limit: 10,
-      })
-    );
+    const subsUnknown = filterSubsForRoot('user', normalized);
+    const subRowUnknown = subsUnknown.length ? subsUnknown : SUBCOMMANDS_BY_ROOT.user.slice(0, 12);
+    return pack([], subRowUnknown.slice(0, 12));
   }
 
   if (t0 === 'menu') {
@@ -515,20 +500,6 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
           ? subSuggestions.slice(0, 12)
           : [];
       return pack(parsed.hasTrailingSpace ? [] : commandRow, subRow);
-    }
-
-    if (t1 === 'show') {
-      const query = rawLower.replace(/^.*menu\s+show\s*/i, '').trim();
-      const list = indices.menus || [];
-      return pack(
-        [],
-        searchEntities({
-          query,
-          items: query ? list : list.slice(0, 200),
-          adapter: menuShowAdapter,
-          limit: 10,
-        })
-      );
     }
 
     return pack([], []);

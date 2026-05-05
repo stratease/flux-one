@@ -1,11 +1,12 @@
 /**
- * Flux One Command Central — design tokens (CSS custom properties).
+ * Flux One Command Bar — design tokens (CSS custom properties).
  *
  * Apply class `flux-one-theme` on roots that wrap themed UI (mount + modal backdrop)
  * so portaled dialogs inherit the same palette as the command shell.
  *
  * @since 1.3.0
  * @since 1.4.0 Email aggregate modal list/detail tokens; skeleton shimmer tokens.
+ * @since 1.6.0 Email list selection wash; suggested-action orange token.
  */
 .flux-one-theme {
   --flux-one-font-family-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen-Sans, Ubuntu, Cantarell,
@@ -94,9 +95,9 @@
   --flux-one-color-email-urgent-border: rgba(181, 71, 8, 0.55);
   --flux-one-color-email-urgent-badge-bg: rgba(181, 71, 8, 0.12);
   --flux-one-color-email-urgent-badge-fg: #7a3d0c;
-  --flux-one-color-email-action-fg: #0a4b78;
-  --flux-one-color-email-action-label-fg: rgba(10, 75, 120, 0.85);
-  --flux-one-color-email-row-selected-bg: #d7e4f2;
+  /* Suggested AI action line (summarized rows); WCAG-friendly on white. */
+  --flux-one-color-email-suggested-action-fg: #b45309;
+  --flux-one-color-email-row-selected-bg: rgba(34, 113, 177, 0.075);
   --flux-one-color-email-row-selected-fg: #0f1419;
   --flux-one-color-email-row-selected-muted: rgba(15, 20, 25, 0.72);
 

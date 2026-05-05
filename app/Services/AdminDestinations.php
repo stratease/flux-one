@@ -540,7 +540,7 @@ class AdminDestinations {
 	/**
 	 * Destinations for REST index, filtered by capability.
 	 *
-	 * Includes absolute `url` (admin_url) for same-origin navigation from Command Central without a command POST.
+	 * Includes absolute `url` (admin_url) for same-origin navigation from Command Bar without a command POST.
 	 *
 	 * @since 0.1.0
 	 * @return array<int, array{id: string, label: string, value: string, url: string, searchText: string}>

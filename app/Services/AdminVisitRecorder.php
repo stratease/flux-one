@@ -1,6 +1,6 @@
 <?php
 /**
- * Records recently viewed wp-admin screens for the Command Central dashboard widget.
+ * Records recently viewed wp-admin screens for the Command Bar dashboard widget.
  *
  * @package FluxOne
  * @since 0.1.0

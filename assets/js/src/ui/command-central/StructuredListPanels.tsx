@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Suggestion } from '../../command/types';
+import { MenuListPanel } from './MenuListPanel';
 
 export type StructuredListPanelsProps = {
   structuredPanelRef: React.RefObject<HTMLDivElement | null>;
@@ -7,12 +8,16 @@ export type StructuredListPanelsProps = {
   panelData: unknown;
   adminBase: string;
   executeFromInput: (rawCommand: string, picked?: Suggestion | null) => void;
+  /** When set, Lock is hidden for this user id (cannot lock own account). */
+  currentUserId?: number;
 };
 
 /**
  * Structured panel rendering for plugins, users, sites, menus, suite_config lists.
  *
  * @since 1.3.0
+ * @since 1.4.0 Menus panel delegates to MenuListPanel (tree editor).
+ * @since 1.4.0 Users panel omits Lock for currentUserId.
  */
 export function StructuredListPanels({
   structuredPanelRef,
@@ -20,6 +25,7 @@ export function StructuredListPanels({
   panelData,
   adminBase,
   executeFromInput,
+  currentUserId,
 }: StructuredListPanelsProps) {
   if (!Array.isArray(panelData)) {
     return null;
@@ -83,9 +89,11 @@ export function StructuredListPanels({
               <span className="flux-one-structured-cell-grow-wide">{u.email}</span>
               <span className="flux-one-structured-meta">{u.displayName || ''}</span>
               <span className="flux-one-structured-actions-tight">
-                <button type="button" className="flux-one-btn-small" onClick={() => executeFromInput(`user lock ${u.email}`)}>
-                  Lock
-                </button>
+                {currentUserId == null || u.id !== currentUserId ? (
+                  <button type="button" className="flux-one-btn-small" onClick={() => executeFromInput(`user lock ${u.email}`)}>
+                    Lock
+                  </button>
+                ) : null}
                 <button type="button" className="flux-one-btn-small" onClick={() => executeFromInput(`user unlock ${u.email}`)}>
                   Unlock
                 </button>
@@ -117,28 +125,7 @@ export function StructuredListPanels({
   }
 
   if (panelId === 'menus') {
-    return (
-      <div ref={structuredPanelRef} className="flux-one-structured-results">
-        <div className="flux-one-structured-panel">
-          <div className="flux-one-structured-panel-title">Menus</div>
-          {(panelData as any[]).map((m) => (
-            <div key={m.id} className="flux-one-structured-row">
-              <span className="flux-one-structured-cell-grow">{m.name}</span>
-              <span className="flux-one-structured-meta">{m.slug || ''}</span>
-              <button
-                type="button"
-                className="flux-one-btn-small"
-                onClick={() =>
-                  window.open(`${adminBase}nav-menus.php?action=edit&menu=${encodeURIComponent(String(m.id))}`, '_blank')
-                }
-              >
-                Edit in admin
-              </button>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <MenuListPanel structuredPanelRef={structuredPanelRef} menus={panelData as any[]} adminBase={adminBase} />;
   }
 
   if (panelId === 'suite_config') {

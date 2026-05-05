@@ -29,7 +29,7 @@ export type Suggestion = {
   /** Extra Fuse terms for root search (not shown as a duplicate row). */
   searchText?: string;
   entityType?: EntityType;
-  /** When set with `navUrl`, Command Central redirects in the browser without POST /command. */
+  /** When set with `navUrl`, Command Bar redirects in the browser without POST /command. */
   clientAction?: ClientNavAction;
   navUrl?: string;
 };

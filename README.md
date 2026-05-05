@@ -1,6 +1,6 @@
-# Flux One — Command Central (v1)
+# Flux One — Command Bar (v1)
 
-**Plugin Name (wp-admin):** Flux One - Command Central by Flux Plugins  
+**Plugin Name (wp-admin):** Flux One - Command Bar by Flux Plugins  
 **Slug / folder / text-domain:** `flux-one`  
 **Primary goal:** Provide a command-driven control layer in wp-admin (admin bar command palette + dashboard widget) to run common operational tasks quickly.
 
@@ -33,8 +33,8 @@ All commands produce a typed response:
 
 - **`POST /flux-one/v1/command`** returns the normal REST success envelope (`success`, `message`, `data`). The **`data`** object is the command result (`type`: `action` | `panel` | `error`, plus handler fields).
 - For **`type: action`** failures, handler payloads may include:
-  - **`userMessage`** / **`message`**: plain language for operators (this is what Command Central shows).
-  - **`error_code`**: stable machine id for logs, tests, or future integrations (e.g. `flux_one_plugin_no_update`). **Command Central does not display these keys**—only the human-readable line.
+  - **`userMessage`** / **`message`**: plain language for operators (this is what Command Bar shows).
+  - **`error_code`**: stable machine id for logs, tests, or future integrations (e.g. `flux_one_plugin_no_update`). **Command Bar does not display these keys**—only the human-readable line.
   - **`debug`**: optional structured detail; included only when **`WP_DEBUG`** is on (not shown in the default UI).
 - Plugin upgrade failures are classified in **`PluginsHandler`** using `WP_Error`, `Automatic_Upgrader_Skin::get_upgrade_messages()`, pre-flight update transient checks, and `WP_Filesystem` readiness; unknown outcomes are logged via the suite logger when appropriate.
 
@@ -52,24 +52,33 @@ Current implemented examples:
 
 ### Alias commands
 
-Flux One supports “forgiving” command inputs by canonicalizing token order/synonyms. User lock/unlock use **`user lock` / `user unlock`** as the canonical form; aliases such as **`lock user`**, **`unlock user`**, and plural **`users lock` / `users unlock`** rewrite to that shape before routing.  
+Flux One supports “forgiving” command inputs by canonicalizing token order/synonyms. User lock/unlock use **`user lock` / `user unlock`** as the canonical form; aliases such as **`lock user`**, **`unlock user`**, and plural **`users lock` / `users unlock`** rewrite to that shape before routing. **`menu show`** rewrites to **`menu list`** in the client (`normalize.ts`) and in **`CommandRouter::canonicalize_tokens`** so `POST /command` and the palette stay aligned.  
 **Important:** history/memory should store the **canonical** command (not the alias) as the source of truth.
 
-### Enter key (Command Central)
+### Enter key (Command Bar)
 
-**Enter** uses layered intent: a small client ladder (`interpretEnter` + `commandLadder`) completes unique prefixes (e.g. `plugin li` → `plugin list`, `menu li` → `menu list`) and only **POSTs** when the command is runnable or uniquely disambiguated (single plugin/user/site match, terminal list commands, `nav` with a resolved URL, etc.). **Tab** still fills the highlighted suggestion without running. Suggestion **clicks** follow the same run vs. fill rules where possible. When a command **runs** (Enter or click), the input is filled with the **canonical** executed string (except `config …`, where raw casing is preserved for values). **Autocomplete** shows **top-level** commands only on an empty field; after a root and space (e.g. `user `), **Next steps** lists subcommands such as lock, unlock, add, and role set. **Aliases** (e.g. `role set …`) never appear as their own suggestion rows; typing them still canonicalizes, and the field shows the canonical command after run.
+**Enter** uses layered intent: a small client ladder (`interpretEnter` + `commandLadder`) completes unique prefixes (e.g. `plugin li` → `plugin list`, `menu li` → `menu list`) and only **POSTs** when the command is runnable or uniquely disambiguated (single plugin/user/site match, terminal list commands, `nav` with a resolved URL, etc.). **Tab** still fills the highlighted suggestion without running. Suggestion **clicks** follow the same run vs. fill rules where possible. When a command **runs** (Enter or click), the input is filled with the **canonical** executed string (except `config …`, where raw casing is preserved for values). **Autocomplete** shows **top-level** commands only on an empty field; after a root and space (e.g. `user `), **Next steps** lists subcommands such as lock, unlock, add, and role set. Partial tails like **`user a`** rank **`user add`** and other subcommands—there is no **`user {email}`** entity picker. **Aliases** (e.g. `role set …`) never appear as their own suggestion rows; typing them still canonicalizes, and the field shows the canonical command after run.
 
 ### Dashboard widget layout
 
-For users who have **never** saved a dashboard layout, Flux One applies a **one-time** default that places **Flux One — Command Central** first in the **normal** column (via `meta-box-order_dashboard` and a guard meta). After that, only WordPress’s normal drag-and-drop / Screen Options behavior applies.
+For users who have **never** saved a dashboard layout, Flux One applies a **one-time** default that places **Flux One — Command Bar** first in the **normal** column (via `meta-box-order_dashboard` and a guard meta). After that, only WordPress’s normal drag-and-drop / Screen Options behavior applies.
 
 ### Recent navigation memory
 
-The dashboard widget shows up to **five** **recent admin pages** you have opened (tracked on each wp-admin screen load for users who can access Command Central), plus entries from **`nav`** via **`POST /command`** or client-side redirects. Each item includes a **`url`** (when known) and **`label`**; **`command`** is kept when the destination came from a `nav` command. **Labels** prefer real admin titles (`$GLOBALS['title']`, safe `get_admin_page_title()`, submenu titles for `admin.php?page=…`, then post type names or a short humanized screen id) instead of raw screen slugs when possible. Data lives in user meta (`recent_navigations` inside `_flux_one_command_memory`) and is returned on **`GET /flux-one/v1/bootstrap`** as **`commandMemory.recentNavigations`**. Client-side nav may also call **`POST /flux-one/v1/memory/recent-navigation`** with **`url`** and/or **`command`** before redirect.
+The dashboard widget shows up to **five** **recent admin pages** you have opened (tracked on each wp-admin screen load for users who can access Command Bar), plus entries from **`nav`** via **`POST /command`** or client-side redirects. Each item includes a **`url`** (when known) and **`label`**; **`command`** is kept when the destination came from a `nav` command. **Labels** prefer real admin titles (`$GLOBALS['title']`, safe `get_admin_page_title()`, submenu titles for `admin.php?page=…`, then post type names or a short humanized screen id) instead of raw screen slugs when possible. Data lives in user meta (`recent_navigations` inside `_flux_one_command_memory`) and is returned on **`GET /flux-one/v1/bootstrap`** as **`commandMemory.recentNavigations`**. Client-side nav may also call **`POST /flux-one/v1/memory/recent-navigation`** with **`url`** and/or **`command`** before redirect.
 
 ### Flux Suite — License & Settings
 
 Flux One registers the shared **Flux Suite → License** page. **Flux Suite → Flux One** opens the plugin admin React app (`plugin-app.bundle.js`): **Overview** and **Settings** (HashRouter + shared `PageLayout` / `FluxAppProvider` from `flux-plugins-common`, same pattern as Flux Media Optimizer). Email aggregation options (capture on/off, suppress mail to self, default report window) are **per-user** where implemented: **`GET` / `PUT /flux-one/v1/settings`** reads and writes user meta (with legacy site options migrated on read). **Recent admin pages** in the dashboard widget use plain `<a href>` links; destinations are de-duplicated by normalized admin URL (including dashboard aliases). Outbound mail is logged via the **`wp_mail`** filter (`EmailEventLogger`); users who enable suppress-to-self have their addresses **stripped from To/Cc/Bcc** on a later **`wp_mail`** pass (`EmailMailPolicy`) so logs still reflect intended recipients while they skip receiving copies.
+
+### Flux Services API integration (suite common)
+
+- **Base URL:** defaults to `https://api.fluxplugins.com`. Override site-wide in `wp-config.php` before plugins load: `FLUX_PLUGINS_COMMON_EXTERNAL_SERVICE_URL` (defined in bundled flux-plugins-common `includes/constants.php` when unset).
+- **License and compatibility HTTP timeout:** shared default **15** seconds; override with `FLUX_PLUGINS_COMMON_EXTERNAL_SERVICE_TIMEOUT`.
+- **AI email summaries (`POST /api/v1/fo/email-summaries`):** `EmailSummariesApiClient` uses the shared `ExternalApiClient` with a **per-call 60 second** timeout so long-running summarization is less likely to hit cURL timeouts than the suite default. License and compatibility checks keep the shared timeout.
+- **Local dev vs. Flux Media Optimizer:** FMO’s `FLUX_MEDIA_OPTIMIZER_PULL_FILE_URL_DOMAIN` rewrites pull-file and webhook URLs so the external service can reach a tunneled site. Flux One sends email subject and body text inline to the summarization endpoint and does **not** use a webhook or pull URL, so that rewrite pattern does **not** apply here.
+- **Compatibility gate:** before calling the summarization API, the same suite compatibility check used elsewhere runs (`CompatibilityService::get_validator()`); if operations are blocked, the request is skipped and a user-facing message is returned.
+- **Logging:** transport failures, invalid JSON shape, compatibility blocks, and orchestration failures are logged via the shared suite **`Logger`** (`flux-plugins-common`). Successful batch completion logs at **debug** with route and email count only (no message bodies).
 
 ---
 
@@ -130,9 +139,9 @@ Main file: `flux-one.php`
 - REST endpoints are protected by WP REST auth + nonce, with capability checks.
 - Plugin operations further restrict capabilities (e.g. `update_plugins`, `activate_plugins`, `delete_plugins`, `edit_users`, `edit_theme_options`).
 
-### Command Central client bundle (React)
+### Command Bar client bundle (React)
 
-- Command Central admin UI source lives under **`assets/js/src/admin/`** (shell, styles, tokens), **`assets/js/src/ui/`** (components, modals, skeleton primitives), and **`assets/js/src/command/`** (palette / routing); production bundle output is **`assets/js/dist/admin.bundle.js`**.
+- Command Bar admin UI source lives under **`assets/js/src/admin/`** (shell, styles, tokens), **`assets/js/src/ui/`** (components, modals, skeleton primitives), and **`assets/js/src/command/`** (palette / routing); production bundle output is **`assets/js/dist/admin.bundle.js`**.
 - **Loading UX split:** use **skeleton loaders** for larger or multi-region content areas (lists, panels, substantial modal bodies); use the centralized **Running…** spinner notice for global busy state and short-lived operations. Details and implementation paths are under **Admin UI → Loading states (skeleton vs. spinner)** below.
 
 ---
@@ -142,19 +151,21 @@ Main file: `flux-one.php`
 Namespace: `flux-one/v1`
 
 - **Bootstrap**
-  - `GET /bootstrap` → feature flags + slim bootstrap (indices are loaded via `/index/*` below); includes **`commandMemory.recentNavigations`**
+  - `GET /bootstrap` → feature flags + slim bootstrap (indices are loaded via `/index/*` below); includes **`commandMemory.recentNavigations`**, **`currentUser`** (`id`, `email`) for Command Bar UX (e.g. excluding self from `user lock` targets). The same object is embedded in `window.fluxOneAdmin.bootstrap` on admin load.
 - **Command execution**
   - `POST /command` body: `{ input: string }`
-- **Index** (cached JSON for Command Central autocomplete; optional `q` where noted)
+- **Index** (cached JSON for Command Bar autocomplete; optional `q` where noted)
   - `GET /index/plugins?q=`
   - `GET /index/users?q=`
-  - `GET /index/menus`
+  - `GET /index/menus` (requires **`edit_theme_options`**, aligned with menu commands and `/menus/*`)
   - `GET /index/sites?q=`
   - `GET /index/destinations?q=` → rows `{ id, label, value, url }` where **`url`** is an absolute same-origin `admin_url()` for trusted in-app navigation only
 - **Menus**
   - `GET /menus`
   - `GET /menus/{id}`
-  - `POST /menus/{id}` body: `{ items: [{ id, parentId, order }] }`
+  - `POST /menus/{id}` body: `{ items: [{ id, parentId, order }] }` (save hierarchy)
+  - `POST /menus/{id}/items` body: `{ title, url }` (custom link; requires **`edit_theme_options`**)
+  - `DELETE /menus/{id}/items/{item_id}` (remove item from menu; requires **`edit_theme_options`**)
 - **Email aggregation**
   - `GET /aggregate/email?days=7` (non‑AI report; includes `summaries.by_event_id` + `summaries.urgent_event_ids` for **visible page** events only—DB cache read, no AI). The `events` page is always ordered **summarized matches first** (non-empty cached summary), then other rows, each bucket **newest first** (`created_at DESC`), with or without search **`q`**.
   - `POST /summary/email` body `{ event_ids: number[] }` (1..25); AI summary + cache in `flux_one_email_summaries`; gated by license
@@ -166,7 +177,7 @@ Namespace: `flux-one/v1`
 
 ### Plugin updates via REST
 
-Commands such as **`plugin update`** and **`plugin update all`** run WordPress’s `Plugin_Upgrader` from a REST request. There is **no** interactive FTP/SSH credentials form in the API response—the filesystem must be available **non-interactively** (typical on local environments using the `direct` transport). If Command Central reports that the filesystem could not be accessed, configure `FS_METHOD` and any required credential constants in `wp-config.php`, or adjust server permissions so PHP can write under `wp-content/plugins`.
+Commands such as **`plugin update`** and **`plugin update all`** run WordPress’s `Plugin_Upgrader` from a REST request. There is **no** interactive FTP/SSH credentials form in the API response—the filesystem must be available **non-interactively** (typical on local environments using the `direct` transport). If Command Bar reports that the filesystem could not be accessed, configure `FS_METHOD` and any required credential constants in `wp-config.php`, or adjust server permissions so PHP can write under `wp-content/plugins`.
 
 ---
 
@@ -174,25 +185,25 @@ Commands such as **`plugin update`** and **`plugin update all`** run WordPress�
 
 ### Key constraint: one React runtime in the bundle
 
-Command Central is built as a **standalone admin bundle** using **`react` / `react-dom`** from npm (not `wp.element`). Mixing that bundle with **`@wordpress/components`** (which resolves hooks through WordPress’s React) causes **“Invalid hook call”** errors.
+Command Bar is built as a **standalone admin bundle** using **`react` / `react-dom`** from npm (not `wp.element`). Mixing that bundle with **`@wordpress/components`** (which resolves hooks through WordPress’s React) causes **“Invalid hook call”** errors.
 
 Current approach:
 
-- UI primitives are plain HTML + class-based CSS in `assets/js/src/admin/style.css` (no WordPress component library in the Command Central tree).
-- **Theming contract:** design tokens live in `assets/js/src/admin/theme-tokens.css` as `--flux-one-*` CSS custom properties on `.flux-one-theme`. Command Central mount and portaled modal backdrops both use `flux-one-theme` so tokens inherit inside `FluxOneModal` (portaled to `body`). Future themes override variables via an extra class or data attribute on those same roots—avoid duplicating component selectors per theme.
+- UI primitives are plain HTML + class-based CSS in `assets/js/src/admin/style.css` (no WordPress component library in the Command Bar tree).
+- **Theming contract:** design tokens live in `assets/js/src/admin/theme-tokens.css` as `--flux-one-*` CSS custom properties on `.flux-one-theme`. Command Bar mount and portaled modal backdrops both use `flux-one-theme` so tokens inherit inside `FluxOneModal` (portaled to `body`). Future themes override variables via an extra class or data attribute on those same roots—avoid duplicating component selectors per theme.
 - Data fetching uses **`@tanstack/react-query`** (`QueryClientProvider` in `assets/js/src/admin/index.tsx`).
 - HTTP uses **`@wordpress/api-fetch`** (nonce + REST paths only).
 
 ### Loading states (skeleton vs. spinner)
 
 - **Skeleton loaders** — Prefer for **larger content areas** or anywhere the layout should stay stable while data loads: multi-pane modals, master–detail lists, tall panels, or other regions where a single line of text would feel wrong or jump the chrome. Implement with **`Skeleton`** / **`SkeletonText`** from **`assets/js/src/ui/skeleton/`**, shimmer styles in **`assets/js/src/admin/style.css`**, and **`--flux-one-color-skeleton-*`** tokens in **`assets/js/src/admin/theme-tokens.css`**. Honor **`prefers-reduced-motion`** (animation falls back to static blocks).
-- **Spinner + Running… notice** — Keep for **global Command Central busy** (`flux-one-notice--running` + `flux-one-spinner`): `POST /command`, client-side `nav` redirect, edit index search, and similar **transient** operations. Do not rely on that pattern alone to fill large empty panes; pair or replace with skeletons when the visible surface is big.
+- **Spinner + Running… notice** — Keep for **global Command Bar busy** (`flux-one-notice--running` + `flux-one-spinner`): `POST /command`, client-side `nav` redirect, edit index search, and similar **transient** operations. Do not rely on that pattern alone to fill large empty panes; pair or replace with skeletons when the visible surface is big.
 
-### UX must-haves (Command Central)
+### UX must-haves (Command Bar)
 
 - **Next step focus**: when an overlay or modal opens, it must focus the next-step control (usually the primary input) and select text where appropriate. No extra click required.
 - **Standard modal close**: modals should have an X close affordance, close on outside click, and close on Escape; focus should return to the trigger/input that opened the modal.
-- **Running/busy operations**: show a single, consistent spinner notice whenever Command Central is “busy” so operators always get feedback and the input can be safely disabled.
+- **Running/busy operations**: show a single, consistent spinner notice whenever Command Bar is “busy” so operators always get feedback and the input can be safely disabled.
   - **Server commands**: `POST /command` uses React Query `useMutation` and drives the busy state via `commandMutation.isPending`; the label comes from the canonical executed command.
   - **Client-side navigation** (`nav` destinations + `edit` picks): set a client-nav busy flag and label **before** calling `window.location.assign(...)`, and schedule the redirect on the next frame so the spinner can paint.
   - **Edit search**: while the `edit` XHR index query is fetching (and the debounced query is non-empty), show a lightweight “Searching…” spinner notice.
@@ -222,7 +233,7 @@ Flux One supports **iterative, field-by-field command completion** for open-ende
 
 - `user add {login} {email} {role}`
 
-As the operator types, Command Central should adapt suggestions and helper copy in real time so the next expected field is obvious (e.g. “then email and role”, then “then role”). This avoids dumping full syntax up front and gives a guided, low-friction flow.
+As the operator types, Command Bar should adapt suggestions and helper copy in real time so the next expected field is obvious (e.g. “then email and role”, then “then role”). This avoids dumping full syntax up front and gives a guided, low-friction flow.
 
 #### Example: `user add` progressive UX
 
@@ -281,7 +292,7 @@ Implementation intent:
 - Success / error notices show **human-readable text only** (no `error_code` in the palette)
 - Indices loaded from decoupled **`GET /flux-one/v1/index/*`** endpoints; after successful **`plugin update` / `activate` / `deactivate` / `delete`**, the plugins index query is **invalidated** so autocomplete stays fresh
 - **Commands reference** modal (info icon) with filter (`commandDocs.ts`); keep in sync when changing commands (see maintenance rule below)
-- **Email aggregate** modal (`EmailAggregateView` + `FluxOneModal`): unified view for `aggregate email` and `summary email`. Master-detail layout: list pane + detail (`aggregate email` modal stacks to a single column below ~782px viewport width). Two sections (**Summarized** first, then **Not summarized**); the API returns events in that order for each page (newest first within summarized, then newest first within not summarized). Summarized rows show AI summary plus optional suggested action and timestamp (subject stays in the detail pane only). Detail pane shows subject, timestamp, recipient, body, and actions. Cached summaries load with `GET /aggregate/email`; AI runs only via `summary email` or **Summarize**. Initial open and **Days** / **search** changes show **shimmer skeletons** in the list + detail panes (reusable primitives in `assets/js/src/ui/skeleton/`); **page** changes keep prior rows visible (`placeholderData: keepPreviousData`). **Summarize** sits in a **sticky list-pane header** above the list; while AI runs it uses the same **Running…**-style notice as Command Central (`flux-one-notice--running` + `flux-one-spinner`). Toolbar **search** width is capped (`flex: 0 1 320px`, `max-width: 360px`) so it does not span the full toolbar.
+- **Email aggregate** modal (`EmailAggregateView` + `FluxOneModal`): unified view for `aggregate email` and `summary email`. Master-detail layout: list pane + detail (`aggregate email` modal stacks to a single column below ~782px viewport width). Two sections (**Summarized** first, then **Not summarized**); the API returns events in that order for each page (newest first within summarized, then newest first within not summarized). Summarized rows show AI summary plus optional suggested action and timestamp (subject stays in the detail pane only). Detail pane shows subject, timestamp, recipient, body, and actions. Cached summaries load with `GET /aggregate/email`; AI runs only via `summary email` or **Summarize**. Initial open and **Days** / **search** changes show **shimmer skeletons** in the list + detail panes (reusable primitives in `assets/js/src/ui/skeleton/`); **page** changes keep prior rows visible (`placeholderData: keepPreviousData`). **Summarize** sits in a **sticky list-pane header** above the list; while AI runs it uses the same **Running…**-style notice as Command Bar (`flux-one-notice--running` + `flux-one-spinner`). Toolbar **search** width is capped (`flex: 0 1 320px`, `max-width: 360px`) so it does not span the full toolbar.
 
 ### Documentation maintenance (commands)
 
@@ -295,7 +306,7 @@ Treat **README + commandDocs + registry** as the operator-facing documentation t
 
 ### Bugfix + cleanup priorities (P0/P1/P2)
 
-Use this as a running “intent alignment” checklist when changing Command Central.
+Use this as a running “intent alignment” checklist when changing Command Bar.
 
 - **P0**
   - **Client-nav UX consistency**: any suggestion that redirects (`clientAction: 'nav'`) must set centralized busy state + label before `window.location.assign` (spinner paints on next frame).
@@ -376,7 +387,7 @@ This repository may include a `wporg/` folder used as a distribution/build artif
   - Aliases: `lock user …`, `unlock user …`, `users lock|unlock …` → same routing
   - **`user role set {email} {role}`** (alias typed as **`role set …`** canonicalizes to this form)
 - Menus:
-  - `menu list` / `menu show` (optional **client fast path** from cached menus index; requires **`edit_theme_options`** on the server when not using the fast path)
+  - **`menu list`** opens the **menu manager panel** (pick a nav menu, edit item tree, add custom links, save order). Optional **client fast path** from cached menus index. Alias: **`menu show`** → **`menu list`**. Requires **`edit_theme_options`** for `/index/menus`, `/command`, and `/menus/*` when not using the fast path.
 - Edit:
   - `edit p {query}` — search posts + pages by title/slug (XHR), labeled results, opens wp-admin editor
   - `edit post {query}` — posts only

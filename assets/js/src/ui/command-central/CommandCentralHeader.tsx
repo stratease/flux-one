@@ -9,7 +9,7 @@ export type CommandCentralHeaderProps = {
 };
 
 /**
- * Command Central header with reference trigger and overlay close.
+ * Command Bar header with reference trigger and overlay close.
  *
  * @since 1.3.0
  */

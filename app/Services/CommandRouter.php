@@ -167,6 +167,7 @@ class CommandRouter {
 	 * Canonicalize token sequences for common aliases.
 	 *
 	 * @since 0.1.0
+	 * @since 1.4.0 Maps `menu show` to `menu list`.
 	 * @param array $tokens Tokens.
 	 * @return array
 	 */
@@ -211,6 +212,11 @@ class CommandRouter {
 		}
 		if ( 'sites' === ( $tokens[0] ?? '' ) ) {
 			$tokens[0] = 'site';
+		}
+
+		// "menu show" => "menu list" (alias; matches client normalize.ts).
+		if ( 'menu' === ( $tokens[0] ?? '' ) && 'show' === ( $tokens[1] ?? '' ) ) {
+			$tokens[1] = 'list';
 		}
 
 		return $tokens;

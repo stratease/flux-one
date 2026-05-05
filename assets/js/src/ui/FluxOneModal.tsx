@@ -15,7 +15,7 @@ type FluxOneModalProps = {
 };
 
 /**
- * Shared modal shell matching Command Central command reference (backdrop + panel + header).
+ * Shared modal shell matching Command Bar command reference (backdrop + panel + header).
  */
 export function FluxOneModal({
   open,

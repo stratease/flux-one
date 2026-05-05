@@ -13,7 +13,6 @@ import { FluxOneModal } from './FluxOneModal';
 import { CommandCentralHeader } from './command-central/CommandCentralHeader';
 import { RecentAdminPages } from './command-central/RecentAdminPages';
 import { StructuredListPanels } from './command-central/StructuredListPanels';
-import Fuse from 'fuse.js';
 import { parseShortcut } from '../admin/commandShortcut';
 
 type CommandResponse =
@@ -28,6 +27,17 @@ function unwrapCommandEnvelope(res: any): CommandResponse | null {
     return raw as CommandResponse;
   }
   return null;
+}
+
+function readBootstrapCurrentUser(): { id: number; email: string } | undefined {
+  const b = (typeof window !== 'undefined' && window.fluxOneAdmin?.bootstrap) as
+    | { currentUser?: { id?: number; email?: string } }
+    | undefined;
+  const cu = b?.currentUser;
+  if (cu != null && typeof cu.id === 'number') {
+    return { id: cu.id, email: String(cu.email ?? '') };
+  }
+  return undefined;
 }
 
 const MAX_EMAIL_SUMMARY_EVENT_IDS = 25;
@@ -147,6 +157,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [aggregateEmailQ, setAggregateEmailQ] = useState<string>('');
   const [aggregateEmailPage, setAggregateEmailPage] = useState<number>(1);
   const [aggregateEmailPerPage, setAggregateEmailPerPage] = useState<number>(20);
+  const [aggregateEmailNavIntent, setAggregateEmailNavIntent] = useState<'prev' | 'next' | null>(null);
   const [aggregateEmailDebouncedQ, setAggregateEmailDebouncedQ] = useState<string>('');
   const [aggregateEmailSummary, setAggregateEmailSummary] = useState<{ status: 'idle' | 'loading' | 'error' | 'pending'; message?: string }>(
     { status: 'idle' }
@@ -185,7 +196,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const shortcutLabel = formatShortcutLabel(effectiveShortcut);
 
   const label = useMemo(() => {
-    if (kind === 'dashboardWidget') return 'Command Central';
+    if (kind === 'dashboardWidget') return 'Command Bar';
     if (kind === 'overlay') return `Flux One (${shortcutLabel})`;
     return `Flux One (Dev) (${shortcutLabel})`;
   }, [kind, shortcutLabel]);
@@ -287,7 +298,8 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       const wantsMod = hasMod ? (e.ctrlKey || e.metaKey) : true;
       const wantsShift = hasShift ? e.shiftKey : !e.shiftKey;
       const wantsAlt = hasAlt ? e.altKey : !e.altKey;
-      const wantsKey = key ? e.key.toLowerCase() === key.toLowerCase() : e.key === '.';
+      const eventKey = typeof e.key === 'string' ? e.key : '';
+      const wantsKey = key ? eventKey.toLowerCase() === key.toLowerCase() : eventKey === '.';
       const wantsToggle = wantsMod && wantsShift && wantsAlt && wantsKey;
       if (!wantsToggle) return;
       e.preventDefault();
@@ -492,6 +504,41 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     aggregateEmailFilterKey,
   ]);
 
+  const aggregateEmailIsPaginating = useMemo(() => {
+    if (!emailCaptureEnabled || !aggregateEmailModalOpen || !aggregateEmailModalQuery.isFetching) {
+      return false;
+    }
+    // Pagination: keepPreviousData is showing rows; filterKey unchanged.
+    return !!aggregateEmailModalQuery.data && aggregateEmailFilterKey === aggregateEmailFilterCommittedRef.current;
+  }, [
+    emailCaptureEnabled,
+    aggregateEmailModalOpen,
+    aggregateEmailModalQuery.isFetching,
+    aggregateEmailModalQuery.data,
+    aggregateEmailFilterKey,
+  ]);
+
+  useEffect(() => {
+    if (!aggregateEmailModalOpen) {
+      setAggregateEmailNavIntent(null);
+      return;
+    }
+    if (aggregateEmailModalQuery.isFetching) {
+      return;
+    }
+    setAggregateEmailNavIntent(null);
+  }, [aggregateEmailModalOpen, aggregateEmailModalQuery.isFetching]);
+
+  useEffect(() => {
+    if (!aggregateEmailModalOpen) return;
+    if (!aggregateEmailModalQuery.isSuccess || aggregateEmailModalQuery.isFetching) return;
+    const m = (aggregateEmailModalQuery.data as any)?.meta || {};
+    const serverPage = Number(m.page || 1);
+    if (isFinite(serverPage) && serverPage > 0 && serverPage !== aggregateEmailPage) {
+      setAggregateEmailPage(serverPage);
+    }
+  }, [aggregateEmailModalOpen, aggregateEmailModalQuery.isSuccess, aggregateEmailModalQuery.isFetching, aggregateEmailModalQuery.data, aggregateEmailPage]);
+
   const cachedEmailSummaryMap = useMemo(
     () => parseCachedSummariesFromAggregatePayload(aggregateEmailModalQuery.data),
     [aggregateEmailModalQuery.data]
@@ -562,6 +609,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       | { editableRoles?: string[] }
       | undefined;
     const editableRoles = Array.isArray(boot?.editableRoles) ? boot.editableRoles : [];
+    const currentUser = readBootstrapCurrentUser();
     const indices = {
       plugins: (pluginsQuery.data as any)?.data ?? pluginsQuery.data ?? [],
       users: (usersQuery.data as any)?.data ?? usersQuery.data ?? [],
@@ -571,6 +619,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       suiteConfig: (suiteConfigQuery.data as any)?.data ?? suiteConfigQuery.data ?? [],
       content: (contentQuery.data as any)?.data ?? contentQuery.data ?? [],
       editableRoles,
+      currentUser,
     };
     const split = getSuggestions(input, indices);
     setMergedSuggestions(split.merged);
@@ -710,6 +759,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     sites: ((sitesQuery.data as any)?.data ?? sitesQuery.data ?? []) as IndexData['sites'],
     destinations: ((destinationsQuery.data as any)?.data ?? destinationsQuery.data ?? []) as IndexData['destinations'],
     suiteConfig: ((suiteConfigQuery.data as any)?.data ?? suiteConfigQuery.data ?? []) as IndexData['suiteConfig'],
+    currentUser: readBootstrapCurrentUser(),
   });
 
   const beginClientNav = (label: string) => {
@@ -750,7 +800,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         queryFn: () => api.getSitesIndex(),
       },
       {
-        keys: ['menu list', 'menu show'],
+        keys: ['menu list'],
         panelId: 'menus',
         queryKey: ['flux-one', 'index', 'menus'],
         queryFn: () => api.getMenusIndex(),
@@ -822,41 +872,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         beginClientNav(canonical);
         requestAnimationFrame(() => window.location.assign(url));
         return;
-      }
-    }
-
-    if (canonical.startsWith('menu show')) {
-      const rest = canonical.replace(/^menu\s+show\s*/i, '').trim();
-      const list = menusIndex || [];
-      if (list.length) {
-        const q = rest.toLowerCase();
-        const strong = q
-          ? list.filter(
-              (m: any) => q === String(m.name || '').toLowerCase() || q === String(m.slug || '').toLowerCase()
-            )
-          : [];
-        const strongHit = strong.length === 1 ? strong[0] : null;
-        if (strongHit) {
-          window.open(
-            `${adminBase}nav-menus.php?action=edit&menu=${encodeURIComponent(String(strongHit.id))}`,
-            '_blank'
-          );
-          return;
-        }
-        if (q) {
-          const fuse = new Fuse(list, { keys: ['name', 'slug'], threshold: 0.35, ignoreLocation: true });
-          const r = fuse.search(q);
-          if (r.length === 1) {
-            const m = r[0]?.item as any;
-            if (m) {
-              window.open(
-                `${adminBase}nav-menus.php?action=edit&menu=${encodeURIComponent(String(m.id))}`,
-                '_blank'
-              );
-              return;
-            }
-          }
-        }
       }
     }
 
@@ -1311,6 +1326,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
             panelData={panelData}
             adminBase={adminBase}
             executeFromInput={executeFromInput}
+            currentUserId={readBootstrapCurrentUser()?.id}
           />
         ) : null}
 
@@ -1388,41 +1404,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
               </label>
             </div>
 
-            {aggregateEmailModalQuery.data ? (
-              <div className="flux-one-email-pagination">
-                <div className="flux-one-email-pagination-meta">
-                  {(() => {
-                    const m = (aggregateEmailModalQuery.data as any)?.meta || {};
-                    const page = Number(m.page || 1);
-                    const totalPages = Number(m.totalPages || 0);
-                    const total = Number(m.total || 0);
-                    return `Total: ${isFinite(total) ? total : '—'} · Page: ${page}${totalPages ? `/${totalPages}` : ''}`;
-                  })()}
-                </div>
-                <div className="flux-one-flex-row-gap">
-                  <button
-                    type="button"
-                    className="button button-small"
-                    onClick={() => setAggregateEmailPage((p) => Math.max(1, p - 1))}
-                    disabled={aggregateEmailPage <= 1}
-                    aria-disabled={aggregateEmailPage <= 1}
-                  >
-                    Prev
-                  </button>
-                  <button
-                    type="button"
-                    className="button button-small"
-                    onClick={() => setAggregateEmailPage((p) => p + 1)}
-                    disabled={
-                      Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0) > 0 &&
-                      aggregateEmailPage >= Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0)
-                    }
-                  >
-                    Next
-                  </button>
-                </div>
-              </div>
-            ) : null}
             <EmailAggregateView
               data={(aggregateEmailModalQuery.data as EmailAggregatePayload | null) ?? null}
               mode="flat_all"
@@ -1444,23 +1425,47 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                       </span>
                     </div>
                   ) : (
-                    <button
-                      type="button"
-                      className="button button-small flux-one-email-summarize-btn"
-                      data-testid="flux-one-email-summarize"
-                      disabled={aggregateEmailSummarizeDisabled}
-                      aria-disabled={aggregateEmailSummarizeDisabled}
-                      title={
-                        !licenseValid
-                          ? 'Requires active Flux Suite license.'
-                          : 'Summarize emails on this page (may use API quota).'
-                      }
-                      onClick={() => {
-                        void summarizeVisibleEmailPage(aggregateEmailModalQuery.data as EmailAggregatePayload);
-                      }}
-                    >
-                      Summarize
-                    </button>
+                    <div className="flux-one-email-summarize-cta">
+                      <button
+                        type="button"
+                        className="button button-small flux-one-email-summarize-btn"
+                        data-testid="flux-one-email-summarize"
+                        disabled={aggregateEmailSummarizeDisabled}
+                        aria-disabled={aggregateEmailSummarizeDisabled}
+                        title={
+                          !licenseValid
+                            ? 'Requires active Flux Suite license.'
+                            : 'Summarize emails on this page (may use API quota).'
+                        }
+                        onClick={() => {
+                          void summarizeVisibleEmailPage(aggregateEmailModalQuery.data as EmailAggregatePayload);
+                        }}
+                      >
+                        Summarize
+                      </button>
+                      {/*
+                       * License upsell when Flux Suite license inactive.
+                       *
+                       * @since 1.3.1
+                       */}
+                      {!licenseValid ? (
+                        <span
+                          className="flux-one-email-upsell-copy"
+                          data-testid="flux-one-email-upsell-copy"
+                        >
+                          Unlock Email Summaries with a{' '}
+                          <a
+                            className="flux-one-email-upsell"
+                            href="https://fluxplugins.com"
+                            target="_blank"
+                            rel="noreferrer noopener"
+                          >
+                            Flux Suite license
+                          </a>
+                          .
+                        </span>
+                      ) : null}
+                    </div>
                   )}
 
                   {aggregateEmailModalQuery.data &&
@@ -1482,19 +1487,99 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                   ) : null}
                 </>
               }
+              listFooter={
+                aggregateEmailModalQuery.data ? (
+                  <div className="flux-one-email-pagination flux-one-email-pagination--footer">
+                    <div
+                      className="flux-one-email-pagination-meta"
+                      role={aggregateEmailIsPaginating ? 'status' : undefined}
+                      aria-live={aggregateEmailIsPaginating ? 'polite' : undefined}
+                      aria-busy={aggregateEmailIsPaginating ? true : undefined}
+                    >
+                      {(() => {
+                        const m = (aggregateEmailModalQuery.data as any)?.meta || {};
+                        const total = Number(m.total || 0);
+                        const safeTotal = isFinite(total) && total >= 0 ? total : 0;
+                        const safePage = Math.max(1, Number(aggregateEmailPage || 1));
+                        const safePerPage = Math.max(1, Number(aggregateEmailPerPage || 20));
+                        if (safeTotal === 0) {
+                          return 'Showing 0 of 0';
+                        }
+                        const start = (safePage - 1) * safePerPage + 1;
+                        const end = Math.min(safePage * safePerPage, safeTotal);
+                        return `Showing ${start}–${end} of ${safeTotal}`;
+                      })()}
+                    </div>
+                    <div className="flux-one-flex-row-gap">
+                      <button
+                        type="button"
+                        className="button button-small flux-one-pager-btn"
+                        aria-busy={aggregateEmailIsPaginating && aggregateEmailNavIntent === 'prev' ? true : undefined}
+                        onClick={() => {
+                          if (aggregateEmailIsPaginating) return;
+                          setAggregateEmailNavIntent('prev');
+                          setAggregateEmailPage((p) => Math.max(1, p - 1));
+                        }}
+                        disabled={aggregateEmailIsPaginating || aggregateEmailPage <= 1}
+                        aria-disabled={aggregateEmailIsPaginating || aggregateEmailPage <= 1}
+                      >
+                        <span className="flux-one-pager-btn__label" aria-hidden>
+                          Prev
+                        </span>
+                        {aggregateEmailIsPaginating && aggregateEmailNavIntent === 'prev' ? (
+                          <span className="flux-one-pager-btn__overlay" aria-hidden>
+                            <span className="flux-one-spinner" aria-hidden />
+                          </span>
+                        ) : null}
+                        <span className="flux-one-visually-hidden">
+                          {aggregateEmailIsPaginating && aggregateEmailNavIntent === 'prev' ? 'Loading previous page.' : ''}
+                        </span>
+                      </button>
+                      <button
+                        type="button"
+                        className="button button-small flux-one-pager-btn"
+                        aria-busy={aggregateEmailIsPaginating && aggregateEmailNavIntent === 'next' ? true : undefined}
+                        onClick={() => {
+                          if (aggregateEmailIsPaginating) return;
+                          setAggregateEmailNavIntent('next');
+                          setAggregateEmailPage((p) => p + 1);
+                        }}
+                        disabled={(() => {
+                          if (aggregateEmailIsPaginating) return true;
+                          const totalPages = Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0);
+                          if (!isFinite(totalPages) || totalPages <= 0) return false;
+                          return aggregateEmailPage >= totalPages;
+                        })()}
+                        aria-disabled={(() => {
+                          const totalPages = Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0);
+                          if (aggregateEmailIsPaginating) return true;
+                          if (!isFinite(totalPages) || totalPages <= 0) return false;
+                          return aggregateEmailPage >= totalPages;
+                        })()}
+                      >
+                        <span className="flux-one-pager-btn__label" aria-hidden>
+                          Next
+                        </span>
+                        {aggregateEmailIsPaginating && aggregateEmailNavIntent === 'next' ? (
+                          <span className="flux-one-pager-btn__overlay" aria-hidden>
+                            <span className="flux-one-spinner" aria-hidden />
+                          </span>
+                        ) : null}
+                        <span className="flux-one-visually-hidden">
+                          {aggregateEmailIsPaginating && aggregateEmailNavIntent === 'next' ? 'Loading next page.' : ''}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                ) : null
+              }
               showListDetailSkeleton={showAggregateEmailSkeleton}
             />
           </>
         )}
       </FluxOneModal>
 
-        {lastResult?.type === 'panel' && lastResult.panelId === 'user' && panelData && typeof panelData === 'object' && !Array.isArray(panelData) ? (
-          <div className="flux-one-user-panel">
-            <strong>User</strong> {(panelData as { email?: string }).email || ''}
-          </div>
-        ) : null}
-
-        {lastResult?.type === 'panel' && panelData && !isStructuredListPanel && lastResult.panelId !== 'aggregate_email' && lastResult.panelId !== 'user' ? (
+        {lastResult?.type === 'panel' && panelData && !isStructuredListPanel && lastResult.panelId !== 'aggregate_email' ? (
           <div className="flux-one-result-block">
             {kind !== 'dev' ? <div className="flux-one-result-heading">Result</div> : null}
             <pre className="flux-one-pre">{JSON.stringify(panelData, null, 2)}</pre>

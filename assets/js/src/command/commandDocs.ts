@@ -88,8 +88,8 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   {
     canonical: 'user',
     kind: 'root',
-    summary: 'Prefix for user listing, add, lock/unlock, role changes, or opening a user by email.',
-    details: 'Does nothing by itself without a subcommand or email.',
+    summary: 'Prefix for user listing, add, lock/unlock, and role changes.',
+    details: 'Does nothing by itself without a subcommand.',
     backend: 'none',
   },
   {
@@ -98,13 +98,6 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     summary: 'Lists users (email, display name) in the widget panel.',
     details: 'Client fast path from TanStack-cached users index when possible; otherwise POST returns the same panel payload.',
     backend: 'none',
-  },
-  {
-    canonical: 'user <email>',
-    kind: 'sub',
-    summary: 'Opens a small user detail panel for that email.',
-    details: 'POST /command when not served from cache. Requires list_users–level access for meaningful data.',
-    backend: 'command',
   },
   {
     canonical: 'user add',
@@ -149,16 +142,10 @@ export const COMMAND_DOCS: CommandDocRow[] = [
   {
     canonical: 'menu list',
     kind: 'sub',
-    summary: 'Lists registered nav menus in the widget.',
-    details: 'Client fast path from cached menus index when possible.',
+    summary: 'Opens the nav menu manager: pick a menu, edit item tree, add custom links, save order.',
+    details: 'Client fast path from cached menus index when possible. Typing menu show is rewritten to menu list.',
     backend: 'none',
-  },
-  {
-    canonical: 'menu show',
-    kind: 'sub',
-    summary: 'Resolves a menu by name and opens it in the WordPress menu editor.',
-    details: 'Uses cached menus index for suggestions and client-side redirect when unambiguous.',
-    backend: 'none',
+    aliases: ['menu show'],
   },
 
   {

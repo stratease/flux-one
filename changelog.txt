@@ -11,4 +11,4 @@
 * Added new commands, some bug fixes and UX improvements.
 
 = 1.0.0 =
-* Initial command center MVP. Plugins, email agg, nav and other base commands mostly functional.
+* Initial command bar MVP. Plugins, email agg, nav and other base commands mostly functional.

@@ -154,7 +154,7 @@ export function SettingsPage() {
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
           {__(
-            'These options apply to your WordPress user only. Email capture logs outbound mail you trigger while logged in, for your Command Central aggregate. Retention follows the plugin cleanup schedule (see README).',
+            'These options apply to your WordPress user only. Email capture logs outbound mail you trigger while logged in, for your Command Bar aggregate. Retention follows the plugin cleanup schedule (see README).',
             'flux-one'
           )}
         </Typography>
@@ -197,7 +197,7 @@ export function SettingsPage() {
         </Stack>
         <FormHelperText sx={{ mt: 1, maxWidth: 640 }}>
           {__(
-            'Suppress runs after logging: your addresses are stripped from recipients so you do not receive a copy; the message still goes to everyone else. Use Command Central “aggregate email” to review captured mail.',
+            'Suppress runs after logging: your addresses are stripped from recipients so you do not receive a copy; the message still goes to everyone else. Use Command Bar “aggregate email” to review captured mail.',
             'flux-one'
           )}
         </FormHelperText>

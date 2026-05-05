@@ -20,7 +20,8 @@ function shouldToggleForKeydown(e: KeyboardEvent, rawShortcut: string): boolean 
   const wantsMod = hasMod ? (e.ctrlKey || e.metaKey) : true;
   const wantsShift = hasShift ? e.shiftKey : !e.shiftKey;
   const wantsAlt = hasAlt ? e.altKey : !e.altKey;
-  const wantsKey = key ? e.key.toLowerCase() === key.toLowerCase() : e.key === '.';
+  const eventKey = typeof e.key === 'string' ? e.key : '';
+  const wantsKey = key ? eventKey.toLowerCase() === key.toLowerCase() : eventKey === '.';
   return wantsMod && wantsShift && wantsAlt && wantsKey;
 }
 

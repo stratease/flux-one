@@ -1,6 +1,6 @@
 <?php
 /**
- * Index builders for REST and Command Central (no server-side HTTP response cache).
+ * Index builders for REST and Command Bar (no server-side HTTP response cache).
  *
  * @package FluxOne
  * @since 0.1.0
