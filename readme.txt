@@ -4,7 +4,7 @@ Tags: admin, command palette, operations, workflow, dashboard
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.2.0
+Stable tag: 1.3.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -42,6 +42,9 @@ Privacy policy: https://fluxplugins.com/privacy
 3. Open wp-admin Dashboard to access the Flux One Command Center surfaces.
 
 == Changelog ==
+
+= 1.3.0 =
+* Major update to email aggregate and email summary screen and functionality. Better sorting, tested API service integration and more.
 
 = 1.2.0 =
 * Initial public release.

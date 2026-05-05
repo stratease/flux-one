@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { api } from '../utils/api';
 import { FluxOneModal } from './FluxOneModal';
+import { Skeleton, SkeletonText } from './skeleton';
 
 export type EmailEventPayload = {
   to?: unknown;
@@ -150,6 +151,7 @@ function EmailRaw({ text }: { text: string }) {
  *
  * @since 1.2.0
  * @since 1.4.0 Detail shell uses flat styling (no card chrome) for readability.
+ * @since 1.4.2 Body section separated from metadata by divider; no body label.
  */
 function EmailEventDetailPanel({
   ev,
@@ -233,13 +235,11 @@ function EmailEventDetailPanel({
       {deleteError ? <div className="flux-one-email-error">{deleteError}</div> : null}
 
       {p.messageHtml ? (
-        <div className="flux-one-preview-stack">
-          <div className="flux-one-email-body-label">Body</div>
+        <div className="flux-one-email-body-region">
           <EmailHtml html={p.messageHtml} />
         </div>
       ) : p.message ? (
-        <div className="flux-one-preview-stack">
-          <div className="flux-one-email-body-label">Body</div>
+        <div className="flux-one-email-body-region">
           <EmailRaw text={String(p.message || '')} />
         </div>
       ) : null}
@@ -338,13 +338,11 @@ function EventBlock({
       {deleteError ? <div className="flux-one-email-error">{deleteError}</div> : null}
 
       {p.messageHtml ? (
-        <div className="flux-one-preview-stack">
-          <div className="flux-one-email-body-label">Body</div>
+        <div className="flux-one-email-body-region">
           <EmailHtml html={p.messageHtml} />
         </div>
       ) : p.message ? (
-        <div className="flux-one-preview-stack">
-          <div className="flux-one-email-body-label">Body</div>
+        <div className="flux-one-email-body-region">
           <EmailRaw text={String(p.message || '')} />
         </div>
       ) : null}
@@ -352,14 +350,90 @@ function EventBlock({
   );
 }
 
+/**
+ * List pane skeleton for aggregate email modal (shimmer rows).
+ *
+ * @since 1.4.0
+ */
+export function EmailAggregateListSkeleton({ rowCount = 8 }: { rowCount?: number }) {
+  const plainRows = Math.max(0, rowCount - 4);
+  return (
+    <ul className="flux-one-email-list flux-one-email-aggregate-skeleton-list" aria-hidden>
+      <li className="flux-one-email-list-item flux-one-email-list-item--section" role="presentation">
+        <div className="flux-one-email-list-section-label">
+          <Skeleton variant="text" width={72} height={10} />
+        </div>
+      </li>
+      <li className="flux-one-email-list-item">
+        <div className="flux-one-email-aggregate-skeleton-list__row flux-one-email-aggregate-skeleton-list__row--summarized">
+          <SkeletonText lines={2} />
+        </div>
+      </li>
+      <li className="flux-one-email-list-item">
+        <div className="flux-one-email-aggregate-skeleton-list__row flux-one-email-aggregate-skeleton-list__row--summarized">
+          <SkeletonText lines={2} />
+        </div>
+      </li>
+      <li className="flux-one-email-list-item flux-one-email-list-item--section" role="presentation">
+        <div className="flux-one-email-list-section-label">
+          <Skeleton variant="text" width={96} height={10} />
+        </div>
+      </li>
+      {Array.from({ length: plainRows }, (_, i) => (
+        <li key={i} className="flux-one-email-list-item">
+          <div className="flux-one-email-aggregate-skeleton-list__row">
+            <Skeleton variant="rect" width="100%" height={14} />
+            <Skeleton variant="text" width="48%" height={10} />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/**
+ * Detail pane skeleton for aggregate email modal.
+ *
+ * @since 1.4.0
+ */
+export function EmailAggregateDetailSkeleton() {
+  return (
+    <div className="flux-one-email-detail-skeleton flux-one-email-detail-shell" aria-hidden>
+      <Skeleton variant="rect" width="88%" height={18} />
+      <Skeleton variant="text" width="72%" height={11} />
+      <div className="flux-one-email-detail-skeleton__actions">
+        <Skeleton variant="rect" width={72} height={28} radius={4} />
+        <Skeleton variant="rect" width={72} height={28} radius={4} />
+      </div>
+      <div className="flux-one-email-detail-skeleton__body">
+        <SkeletonText lines={6} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Email aggregate UI (grouped subjects or flat master-detail list).
+ *
+ * @since 1.2.0
+ * @since 1.4.1 Tab-panel wrapper frames flat list + detail like tabbed content.
+ * @since 1.4.3 Flat aggregate view omits redundant window line and emails count header.
+ * @since 1.4.0 Optional list header slot, list/detail skeleton during filter refetch.
+ */
 export function EmailAggregateView({
   data,
   mode = 'grouped',
   emailSummaries,
+  listHeader,
+  showListDetailSkeleton = false,
 }: {
   data: EmailAggregatePayload | null | undefined;
   mode?: 'flat_all' | 'grouped';
   emailSummaries?: EmailSummaryMap | null;
+  /** Rendered above the email list (e.g. Summarize + summary hints). */
+  listHeader?: React.ReactNode;
+  /** When true, list + detail panes show skeleton placeholders (initial load or days/search refetch). */
+  showListDetailSkeleton?: boolean;
 }) {
   const [modalSubject, setModalSubject] = useState<string | null>(null);
   const [releasedIds, setReleasedIds] = useState<number[]>([]);
@@ -441,130 +515,141 @@ export function EmailAggregateView({
     return orderedEvents.find((e) => e.id === selectedEventId) ?? null;
   }, [mode, orderedEvents, selectedEventId]);
 
-  if (!data) {
+  if (!data && !(mode === 'flat_all' && showListDetailSkeleton)) {
     return <div className="flux-one-email-empty">No data.</div>;
   }
 
   if (mode === 'flat_all') {
     return (
-      <div className="flux-one-email-aggregate">
-        <div className="flux-one-email-window-meta">
-          Window: {meta.days != null ? `${meta.days} day(s)` : '—'} · Events: {visibleEvents.length}
-        </div>
-
-        <div className="flux-one-email-master-detail">
-          <div className="flux-one-email-list-pane">
-            <div className="flux-one-email-list-header">
-              <span>Emails ({orderedEvents.length})</span>
-            </div>
-
-            <div className="flux-one-email-list-scroll">
-              {orderedEvents.length === 0 ? (
-                <div className="flux-one-email-list-empty">No emails on this page.</div>
-              ) : (
-                <ul role="listbox" aria-label="Emails on this page" className="flux-one-email-list">
-                  {summarizedEvents.length > 0 ? (
-                    <li className="flux-one-email-list-item flux-one-email-list-item--section" role="presentation">
-                      <div className="flux-one-email-list-section-label">Summarized</div>
-                    </li>
-                  ) : null}
-                  {summarizedEvents.map((ev) => {
-                    const ent = getUsableSummary(emailSummaries, ev.id);
-                    if (!ent) {
-                      return null;
-                    }
-                    const hasAction = trimStr(ent.action) !== '';
-                    const isUrgent = Boolean(ent.isUrgent);
-                    const rowClass = [
-                      'flux-one-email-list-row',
-                      'flux-one-email-list-row--summarized',
-                      isUrgent ? 'flux-one-email-list-row--urgent' : '',
-                    ]
-                      .filter(Boolean)
-                      .join(' ');
-                    return (
+      <div
+        className="flux-one-email-aggregate"
+        role={showListDetailSkeleton ? 'status' : undefined}
+        aria-busy={showListDetailSkeleton ? true : undefined}
+        aria-live={showListDetailSkeleton ? 'polite' : undefined}
+      >
+        {showListDetailSkeleton ? (
+          <span className="flux-one-visually-hidden">Loading emails.</span>
+        ) : null}
+        <div className="flux-one-email-tab-panel">
+          <div className="flux-one-email-master-detail">
+            <div className="flux-one-email-list-pane">
+              {listHeader ? <div className="flux-one-email-list-header">{listHeader}</div> : null}
+              <div className="flux-one-email-list-scroll">
+                {showListDetailSkeleton ? (
+                  <EmailAggregateListSkeleton rowCount={8} />
+                ) : orderedEvents.length === 0 ? (
+                  <div className="flux-one-email-list-empty">No emails on this page.</div>
+                ) : (
+                  <ul role="listbox" aria-label="Emails on this page" className="flux-one-email-list">
+                    {summarizedEvents.length > 0 ? (
+                      <li className="flux-one-email-list-item flux-one-email-list-item--section" role="presentation">
+                        <div className="flux-one-email-list-section-label">Summarized</div>
+                      </li>
+                    ) : null}
+                    {summarizedEvents.map((ev) => {
+                      const ent = getUsableSummary(emailSummaries, ev.id);
+                      if (!ent) {
+                        return null;
+                      }
+                      const hasAction = trimStr(ent.action ?? '') !== '';
+                      const isUrgent = Boolean(ent.isUrgent);
+                      const rowClass = [
+                        'flux-one-email-list-row',
+                        'flux-one-email-list-row--summarized',
+                        isUrgent ? 'flux-one-email-list-row--urgent' : '',
+                      ]
+                        .filter(Boolean)
+                        .join(' ');
+                      return (
+                        <li key={ev.id} className="flux-one-email-list-item">
+                          <button
+                            type="button"
+                            role="option"
+                            aria-selected={selectedEventId === ev.id}
+                            className={rowClass}
+                            data-testid={`flux-one-email-list-option-${ev.id}`}
+                            title={ent.summary}
+                            aria-label={ariaLabelForEmailListOption(ev, ent)}
+                            onClick={() => setSelectedEventId(ev.id)}
+                          >
+                            <span className="flux-one-email-list-row-stack">
+                              {isUrgent ? (
+                                <span className="flux-one-email-list-row-badge-row" aria-hidden="true">
+                                  <span className="flux-one-email-urgent-badge">Urgent</span>
+                                </span>
+                              ) : null}
+                              <span className="flux-one-email-list-row-primary flux-one-email-list-row-summary">
+                                {ent.summary}
+                              </span>
+                              {hasAction ? (
+                                <span className="flux-one-email-list-row-action-block">
+                                  <span className="flux-one-email-list-row-action-label">Action</span>
+                                  <span className="flux-one-email-list-row-action-text">{ent.action}</span>
+                                </span>
+                              ) : null}
+                              <span className="flux-one-email-list-row-secondary flux-one-email-list-row-secondary--meta">
+                                <span className="flux-one-email-list-row-meta">{ev.createdAt}</span>
+                              </span>
+                            </span>
+                          </button>
+                        </li>
+                      );
+                    })}
+                    {unsummarizedEvents.length > 0 ? (
+                      <li className="flux-one-email-list-item flux-one-email-list-item--section" role="presentation">
+                        <div className="flux-one-email-list-section-label">Not summarized</div>
+                      </li>
+                    ) : null}
+                    {unsummarizedEvents.map((ev) => (
                       <li key={ev.id} className="flux-one-email-list-item">
                         <button
                           type="button"
                           role="option"
                           aria-selected={selectedEventId === ev.id}
-                          className={rowClass}
+                          className="flux-one-email-list-row"
                           data-testid={`flux-one-email-list-option-${ev.id}`}
-                          title={ent.summary}
-                          aria-label={ariaLabelForEmailListOption(ev, ent)}
+                          aria-label={ariaLabelForEmailListOption(ev, null)}
                           onClick={() => setSelectedEventId(ev.id)}
                         >
-                          <span className="flux-one-email-list-row-stack">
-                            {isUrgent ? (
-                              <span className="flux-one-email-list-row-badge-row" aria-hidden="true">
-                                <span className="flux-one-email-urgent-badge">Urgent</span>
-                              </span>
-                            ) : null}
-                            <span className="flux-one-email-list-row-primary flux-one-email-list-row-summary">
-                              {ent.summary}
-                            </span>
-                            {hasAction ? (
-                              <span className="flux-one-email-list-row-action-block">
-                                <span className="flux-one-email-list-row-action-label">Action</span>
-                                <span className="flux-one-email-list-row-action-text">{ent.action}</span>
-                              </span>
-                            ) : null}
-                            <span className="flux-one-email-list-row-secondary flux-one-email-list-row-secondary--meta">
-                              <span className="flux-one-email-list-row-meta">{ev.createdAt}</span>
-                            </span>
+                          <span className="flux-one-email-list-row-primary">
+                            {subjectKey(ev.subject || '')}
+                          </span>
+                          <span className="flux-one-email-list-row-secondary">
+                            <span className="flux-one-email-list-row-meta">{ev.createdAt}</span>
                           </span>
                         </button>
                       </li>
-                    );
-                  })}
-                  {unsummarizedEvents.length > 0 ? (
-                    <li className="flux-one-email-list-item flux-one-email-list-item--section" role="presentation">
-                      <div className="flux-one-email-list-section-label">Not summarized</div>
-                    </li>
-                  ) : null}
-                  {unsummarizedEvents.map((ev) => (
-                    <li key={ev.id} className="flux-one-email-list-item">
-                      <button
-                        type="button"
-                        role="option"
-                        aria-selected={selectedEventId === ev.id}
-                        className="flux-one-email-list-row"
-                        data-testid={`flux-one-email-list-option-${ev.id}`}
-                        aria-label={ariaLabelForEmailListOption(ev, null)}
-                        onClick={() => setSelectedEventId(ev.id)}
-                      >
-                        <span className="flux-one-email-list-row-primary">
-                          {subjectKey(ev.subject || '')}
-                        </span>
-                        <span className="flux-one-email-list-row-secondary">
-                          <span className="flux-one-email-list-row-meta">{ev.createdAt}</span>
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="flux-one-email-detail-pane" role="region" aria-label="Selected email details">
+              {showListDetailSkeleton ? (
+                <EmailAggregateDetailSkeleton />
+              ) : !selectedEventInOrderedList ? (
+                <div className="flux-one-email-empty">No email selected.</div>
+              ) : (
+                <EmailEventDetailPanel
+                  ev={selectedEventInOrderedList}
+                  onReleased={(eventId) => {
+                    setReleasedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
+                  }}
+                  onDeleted={(eventId) => {
+                    setDeletedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
+                  }}
+                />
               )}
             </div>
-          </div>
-
-          <div className="flux-one-email-detail-pane" role="region" aria-label="Selected email details">
-            {!selectedEventInOrderedList ? (
-              <div className="flux-one-email-empty">No email selected.</div>
-            ) : (
-              <EmailEventDetailPanel
-                ev={selectedEventInOrderedList}
-                onReleased={(eventId) => {
-                  setReleasedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
-                }}
-                onDeleted={(eventId) => {
-                  setDeletedIds((prev) => (prev.includes(eventId) ? prev : [...prev, eventId]));
-                }}
-              />
-            )}
           </div>
         </div>
       </div>
     );
+  }
+
+  if (!data) {
+    return <div className="flux-one-email-empty">No data.</div>;
   }
 
   return (

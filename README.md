@@ -17,7 +17,7 @@ This README is intentionally “prompt-friendly”: it contains the current v1 s
   - Recent commands / pinned actions (planned)
   - Lightweight indicators (planned)
 - **Global command toggle**
-  - Admin bar node: **Command**
+  - Admin bar node: **Flux One** with hotkey hint (server renders **Ctrl** for the mod key first; admin-loader async-refines **Cmd** on Apple-like clients via User-Agent Client Hints + fallback, matching localized `uiPrefs.commandShortcut`).
   - Keyboard shortcut: **Ctrl+K** / **⌘K**
   - Opens an overlay and focuses the input
 
@@ -130,6 +130,11 @@ Main file: `flux-one.php`
 - REST endpoints are protected by WP REST auth + nonce, with capability checks.
 - Plugin operations further restrict capabilities (e.g. `update_plugins`, `activate_plugins`, `delete_plugins`, `edit_users`, `edit_theme_options`).
 
+### Command Central client bundle (React)
+
+- Command Central admin UI source lives under **`assets/js/src/admin/`** (shell, styles, tokens), **`assets/js/src/ui/`** (components, modals, skeleton primitives), and **`assets/js/src/command/`** (palette / routing); production bundle output is **`assets/js/dist/admin.bundle.js`**.
+- **Loading UX split:** use **skeleton loaders** for larger or multi-region content areas (lists, panels, substantial modal bodies); use the centralized **Running…** spinner notice for global busy state and short-lived operations. Details and implementation paths are under **Admin UI → Loading states (skeleton vs. spinner)** below.
+
 ---
 
 ## REST API (v1)
@@ -178,6 +183,11 @@ Current approach:
 - Data fetching uses **`@tanstack/react-query`** (`QueryClientProvider` in `assets/js/src/admin/index.tsx`).
 - HTTP uses **`@wordpress/api-fetch`** (nonce + REST paths only).
 
+### Loading states (skeleton vs. spinner)
+
+- **Skeleton loaders** — Prefer for **larger content areas** or anywhere the layout should stay stable while data loads: multi-pane modals, master–detail lists, tall panels, or other regions where a single line of text would feel wrong or jump the chrome. Implement with **`Skeleton`** / **`SkeletonText`** from **`assets/js/src/ui/skeleton/`**, shimmer styles in **`assets/js/src/admin/style.css`**, and **`--flux-one-color-skeleton-*`** tokens in **`assets/js/src/admin/theme-tokens.css`**. Honor **`prefers-reduced-motion`** (animation falls back to static blocks).
+- **Spinner + Running… notice** — Keep for **global Command Central busy** (`flux-one-notice--running` + `flux-one-spinner`): `POST /command`, client-side `nav` redirect, edit index search, and similar **transient** operations. Do not rely on that pattern alone to fill large empty panes; pair or replace with skeletons when the visible surface is big.
+
 ### UX must-haves (Command Central)
 
 - **Next step focus**: when an overlay or modal opens, it must focus the next-step control (usually the primary input) and select text where appropriate. No extra click required.
@@ -194,6 +204,8 @@ Inserted by PHP:
 
 - Overlay root: `#flux-one-command-central-root`
 - Dashboard widget root: `#flux-one-dashboard-widget-root`
+- **Flux Suite → Flux One** (Overview / Settings React app): `AdminController::render_settings_page()` outputs `<div class="wrap">` → **`<span class="wp-header-end"></span>`** → `#flux-one-plugin-app`. The `wp-header-end` marker is required so WordPress places admin notices (including Flux Suite license warnings) **above** the app shell; without it, notices can render inside the React `PageLayout` card.
+
 
 Entry:
 
@@ -269,7 +281,7 @@ Implementation intent:
 - Success / error notices show **human-readable text only** (no `error_code` in the palette)
 - Indices loaded from decoupled **`GET /flux-one/v1/index/*`** endpoints; after successful **`plugin update` / `activate` / `deactivate` / `delete`**, the plugins index query is **invalidated** so autocomplete stays fresh
 - **Commands reference** modal (info icon) with filter (`commandDocs.ts`); keep in sync when changing commands (see maintenance rule below)
-- **Email aggregate** modal (`EmailAggregateView` + `FluxOneModal`): unified view for `aggregate email` and `summary email`. Master-detail layout: list pane + detail (`aggregate email` modal stacks to a single column below ~782px viewport width). Two sections (**Summarized** first, then **Not summarized**); the API returns events in that order for each page (newest first within summarized, then newest first within not summarized). Summarized rows show AI summary plus optional suggested action and timestamp (subject stays in the detail pane only). Detail pane shows subject, timestamp, recipient, body, and actions. Cached summaries load with `GET /aggregate/email`; AI runs only via `summary email` or **Summarize**.
+- **Email aggregate** modal (`EmailAggregateView` + `FluxOneModal`): unified view for `aggregate email` and `summary email`. Master-detail layout: list pane + detail (`aggregate email` modal stacks to a single column below ~782px viewport width). Two sections (**Summarized** first, then **Not summarized**); the API returns events in that order for each page (newest first within summarized, then newest first within not summarized). Summarized rows show AI summary plus optional suggested action and timestamp (subject stays in the detail pane only). Detail pane shows subject, timestamp, recipient, body, and actions. Cached summaries load with `GET /aggregate/email`; AI runs only via `summary email` or **Summarize**. Initial open and **Days** / **search** changes show **shimmer skeletons** in the list + detail panes (reusable primitives in `assets/js/src/ui/skeleton/`); **page** changes keep prior rows visible (`placeholderData: keepPreviousData`). **Summarize** sits in a **sticky list-pane header** above the list; while AI runs it uses the same **Running…**-style notice as Command Central (`flux-one-notice--running` + `flux-one-spinner`). Toolbar **search** width is capped (`flex: 0 1 320px`, `max-width: 360px`) so it does not span the full toolbar.
 
 ### Documentation maintenance (commands)
 

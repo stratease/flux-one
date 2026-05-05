@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../utils/api';
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGhostRemainder } from '../command/ghost';
 import { getRouteTokens, getSuggestions, resolveNavDestinationUrl, type IndexData } from '../command/suggest';
 import { canonicalizeInput, parseInput } from '../command/normalize';
@@ -14,6 +14,7 @@ import { CommandCentralHeader } from './command-central/CommandCentralHeader';
 import { RecentAdminPages } from './command-central/RecentAdminPages';
 import { StructuredListPanels } from './command-central/StructuredListPanels';
 import Fuse from 'fuse.js';
+import { parseShortcut } from '../admin/commandShortcut';
 
 type CommandResponse =
   | { type: 'panel'; panelId: string; command: string; data?: any }
@@ -151,6 +152,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     { status: 'idle' }
   );
   const [generatedEmailSummaryMap, setGeneratedEmailSummaryMap] = useState<EmailSummaryMap>({});
+  const aggregateEmailFilterCommittedRef = useRef<string>('');
   const emailCaptureEnabledRef = useRef(false);
   const [emailCaptureEnabled, setEmailCaptureEnabled] = useState(false);
   const [recentNavigations, setRecentNavigations] = useState<
@@ -166,16 +168,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     typeof window !== 'undefined' && (window.fluxOneAdmin?.bootstrap as any)?.uiPrefs?.commandShortcut
       ? String((window.fluxOneAdmin?.bootstrap as any).uiPrefs.commandShortcut)
       : '';
-
-  const parseShortcut = (raw: string) => {
-    const s = String(raw || '').toLowerCase().trim();
-    const parts = s ? s.split('+').map((p) => p.trim()).filter(Boolean) : [];
-    const hasMod = parts.includes('mod');
-    const hasShift = parts.includes('shift');
-    const hasAlt = parts.includes('alt') || parts.includes('option');
-    const key = parts.find((p) => !['mod', 'shift', 'alt', 'option', 'ctrl', 'cmd', 'meta'].includes(p)) || '';
-    return { hasMod, hasShift, hasAlt, key };
-  };
 
   const isMac = typeof navigator !== 'undefined' ? /Mac|iPhone|iPad|iPod/i.test(navigator.platform) : false;
 
@@ -331,14 +323,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   }, [kind]);
 
   useEffect(() => {
-    if (kind !== 'overlay') return;
-    const node = document.getElementById('wp-admin-bar-flux-one-command');
-    const anchor = node?.querySelector('a');
-    if (!anchor) return;
-    // Admin bar label is rendered by PHP for immediate, stable UX.
-  }, [kind, shortcutLabel]);
-
-  useEffect(() => {
     if (!isOpen || bootstrapped || bootstrapping) return;
     if (seedBootstrapFromWindow()) {
       try {
@@ -443,6 +427,11 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     }
   }, [aggregateEmailModalOpen]);
 
+  const aggregateEmailFilterKey = useMemo(
+    () => `${aggregateEmailDays}|${aggregateEmailDebouncedQ}`,
+    [aggregateEmailDays, aggregateEmailDebouncedQ]
+  );
+
   const aggregateEmailModalQuery = useQuery({
     queryKey: [
       'flux-one',
@@ -465,7 +454,43 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     enabled: bootstrapped && aggregateEmailModalOpen && emailCaptureEnabled,
     staleTime: 5_000,
     refetchOnWindowFocus: false,
+    placeholderData: keepPreviousData,
   });
+
+  useEffect(() => {
+    if (!aggregateEmailModalOpen) {
+      aggregateEmailFilterCommittedRef.current = '';
+      return;
+    }
+    if (aggregateEmailModalQuery.isFetching) {
+      return;
+    }
+    if (aggregateEmailModalQuery.isSuccess && aggregateEmailModalQuery.data != null) {
+      aggregateEmailFilterCommittedRef.current = aggregateEmailFilterKey;
+    }
+  }, [
+    aggregateEmailModalOpen,
+    aggregateEmailModalQuery.isFetching,
+    aggregateEmailModalQuery.isSuccess,
+    aggregateEmailModalQuery.data,
+    aggregateEmailFilterKey,
+  ]);
+
+  const showAggregateEmailSkeleton = useMemo(() => {
+    if (!emailCaptureEnabled || !aggregateEmailModalOpen || !aggregateEmailModalQuery.isFetching) {
+      return false;
+    }
+    if (!aggregateEmailModalQuery.data) {
+      return true;
+    }
+    return aggregateEmailFilterKey !== aggregateEmailFilterCommittedRef.current;
+  }, [
+    emailCaptureEnabled,
+    aggregateEmailModalOpen,
+    aggregateEmailModalQuery.isFetching,
+    aggregateEmailModalQuery.data,
+    aggregateEmailFilterKey,
+  ]);
 
   const cachedEmailSummaryMap = useMemo(
     () => parseCachedSummariesFromAggregatePayload(aggregateEmailModalQuery.data),
@@ -519,6 +544,18 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       });
     }
   }
+
+  const summaryEligibleEventCount = getVisibleEmailEventIdsForSummary(
+    aggregateEmailModalQuery.data as EmailAggregatePayload | undefined
+  ).length;
+
+  const aggregateEmailSummarizeDisabled =
+    showAggregateEmailSkeleton ||
+    !licenseValid ||
+    !aggregateEmailModalQuery.data ||
+    aggregateEmailSummary.status === 'loading' ||
+    !Array.isArray((aggregateEmailModalQuery.data as any)?.events) ||
+    (aggregateEmailModalQuery.data as any).events.length === 0;
 
   useEffect(() => {
     const boot = (typeof window !== 'undefined' && window.fluxOneAdmin?.bootstrap) as
@@ -1349,102 +1386,104 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                   ))}
                 </select>
               </label>
-
-              <button
-                type="button"
-                className="button button-small flux-one-email-summarize-btn"
-                data-testid="flux-one-email-summarize"
-                disabled={
-                  !licenseValid ||
-                  !aggregateEmailModalQuery.data ||
-                  aggregateEmailSummary.status === 'loading' ||
-                  !Array.isArray((aggregateEmailModalQuery.data as any)?.events) ||
-                  (aggregateEmailModalQuery.data as any).events.length === 0
-                }
-                aria-disabled={
-                  !licenseValid ||
-                  !aggregateEmailModalQuery.data ||
-                  aggregateEmailSummary.status === 'loading' ||
-                  !Array.isArray((aggregateEmailModalQuery.data as any)?.events) ||
-                  (aggregateEmailModalQuery.data as any).events.length === 0
-                }
-                title={
-                  !licenseValid
-                    ? 'Requires active Flux Suite license.'
-                    : 'Summarize emails on this page (may use API quota).'
-                }
-                onClick={() => {
-                  void summarizeVisibleEmailPage(aggregateEmailModalQuery.data as EmailAggregatePayload);
-                }}
-              >
-                Summarize
-              </button>
-
-              {aggregateEmailModalQuery.data &&
-              Array.isArray((aggregateEmailModalQuery.data as any)?.events) &&
-              (aggregateEmailModalQuery.data as any).events.length > 0 &&
-              aggregateEmailSummary.status === 'idle' &&
-              !hasSummaryTextOnVisiblePage ? (
-                <span className="flux-one-email-hint" data-testid="flux-one-summary-empty-hint">
-                  Summary: none generated yet.
-                </span>
-              ) : null}
-
-              {aggregateEmailSummary.status !== 'idle' ? (
-                <span className="flux-one-email-hint">
-                  {aggregateEmailSummary.status === 'loading'
-                    ? 'Summary: loading…'
-                    : aggregateEmailSummary.message
-                      ? `Summary: ${aggregateEmailSummary.message}`
-                      : 'Summary: unavailable.'}
-                </span>
-              ) : null}
             </div>
 
             {aggregateEmailModalQuery.data ? (
-              <>
-                <div className="flux-one-email-pagination">
-                  <div className="flux-one-email-pagination-meta">
-                    {(() => {
-                      const m = (aggregateEmailModalQuery.data as any)?.meta || {};
-                      const page = Number(m.page || 1);
-                      const totalPages = Number(m.totalPages || 0);
-                      const total = Number(m.total || 0);
-                      return `Total: ${isFinite(total) ? total : '—'} · Page: ${page}${totalPages ? `/${totalPages}` : ''}`;
-                    })()}
-                  </div>
-                  <div className="flux-one-flex-row-gap">
-                    <button
-                      type="button"
-                      className="button button-small"
-                      onClick={() => setAggregateEmailPage((p) => Math.max(1, p - 1))}
-                      disabled={aggregateEmailPage <= 1}
-                      aria-disabled={aggregateEmailPage <= 1}
-                    >
-                      Prev
-                    </button>
-                    <button
-                      type="button"
-                      className="button button-small"
-                      onClick={() => setAggregateEmailPage((p) => p + 1)}
-                      disabled={
-                        Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0) > 0 &&
-                        aggregateEmailPage >= Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0)
-                      }
-                    >
-                      Next
-                    </button>
-                  </div>
+              <div className="flux-one-email-pagination">
+                <div className="flux-one-email-pagination-meta">
+                  {(() => {
+                    const m = (aggregateEmailModalQuery.data as any)?.meta || {};
+                    const page = Number(m.page || 1);
+                    const totalPages = Number(m.totalPages || 0);
+                    const total = Number(m.total || 0);
+                    return `Total: ${isFinite(total) ? total : '—'} · Page: ${page}${totalPages ? `/${totalPages}` : ''}`;
+                  })()}
                 </div>
-                <EmailAggregateView
-                  data={aggregateEmailModalQuery.data as EmailAggregatePayload | null}
-                  mode="flat_all"
-                  emailSummaries={effectiveEmailSummaryMap}
-                />
-              </>
-            ) : (
-              <div className="flux-one-muted-loading">Loading aggregate…</div>
-            )}
+                <div className="flux-one-flex-row-gap">
+                  <button
+                    type="button"
+                    className="button button-small"
+                    onClick={() => setAggregateEmailPage((p) => Math.max(1, p - 1))}
+                    disabled={aggregateEmailPage <= 1}
+                    aria-disabled={aggregateEmailPage <= 1}
+                  >
+                    Prev
+                  </button>
+                  <button
+                    type="button"
+                    className="button button-small"
+                    onClick={() => setAggregateEmailPage((p) => p + 1)}
+                    disabled={
+                      Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0) > 0 &&
+                      aggregateEmailPage >= Number((aggregateEmailModalQuery.data as any)?.meta?.totalPages || 0)
+                    }
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            ) : null}
+            <EmailAggregateView
+              data={(aggregateEmailModalQuery.data as EmailAggregatePayload | null) ?? null}
+              mode="flat_all"
+              emailSummaries={effectiveEmailSummaryMap}
+              listHeader={
+                <>
+                  {aggregateEmailSummary.status === 'loading' ? (
+                    <div
+                      className="flux-one-notice flux-one-notice--running flux-one-email-list-header__running"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      <span className="flux-one-spinner" aria-hidden />
+                      <span>
+                        Summarizing…{' '}
+                        <span className="flux-one-running-label-muted">
+                          {summaryEligibleEventCount} email{summaryEligibleEventCount === 1 ? '' : 's'}
+                        </span>
+                      </span>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button button-small flux-one-email-summarize-btn"
+                      data-testid="flux-one-email-summarize"
+                      disabled={aggregateEmailSummarizeDisabled}
+                      aria-disabled={aggregateEmailSummarizeDisabled}
+                      title={
+                        !licenseValid
+                          ? 'Requires active Flux Suite license.'
+                          : 'Summarize emails on this page (may use API quota).'
+                      }
+                      onClick={() => {
+                        void summarizeVisibleEmailPage(aggregateEmailModalQuery.data as EmailAggregatePayload);
+                      }}
+                    >
+                      Summarize
+                    </button>
+                  )}
+
+                  {aggregateEmailModalQuery.data &&
+                  Array.isArray((aggregateEmailModalQuery.data as any)?.events) &&
+                  (aggregateEmailModalQuery.data as any).events.length > 0 &&
+                  aggregateEmailSummary.status === 'idle' &&
+                  !hasSummaryTextOnVisiblePage ? (
+                    <span className="flux-one-email-hint" data-testid="flux-one-summary-empty-hint">
+                      Summary: none generated yet.
+                    </span>
+                  ) : null}
+
+                  {aggregateEmailSummary.status !== 'idle' && aggregateEmailSummary.status !== 'loading' ? (
+                    <span className="flux-one-email-hint">
+                      {aggregateEmailSummary.message
+                        ? `Summary: ${aggregateEmailSummary.message}`
+                        : 'Summary: unavailable.'}
+                    </span>
+                  ) : null}
+                </>
+              }
+              showListDetailSkeleton={showAggregateEmailSkeleton}
+            />
           </>
         )}
       </FluxOneModal>

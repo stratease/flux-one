@@ -8,6 +8,7 @@
 
 namespace FluxOne\App\Http\Controllers;
 
+use FluxOne\App\Services\AdminBarHotkeyDisplay;
 use FluxOne\App\Services\AdminDestinations;
 use FluxOne\App\Services\AdminVisitRecorder;
 use FluxOne\App\Services\CacheVersionService;
@@ -77,11 +78,12 @@ class AdminController {
 	 * Render plugin page (placeholder for v1).
 	 *
 	 * @since 0.1.0
+	 * @since 1.2.1 Output `<span class="wp-header-end"></span>` before the React root so core admin notice placement stays above the app shell.
 	 * @return void
 	 */
 	public function render_settings_page() {
 		printf(
-			'<div class="wrap flux-one-plugin-admin-wrap"><div id="flux-one-plugin-app" class="flux-one-plugin-app" data-initial-hash="%s"></div></div>',
+			'<div class="wrap flux-one-plugin-admin-wrap"><span class="wp-header-end"></span><div id="flux-one-plugin-app" class="flux-one-plugin-app" data-initial-hash="%s"></div></div>',
 			esc_attr( '#/overview' )
 		);
 	}
@@ -166,6 +168,14 @@ class AdminController {
 			]
 		);
 
+		$style_handle = 'flux-one-admin-bar';
+		wp_register_style( $style_handle, false, [], FLUX_ONE_VERSION );
+		wp_enqueue_style( $style_handle );
+		wp_add_inline_style(
+			$style_handle,
+			'#wpadminbar #wp-admin-bar-flux-one-command .flux-one-admin-bar-hotkey{font-size:.85em;font-weight:400;opacity:.82;color:#c3c4c7}'
+		);
+
 		if ( $hook === 'flux-suite_page_flux-one' ) {
 			$this->enqueue_plugin_app_scripts();
 		}
@@ -233,6 +243,7 @@ class AdminController {
 	 * Register admin bar Command trigger.
 	 *
 	 * @since 0.1.0
+	 * @since 1.2.1 Ctrl-first hotkey label with styled span; client refines Cmd on Apple-like platforms.
 	 * @param \WP_Admin_Bar $wp_admin_bar Admin bar.
 	 * @return void
 	 */
@@ -241,46 +252,36 @@ class AdminController {
 			return;
 		}
 
-		$raw = FluxOneSettings::get_command_shortcut_for_user( get_current_user_id() );
-		$raw = is_string( $raw ) ? strtolower( trim( $raw ) ) : '';
-		$raw = preg_replace( '/\s+/', '', $raw );
+		$stored = FluxOneSettings::get_command_shortcut_for_user( get_current_user_id() );
+		$stored = is_string( $stored ) ? $stored : '';
+		$normalized = AdminBarHotkeyDisplay::normalize_shortcut_raw( $stored );
+		$hotkey_label = AdminBarHotkeyDisplay::inner_text_from_normalized_raw( $normalized );
 
-		if ( empty( $raw ) || false === strpos( $raw, 'mod+' ) ) {
-			$raw = 'mod+.';
-		}
-
-		// Display format: Ctrl/Cmd+Shift+K (no platform detection in PHP).
-		$parts = array_values( array_filter( array_map( 'trim', explode( '+', $raw ) ) ) );
-		$key   = '';
-		$mods  = [];
-		foreach ( $parts as $p ) {
-			if ( in_array( $p, [ 'mod', 'shift', 'alt', 'option', 'ctrl', 'cmd', 'meta' ], true ) ) {
-				$mods[] = $p;
-				continue;
-			}
-			$key = $p;
-		}
-		$label_parts = [];
-		if ( in_array( 'mod', $mods, true ) ) {
-			$label_parts[] = 'Ctrl/Cmd';
-		}
-		if ( in_array( 'shift', $mods, true ) ) {
-			$label_parts[] = 'Shift';
-		}
-		if ( in_array( 'alt', $mods, true ) || in_array( 'option', $mods, true ) ) {
-			$label_parts[] = 'Alt';
-		}
-		$key = $key ? ( 1 === strlen( $key ) ? strtoupper( $key ) : $key ) : '.';
-		$label_parts[] = $key;
-		$hotkey_label  = implode( '+', $label_parts );
+		$paren        = '(' . $hotkey_label . ')';
+		$allowed_html = [
+			'span' => [
+				'class' => true,
+			],
+		];
+		$title_html = wp_kses(
+			esc_html__( 'Flux One', 'flux-one' )
+				. ' <span class="flux-one-admin-bar-hotkey"><span class="flux-one-admin-bar-hotkey-inner">'
+				. esc_html( $paren )
+				. '</span></span>',
+			$allowed_html
+		);
 
 		$wp_admin_bar->add_node(
 			[
 				'id'    => 'flux-one-command',
-				'title' => sprintf( 'Flux One (%s)', esc_html( $hotkey_label ) ),
+				'title' => $title_html,
 				'href'  => '#',
 				'meta'  => [
-					'title' => sprintf( 'Open Flux One (%s)', esc_html( $hotkey_label ) ),
+					'title' => sprintf(
+						/* translators: %s: Keyboard shortcut e.g. (Ctrl+.) */
+						__( 'Open Flux One %s', 'flux-one' ),
+						$paren
+					),
 				],
 			]
 		);

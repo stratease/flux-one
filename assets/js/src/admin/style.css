@@ -100,6 +100,135 @@
   animation: flux-one-spin 0.7s linear infinite;
 }
 
+/* Skeleton primitives */
+@keyframes flux-one-skeleton-shimmer {
+  0% {
+    background-position: 150% 0;
+  }
+  100% {
+    background-position: -150% 0;
+  }
+}
+
+.flux-one-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+.flux-one-skeleton {
+  display: block;
+  box-sizing: border-box;
+  max-width: 100%;
+  background-color: var(--flux-one-color-skeleton-base);
+  background-image: linear-gradient(
+    90deg,
+    var(--flux-one-color-skeleton-base) 0%,
+    var(--flux-one-color-skeleton-highlight) 45%,
+    var(--flux-one-color-skeleton-base) 90%
+  );
+  background-size: 200% 100%;
+  background-position: 150% 0;
+  animation: flux-one-skeleton-shimmer 1.4s ease-in-out infinite;
+  border-radius: var(--flux-one-radius-xs);
+}
+
+.flux-one-skeleton--text {
+  height: 10px;
+  width: 100%;
+}
+
+.flux-one-skeleton--rect {
+  min-height: 12px;
+}
+
+.flux-one-skeleton--circle {
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+}
+
+.flux-one-skeleton-text-lines {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flux-one-space-2);
+  width: 100%;
+}
+
+.flux-one-email-aggregate-skeleton-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.flux-one-email-aggregate-skeleton-list__row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flux-one-space-2);
+  padding: var(--flux-one-space-3) var(--flux-one-space-4);
+  border-bottom: 1px solid var(--flux-one-color-divider);
+}
+
+
+.flux-one-email-aggregate-skeleton-list__row--summarized {
+  background: var(--flux-one-color-email-summary-bg);
+  border-left: 3px solid var(--flux-one-color-email-summary-border);
+  padding-left: calc(var(--flux-one-space-4) - 3px);
+}
+
+.flux-one-email-detail-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flux-one-space-4);
+  padding: var(--flux-one-space-2) 0;
+}
+
+.flux-one-email-detail-skeleton__actions {
+  display: flex;
+  gap: var(--flux-one-space-3);
+}
+
+.flux-one-email-detail-skeleton__body {
+  margin-top: var(--flux-one-space-2);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flux-one-skeleton {
+    animation: none;
+    background-image: none;
+  }
+}
+
+/* Email list pane sticky header (Summarize + summary hints) */
+.flux-one-email-list-header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--flux-one-space-3);
+  padding: var(--flux-one-space-3) var(--flux-one-space-4);
+  background: var(--flux-one-color-surface-muted);
+  border: 1px solid var(--flux-one-color-border-muted);
+  border-radius: var(--flux-one-radius-sm);
+  flex-shrink: 0;
+}
+
+.flux-one-email-tab-panel .flux-one-email-list-pane .flux-one-email-list-header {
+  border-radius: 0;
+  border: none;
+  border-bottom: 1px solid var(--flux-one-color-divider);
+}
+
+.flux-one-email-list-header__running {
+  width: 100%;
+  box-sizing: border-box;
+  margin: 0;
+}
+
 /* Modals */
 .flux-one-modal-backdrop {
   position: fixed;
@@ -685,8 +814,9 @@
 }
 
 .flux-one-email-search-input {
-  flex: 1 1 260px;
+  flex: 0 1 320px;
   min-width: 200px;
+  max-width: 360px;
 }
 
 .flux-one-email-pagination {
@@ -778,10 +908,10 @@
   color: var(--flux-one-color-danger);
 }
 
-.flux-one-email-body-label {
-  font-size: var(--flux-one-font-size-xs);
-  opacity: var(--flux-one-opacity-label);
-  margin-bottom: var(--flux-one-space-2);
+.flux-one-email-body-region {
+  margin-top: var(--flux-one-space-4);
+  padding-top: var(--flux-one-space-4);
+  border-top: 1px solid var(--flux-one-color-divider);
 }
 
 .flux-one-email-empty {
@@ -861,6 +991,38 @@
 
 /* Email aggregate modal: master-detail list + detail pane (layout-only additions). */
 
+/* Single frame around list + detail (tabbed-content pattern). */
+.flux-one-email-tab-panel {
+  border: 1px solid var(--flux-one-color-border-muted);
+  border-radius: var(--flux-one-radius-md);
+  background: var(--flux-one-color-surface);
+  overflow: hidden;
+}
+
+.flux-one-email-tab-panel .flux-one-email-master-detail {
+  gap: 0;
+  align-items: stretch;
+}
+
+.flux-one-email-tab-panel .flux-one-email-list-pane {
+  border-right: 1px solid var(--flux-one-color-divider);
+  background: var(--flux-one-color-surface-muted);
+  min-height: 0;
+}
+
+.flux-one-email-tab-panel .flux-one-email-list-scroll {
+  border: none;
+  border-radius: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.flux-one-email-tab-panel .flux-one-email-detail-pane {
+  padding: var(--flux-one-space-4) var(--flux-one-space-5);
+  min-height: min(60vh, 560px);
+  box-sizing: border-box;
+}
+
 .flux-one-email-event-meta-line {
   font-size: var(--flux-one-font-size-sm);
   opacity: var(--flux-one-opacity-quiet);
@@ -890,6 +1052,15 @@
   .flux-one-email-detail-pane {
     overflow-x: auto;
   }
+
+  .flux-one-email-tab-panel .flux-one-email-list-pane {
+    border-right: none;
+    border-bottom: 1px solid var(--flux-one-color-divider);
+  }
+
+  .flux-one-email-tab-panel .flux-one-email-detail-pane {
+    min-height: 0;
+  }
 }
 
 .flux-one-email-list-pane {
@@ -897,13 +1068,6 @@
   flex-direction: column;
   gap: var(--flux-one-space-3);
   min-width: 0;
-}
-
-.flux-one-email-list-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--flux-one-space-3);
 }
 
 .flux-one-email-list-scroll {
@@ -1121,10 +1285,6 @@
   border: none;
   border-radius: 0;
   padding: 0;
-}
-
-.flux-one-email-detail-shell .flux-one-preview-stack {
-  margin-top: var(--flux-one-space-4);
 }
 
 .flux-one-email-detail-shell .flux-one-email-pre {

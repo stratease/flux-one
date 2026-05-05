@@ -1,4 +1,5 @@
-export {};
+import { formatAdminBarHotkeyText, parseShortcut } from './commandShortcut';
+import { resolveAdminBarModifierWord } from './keyboardPlatform';
 
 function getAdminBundleUrl(): string {
   const cfg: any = (window as any).fluxOneAdmin || {};
@@ -12,16 +13,6 @@ function getAdminBundleUrl(): string {
   }
   // Fallback path (should not happen in WP, but keeps dev HTML workable).
   return '/wp-content/plugins/flux-one/assets/js/dist/admin.bundle.js';
-}
-
-function parseShortcut(raw: string) {
-  const s = String(raw || '').toLowerCase().trim();
-  const parts = s ? s.split('+').map((p) => p.trim()).filter(Boolean) : [];
-  const hasMod = parts.includes('mod');
-  const hasShift = parts.includes('shift');
-  const hasAlt = parts.includes('alt') || parts.includes('option');
-  const key = parts.find((p) => !['mod', 'shift', 'alt', 'option', 'ctrl', 'cmd', 'meta'].includes(p)) || '';
-  return { hasMod, hasShift, hasAlt, key };
 }
 
 function shouldToggleForKeydown(e: KeyboardEvent, rawShortcut: string): boolean {
@@ -78,6 +69,35 @@ function requestIdle(cb: () => void) {
   setTimeout(cb, 250);
 }
 
+function scheduleAdminBarHotkeyEnhancement(shortcutRaw: string) {
+  const run = () => {
+    void (async () => {
+      try {
+        const modifier = await resolveAdminBarModifierWord();
+        const inner = formatAdminBarHotkeyText(shortcutRaw, modifier);
+        const paren = `(${inner})`;
+        const anchor = document.querySelector(
+          '#wp-admin-bar-flux-one-command a.ab-item'
+        ) as HTMLAnchorElement | null;
+        const innerEl = anchor?.querySelector('.flux-one-admin-bar-hotkey-inner');
+        if (innerEl) {
+          innerEl.textContent = paren;
+        }
+        if (anchor) {
+          anchor.setAttribute('title', `Open Flux One ${paren}`);
+        }
+      } catch {
+        /* ignore */
+      }
+    })();
+  };
+  if (typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(run);
+    return;
+  }
+  setTimeout(run, 0);
+}
+
 async function openOverlay() {
   // First open: allow the UI to see an “open requested” flag on mount.
   (window as any).__fluxOneOpenOnLoad = true;
@@ -122,6 +142,8 @@ function init() {
     e.preventDefault();
     void openOverlay();
   });
+
+  scheduleAdminBarHotkeyEnhancement(effectiveShortcut);
 }
 
 if (typeof window !== 'undefined' && typeof document !== 'undefined') {
