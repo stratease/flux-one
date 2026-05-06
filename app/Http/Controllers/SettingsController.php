@@ -58,7 +58,7 @@ class SettingsController extends BaseController {
 	 * @return \WP_REST_Response
 	 */
 	public function get_settings() {
-		return $this->create_success_response( FluxOneSettings::get_all(), 'Settings loaded' );
+		return $this->create_success_response( FluxOneSettings::get_all(), __( 'Settings loaded.', 'flux-one' ) );
 	}
 
 	/**
@@ -76,6 +76,6 @@ class SettingsController extends BaseController {
 
 		$updated = FluxOneSettings::update_from_array( $body );
 
-		return $this->create_success_response( $updated, 'Settings saved' );
+		return $this->create_success_response( $updated, __( 'Settings saved.', 'flux-one' ) );
 	}
 }

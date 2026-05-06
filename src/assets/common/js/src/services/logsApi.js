@@ -63,15 +63,6 @@ class LogsApiService {
     return this.request(`/${this.namespace}/logs?${queryString}`);
   }
 
-  /**
-   * Get options (for logging setting)
-   * @returns {Promise} Options data
-   */
-  async getOptions() {
-    // Get from site option
-    const options = window.fluxPluginsCommon?.options || {};
-    return { enable_logging: options.enable_logging !== false };
-  }
 }
 
 // Export singleton instance

@@ -169,7 +169,7 @@ class IndexController extends BaseController {
 		$index = ( new IndexCacheService() )->get_plugins_index();
 
 		if ( '' === $q ) {
-			return $this->create_success_response( $index, 'Plugins index' );
+			return $this->create_success_response( $index, __( 'Plugins index.', 'flux-one' ) );
 		}
 
 		$filtered = array_values(
@@ -182,7 +182,7 @@ class IndexController extends BaseController {
 			)
 		);
 
-		return $this->create_success_response( array_slice( $filtered, 0, 100 ), 'Plugins results' );
+		return $this->create_success_response( array_slice( $filtered, 0, 100 ), __( 'Plugins results.', 'flux-one' ) );
 	}
 
 	/**
@@ -197,7 +197,7 @@ class IndexController extends BaseController {
 
 		$index = ( new IndexCacheService() )->get_users_index();
 		if ( '' === $q ) {
-			return $this->create_success_response( $index, 'Users index' );
+			return $this->create_success_response( $index, __( 'Users index.', 'flux-one' ) );
 		}
 
 		$filtered = array_values(
@@ -210,7 +210,7 @@ class IndexController extends BaseController {
 			)
 		);
 
-		return $this->create_success_response( array_slice( $filtered, 0, 50 ), 'Users results' );
+		return $this->create_success_response( array_slice( $filtered, 0, 50 ), __( 'Users results.', 'flux-one' ) );
 	}
 
 	/**
@@ -222,7 +222,7 @@ class IndexController extends BaseController {
 	 */
 	public function menus( WP_REST_Request $request ) {
 		$index = ( new IndexCacheService() )->get_menus_index();
-		return $this->create_success_response( $index, 'Menus index' );
+		return $this->create_success_response( $index, __( 'Menus index.', 'flux-one' ) );
 	}
 
 	/**
@@ -238,7 +238,7 @@ class IndexController extends BaseController {
 		$sites = (array) ( $index['sites'] ?? [] );
 
 		if ( '' === $q ) {
-			return $this->create_success_response( $sites, 'Sites index' );
+			return $this->create_success_response( $sites, __( 'Sites index.', 'flux-one' ) );
 		}
 
 		$filtered = array_values(
@@ -251,7 +251,7 @@ class IndexController extends BaseController {
 			)
 		);
 
-		return $this->create_success_response( array_slice( $filtered, 0, 100 ), 'Sites results' );
+		return $this->create_success_response( array_slice( $filtered, 0, 100 ), __( 'Sites results.', 'flux-one' ) );
 	}
 
 	/**
@@ -267,7 +267,7 @@ class IndexController extends BaseController {
 		$destinations = AdminDestinations::get_index_entries();
 
 		if ( '' === $q ) {
-			return $this->create_success_response( $destinations, 'Destinations index' );
+			return $this->create_success_response( $destinations, __( 'Destinations index.', 'flux-one' ) );
 		}
 
 		$filtered = array_values(
@@ -293,7 +293,7 @@ class IndexController extends BaseController {
 			)
 		);
 
-		return $this->create_success_response( $filtered, 'Destinations results' );
+		return $this->create_success_response( $filtered, __( 'Destinations results.', 'flux-one' ) );
 	}
 
 	/**
@@ -331,7 +331,7 @@ class IndexController extends BaseController {
 			$rows[] = $row;
 		}
 
-		return $this->create_success_response( $rows, 'Suite config index' );
+		return $this->create_success_response( $rows, __( 'Suite config index.', 'flux-one' ) );
 	}
 
 	/**
@@ -348,7 +348,7 @@ class IndexController extends BaseController {
 		$kind = strtolower( trim( (string) $request->get_param( 'kind' ) ) );
 
 		if ( '' === $q ) {
-			return $this->create_success_response( [], 'Content results' );
+			return $this->create_success_response( [], __( 'Content results.', 'flux-one' ) );
 		}
 
 		$post_types = [ 'post', 'page' ];
@@ -413,7 +413,7 @@ class IndexController extends BaseController {
 			}
 		}
 
-		return $this->create_success_response( $out, 'Content results' );
+		return $this->create_success_response( $out, __( 'Content results.', 'flux-one' ) );
 	}
 }
 

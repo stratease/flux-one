@@ -78,7 +78,7 @@ class MemoryController extends BaseController {
 
 		if ( '' === $url && '' === $command ) {
 			return $this->create_error_response(
-				'A url or command is required.',
+				__( 'A URL or command is required.', 'flux-one' ),
 				'flux_one_memory_bad_request',
 				400
 			);
@@ -86,7 +86,7 @@ class MemoryController extends BaseController {
 
 		if ( '' !== $url && ! AdminVisitRecorder::is_valid_saved_destination_url( $url ) ) {
 			return $this->create_error_response(
-				'Invalid admin URL.',
+				__( 'Invalid admin URL.', 'flux-one' ),
 				'flux_one_memory_invalid_url',
 				400
 			);
@@ -103,6 +103,6 @@ class MemoryController extends BaseController {
 			$memory->add_recent_navigation( $command, $label !== '' ? $label : null, null );
 		}
 
-		return $this->create_success_response( [ 'ok' => true ], 'Recorded' );
+		return $this->create_success_response( [ 'ok' => true ], __( 'Recorded.', 'flux-one' ) );
 	}
 }

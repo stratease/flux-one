@@ -54,6 +54,7 @@ class AdminController {
 
 		$menu_service = MenuService::get_instance();
 		$menu_service->register_license_page();
+		$menu_service->register_logs_page();
 	}
 
 	/**

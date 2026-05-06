@@ -142,10 +142,10 @@ class FluxOneSettings {
 		$uid = get_current_user_id();
 
 		return [
-			'emailCaptureEnabled'  => self::is_email_capture_enabled_for_user( $uid ),
-			'suppressMailToSelf'   => self::is_suppress_mail_enabled_for_user( $uid ),
-			'aggregateDefaultDays' => self::get_aggregate_default_days(),
-			'commandShortcut'      => self::get_command_shortcut_for_user( $uid ),
+			'emailCaptureEnabled'    => self::is_email_capture_enabled_for_user( $uid ),
+			'suppressMailToSelf'     => self::is_suppress_mail_enabled_for_user( $uid ),
+			'aggregateDefaultDays'   => self::get_aggregate_default_days(),
+			'commandShortcut'        => self::get_command_shortcut_for_user( $uid ),
 		];
 	}
 

@@ -149,7 +149,7 @@ class AggregationController extends BaseController {
 
 		$report['summaries'] = $this->cached_summaries_for_visible_events( $report );
 
-		return $this->create_success_response( $report, 'Email aggregation' );
+		return $this->create_success_response( $report, __( 'Email aggregation.', 'flux-one' ) );
 	}
 
 	/**

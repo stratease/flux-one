@@ -65,7 +65,7 @@ class CommandController extends BaseController {
 		$input = trim( $input );
 
 		if ( '' === $input ) {
-			return $this->create_error_response( 'Command input is required.', 'flux_one_empty_input', 400 );
+			return $this->create_error_response( __( 'Command input is required.', 'flux-one' ), 'flux_one_empty_input', 400 );
 		}
 
 		try {
@@ -83,10 +83,10 @@ class CommandController extends BaseController {
 				);
 			}
 
-			return $this->create_success_response( $result, 'Command executed' );
+			return $this->create_success_response( $result, __( 'Command executed.', 'flux-one' ) );
 		} catch ( \Throwable $e ) {
 			return $this->create_error_response(
-				'Command failed.',
+				__( 'Command failed.', 'flux-one' ),
 				'flux_one_command_failed',
 				500,
 				[
