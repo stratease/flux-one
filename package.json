@@ -1,6 +1,6 @@
 {
   "name": "flux-one-admin",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "description": "Flux One - Command Bar by Flux Plugins (admin UI)",
   "private": true,
   "scripts": {
