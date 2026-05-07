@@ -31,9 +31,99 @@ if ( ! function_exists( 'set_transient' ) ) {
 		return true;
 	}
 }
+if ( ! function_exists( 'apply_filters' ) ) {
+	function apply_filters( $hook_name, $value, ...$args ) {
+		return $value;
+	}
+}
 if ( ! function_exists( 'get_option' ) ) {
 	function get_option( $key, $default = false ) {
-		return $default;
+		if ( ! isset( $GLOBALS['flux_one_test_options'] ) || ! is_array( $GLOBALS['flux_one_test_options'] ) ) {
+			return $default;
+		}
+		return array_key_exists( $key, $GLOBALS['flux_one_test_options'] )
+			? $GLOBALS['flux_one_test_options'][ $key ]
+			: $default;
+	}
+}
+if ( ! function_exists( 'update_option' ) ) {
+	function update_option( $key, $value, $autoload = null ) {
+		if ( ! isset( $GLOBALS['flux_one_test_options'] ) || ! is_array( $GLOBALS['flux_one_test_options'] ) ) {
+			$GLOBALS['flux_one_test_options'] = [];
+		}
+		$GLOBALS['flux_one_test_options'][ $key ] = $value;
+		return true;
+	}
+}
+if ( ! function_exists( 'get_user_meta' ) ) {
+	function get_user_meta( $user_id, $key, $single = false ) {
+		return $single ? '' : [];
+	}
+}
+if ( ! function_exists( 'sanitize_text_field' ) ) {
+	function sanitize_text_field( $str ) {
+		return trim( wp_strip_all_tags( (string) $str ) );
+	}
+}
+if ( ! function_exists( 'sanitize_textarea_field' ) ) {
+	function sanitize_textarea_field( $str ) {
+		return sanitize_text_field( $str );
+	}
+}
+if ( ! function_exists( 'sanitize_email' ) ) {
+	function sanitize_email( $email ) {
+		return trim( strtolower( (string) $email ) );
+	}
+}
+if ( ! function_exists( 'sanitize_key' ) ) {
+	function sanitize_key( $key ) {
+		return strtolower( preg_replace( '/[^a-z0-9_\-]/', '', (string) $key ) );
+	}
+}
+if ( ! function_exists( 'sanitize_option' ) ) {
+	function sanitize_option( $option, $value ) {
+		return $value;
+	}
+}
+if ( ! function_exists( 'wp_strip_all_tags' ) ) {
+	function wp_strip_all_tags( $str, $remove_breaks = false ) {
+		return strip_tags( (string) $str );
+	}
+}
+if ( ! function_exists( 'flush_rewrite_rules' ) ) {
+	function flush_rewrite_rules( $hard = true ) {
+		return true;
+	}
+}
+if ( ! class_exists( 'WP_Post' ) ) {
+	class WP_Post {
+		public $ID = 0;
+		public $post_type = 'page';
+	}
+}
+if ( ! function_exists( 'get_post' ) ) {
+	function get_post( $post = null, $output = OBJECT, $filter = 'raw' ) {
+		$pid = (int) $post;
+		if ( $pid > 0 && ! empty( $GLOBALS['flux_one_test_posts'][ $pid ] ) ) {
+			return $GLOBALS['flux_one_test_posts'][ $pid ];
+		}
+		return null;
+	}
+}
+if ( ! class_exists( 'WP_Error' ) ) {
+	class WP_Error {
+		private $message = '';
+		public function __construct( $code = '', $message = '', $data = '' ) {
+			$this->message = (string) $message;
+		}
+		public function get_error_message() {
+			return $this->message;
+		}
+	}
+}
+if ( ! function_exists( 'is_wp_error' ) ) {
+	function is_wp_error( $thing ) {
+		return $thing instanceof WP_Error;
 	}
 }
 if ( ! function_exists( 'wp_parse_args' ) ) {
@@ -105,3 +195,7 @@ require_once dirname( __DIR__ ) . '/app/Services/Database.php';
 require_once dirname( __DIR__ ) . '/app/Services/EmailAggregationService.php';
 require_once dirname( __DIR__ ) . '/app/Services/AdminBarHotkeyDisplay.php';
 
+$flux_autoload = dirname( __DIR__ ) . '/vendor/autoload.php';
+if ( is_readable( $flux_autoload ) ) {
+	require_once $flux_autoload;
+}

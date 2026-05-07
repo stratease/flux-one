@@ -13,7 +13,6 @@ use FluxOne\App\Services\CommandHandlers\MenusHandler;
 use FluxOne\App\Services\CommandHandlers\NavigationHandler;
 use FluxOne\App\Services\CommandHandlers\PluginsHandler;
 use FluxOne\App\Services\CommandHandlers\UsersHandler;
-use FluxOne\App\Services\CommandHandlers\MultisiteHandler;
 
 /**
  * Parses and routes commands to handlers.
@@ -77,7 +76,13 @@ class CommandRouter {
 
 		// Multisite (`sites` → `site` in canonicalize_tokens).
 		if ( 'site' === ( $tokens[0] ?? '' ) ) {
-			return ( new MultisiteHandler() )->handle( array_slice( $tokens, 1 ) );
+			// @since 1.4.3 Site commands temporarily disabled.
+			return [
+				'type'    => 'error',
+				'command' => implode( ' ', $tokens ),
+				/* translators: 1: Example command. */
+				'message' => sprintf( __( 'Site commands are currently disabled. Planned feature: %s', 'flux-one' ), 'site list' ),
+			];
 		}
 
 		// Aggregates.

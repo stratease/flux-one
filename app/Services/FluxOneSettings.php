@@ -30,13 +30,6 @@ class FluxOneSettings {
 	public const OPTION_SUPPRESS_MAIL_TO_SELF = 'flux_one_suppress_mail_to_self';
 
 	/**
-	 * Default window in days for aggregate UI (max 30, enforced server-side). Site-wide default only.
-	 *
-	 * @since 0.1.0
-	 */
-	public const OPTION_AGGREGATE_DEFAULT_DAYS = 'flux_one_aggregate_default_days';
-
-	/**
 	 * User meta: when true, log wp_mail for this user’s aggregate.
 	 *
 	 * @since 0.1.0
@@ -65,24 +58,17 @@ class FluxOneSettings {
 	public const OPTION_USER_EMAIL_PREFS_MIGRATED = 'flux_one_user_email_prefs_migrated';
 
 	/**
-	 * Register WordPress settings (aggregate window only; email toggles are user meta).
+	 * Register WordPress settings.
+	 *
+	 * Kept for backward compatibility with admin_init hooks. Flux One settings are now stored
+	 * in user meta only.
 	 *
 	 * @since 0.1.0
+	 * @since 1.4.3 No-op (default report window removed).
 	 * @return void
 	 */
 	public static function register_settings() {
-		register_setting(
-			'flux_one_settings',
-			self::OPTION_AGGREGATE_DEFAULT_DAYS,
-			[
-				'type'              => 'integer',
-				'default'           => 7,
-				'sanitize_callback' => static function ( $v ) {
-					$n = (int) $v;
-					return max( 1, min( 30, $n ) );
-				},
-			]
-		);
+		// Intentionally empty.
 	}
 
 	/**
@@ -133,7 +119,7 @@ class FluxOneSettings {
 	}
 
 	/**
-	 * Public shape for REST and admin UI (current user + site default days).
+	 * Public shape for REST and admin UI.
 	 *
 	 * @since 0.1.0
 	 * @return array
@@ -144,7 +130,6 @@ class FluxOneSettings {
 		return [
 			'emailCaptureEnabled'    => self::is_email_capture_enabled_for_user( $uid ),
 			'suppressMailToSelf'     => self::is_suppress_mail_enabled_for_user( $uid ),
-			'aggregateDefaultDays'   => self::get_aggregate_default_days(),
 			'commandShortcut'        => self::get_command_shortcut_for_user( $uid ),
 		];
 	}
@@ -170,12 +155,6 @@ class FluxOneSettings {
 			if ( array_key_exists( 'commandShortcut', $patch ) ) {
 				self::update_command_shortcut_for_user( $uid, $patch['commandShortcut'] );
 			}
-		}
-
-		if ( array_key_exists( 'aggregateDefaultDays', $patch ) ) {
-			$d = (int) $patch['aggregateDefaultDays'];
-			$d = max( 1, min( 30, $d ) );
-			update_option( self::OPTION_AGGREGATE_DEFAULT_DAYS, $d, false );
 		}
 
 		return self::get_all();
@@ -302,13 +281,6 @@ class FluxOneSettings {
 	}
 
 	/**
-	 * Default aggregate window (days), site option.
-	 *
-	 * @since 0.1.0
-	 * @return int
+	 * @since 1.4.3 Removed aggregate default days setting.
 	 */
-	public static function get_aggregate_default_days() {
-		$d = (int) get_option( self::OPTION_AGGREGATE_DEFAULT_DAYS, 7 );
-		return max( 1, min( 30, $d ) );
-	}
 }

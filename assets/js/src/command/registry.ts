@@ -62,14 +62,9 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
     },
   ],
   menu: [{ id: 'cmd.menu.list', kind: 'subcommand', label: 'menu list', value: 'menu list' }],
-  site: [
-    { id: 'cmd.site.list', kind: 'subcommand', label: 'site list', value: 'site list' },
-    { id: 'cmd.site.switch', kind: 'subcommand', label: 'site switch', value: 'site switch ' },
-  ],
   nav: [],
   config: [
     { id: 'cmd.config.list', kind: 'subcommand', label: 'config list', value: 'config list' },
-    { id: 'cmd.config.search', kind: 'subcommand', label: 'config search', value: 'config search ' },
     { id: 'cmd.config.get', kind: 'subcommand', label: 'config get', value: 'config get ' },
     { id: 'cmd.config.set', kind: 'subcommand', label: 'config set', value: 'config set ' },
   ],
@@ -94,7 +89,6 @@ export const ROOT_COMMANDS: Suggestion[] = [
     searchText: 'role set lock unlock add list',
   },
   { id: 'cmd.menu', kind: 'command', label: 'menu', value: 'menu ' },
-  { id: 'cmd.site', kind: 'command', label: 'site', value: 'site ' },
   { id: 'cmd.nav', kind: 'command', label: 'nav', value: 'nav ' },
   {
     id: 'cmd.config',
@@ -121,7 +115,6 @@ export const COMMANDS: Suggestion[] = [
   ...SUBCOMMANDS_BY_ROOT.plugin,
   ...SUBCOMMANDS_BY_ROOT.user,
   ...SUBCOMMANDS_BY_ROOT.menu,
-  ...SUBCOMMANDS_BY_ROOT.site,
   ...SUBCOMMANDS_BY_ROOT.config,
   ...SUBCOMMANDS_BY_ROOT.edit,
 ];

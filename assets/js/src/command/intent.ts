@@ -28,7 +28,7 @@ export function getIntent(input: string): CommandIntent {
     wantsPlugins: root === 'plugin',
     wantsUsers: root === 'user',
     wantsMenus: root === 'menu',
-    wantsSites: root === 'site',
+    wantsSites: false,
     wantsDestinations: root === 'nav',
     wantsSuiteConfig: root === 'config',
     wantsEdit: root === 'edit',

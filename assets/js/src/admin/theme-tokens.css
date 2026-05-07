@@ -6,6 +6,7 @@
  *
  * @since 1.3.0
  * @since 1.4.0 Email aggregate modal list/detail tokens; skeleton shimmer tokens.
+ * @since 1.4.2 Shared form control height token (select vs text input alignment).
  * @since 1.6.0 Email list selection wash; suggested-action orange token.
  */
 .flux-one-theme {
@@ -35,6 +36,10 @@
   --flux-one-radius-xs: 4px;
   --flux-one-radius-sm: 6px;
   --flux-one-radius-md: 8px;
+
+  /* Native select vs input: same min-height + line-height keeps row alignment across UAs. */
+  --flux-one-control-min-height: 32px;
+  --flux-one-control-line-height: var(--flux-one-line-height-snug);
 
   --flux-one-color-fg: inherit;
   --flux-one-color-fg-muted: rgba(0, 0, 0, 0.65);

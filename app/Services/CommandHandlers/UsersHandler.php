@@ -153,6 +153,7 @@ class UsersHandler {
 	 * Create a user (username, email, role). Password is generated and new-user emails are sent when WP supports it.
 	 *
 	 * @since 0.1.0
+	 * @since 1.4.2 User add success message simplified for Command Bar.
 	 * @param string $login User login.
 	 * @param string $email Email.
 	 * @param string $role  Role slug (must be editable by current user).
@@ -247,7 +248,7 @@ class UsersHandler {
 			'type'    => 'action',
 			'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
 			'status'  => 'success',
-			'message' => __( 'User created. A generated password was emailed when your site sends new-user notifications.', 'flux-one' ),
+			'message' => __( 'User created. A welcome email will be sent shortly.', 'flux-one' ),
 			'data'    => [
 				'userId' => (int) $user_id,
 				'login'  => (string) $login,

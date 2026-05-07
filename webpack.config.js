@@ -21,6 +21,37 @@ function findFluxPluginsCommonDir() {
 const commonLibDir = findFluxPluginsCommonDir();
 const { createBaseWebpackConfig } = require(path.join(commonLibDir, 'webpack.config.helpers'));
 
+/**
+ * Flux Suite admin pages shipped from this plugin’s `src/assets/common` tree (License, Logs).
+ * Output must stay under `src/assets/common/js/dist/` for `MenuService` asset URLs.
+ *
+ * @since 1.4.2
+ */
+const suiteCommonPagesConfig = {
+  ...createBaseWebpackConfig({
+    pluginDir: __dirname,
+    pluginSlug: 'flux-one',
+    extends: {
+      resolve: {
+        alias: {
+          '@flux-plugins-common': path.resolve(__dirname, 'src/assets/common/js/src'),
+          '@flux-plugins-common/images': path.join(commonLibDir, 'src/assets/images'),
+        },
+      },
+    },
+  }),
+  entry: {
+    'logs-page': './src/assets/common/js/src/admin/logs-page.js',
+    'license-page': './src/assets/common/js/src/admin/license-page.js',
+  },
+  output: {
+    path: path.resolve(__dirname, 'src/assets/common/js/dist'),
+    filename: '[name].bundle.js',
+    clean: false,
+  },
+  plugins: [],
+};
+
 const baseConfig = createBaseWebpackConfig({
   pluginDir: __dirname,
   pluginSlug: 'flux-one',
@@ -65,7 +96,7 @@ const baseConfig = createBaseWebpackConfig({
   },
 });
 
-module.exports = {
+const mainAdminConfig = {
   ...baseConfig,
   entry: {
     'admin-loader': './assets/js/src/admin/loader.ts',
@@ -124,4 +155,6 @@ module.exports = {
     '@wordpress/icons': 'wp.icons',
   },
 };
+
+module.exports = [mainAdminConfig, suiteCommonPagesConfig];
 

@@ -1,4 +1,11 @@
-import React, { useState } from 'react';
+/**
+ * IMPORTANT: This file is part of the externally managed `stratease/flux-plugins-common` library.
+ * Do not edit copies inside consuming plugins (including Strauss-prefixed `vendor-prefixed/`).
+ *
+ * @since 1.0.0 Added externally managed source notice.
+ */
+
+import React, { useState, useEffect } from 'react';
 import {
   Typography,
   Box,
@@ -21,6 +28,8 @@ import {
   Skeleton,
   IconButton,
   Tooltip,
+  Switch,
+  FormControlLabel,
 } from '@mui/material';
 import {
   Refresh,
@@ -43,7 +52,27 @@ const LogsPageContent = () => {
   const [perPage, setPerPage] = useState(20);
   const [level, setLevel] = useState('');
   const [search, setSearch] = useState('');
+  const [enableLogging, setEnableLogging] = useState(false);
+  const [error, setError] = useState(null);
 
+  // Load initial logging setting
+  useEffect(() => {
+    const loadSettings = async () => {
+      try {
+        const response = await logsApiService.getOptions();
+        if (response && typeof response === 'object') {
+          setEnableLogging(response.enable_logging !== false);
+        }
+      } catch (err) {
+        console.error('Failed to load logging setting:', err);
+        setError(__('Failed to load logging setting', 'flux-plugins-common'));
+      }
+    };
+
+    loadSettings();
+  }, []);
+
+  // Fetch logs with React Query (only when logging is enabled)
   const {
     data: logsData,
     isLoading,
@@ -53,7 +82,15 @@ const LogsPageContent = () => {
     queryKey: ['logs', page, perPage, level, search],
     queryFn: () => logsApiService.getLogs({ page, per_page: perPage, level, search }),
     keepPreviousData: true,
+    enabled: enableLogging, // Only fetch when logging is enabled
   });
+
+  const handleLoggingToggle = (event) => {
+    const newValue = event.target.checked;
+    setEnableLogging(newValue);
+    setError(null);
+    // TODO: Save setting via API when options endpoint is available
+  };
 
   const handlePageChange = (event, newPage) => {
     setPage(newPage);
@@ -114,16 +151,64 @@ const LogsPageContent = () => {
     return JSON.stringify(context, null, 2);
   };
 
+  if (error) {
+    return (
+      <PageLayout title={__('Flux Suite - Logs', 'flux-plugins-common')}>
+        <Alert severity="error" sx={{ mb: 3 }}>
+          {error}
+        </Alert>
+      </PageLayout>
+    );
+  }
+
   return (
-    <PageLayout title={__('Flux Suite - Logs', 'flux-one')}>
-      <Grid container justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+    <PageLayout title={__('Flux Suite - Logs', 'flux-plugins-common')}>
+      {/* Logging Toggle */}
+      <Box sx={{ mb: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+        <Grid container justifyContent="space-between" alignItems="center">
+          <Grid item>
+            <Typography variant="h6" gutterBottom>
+              {__('Logging Settings', 'flux-plugins-common')}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {__('Enable or disable system logging. When disabled, no new logs will be created and existing logs will not be displayed.', 'flux-plugins-common')}
+            </Typography>
+          </Grid>
+          <Grid item>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={enableLogging}
+                  onChange={handleLoggingToggle}
+                  color="primary"
+                />
+              }
+              label={__('Enable Logging', 'flux-plugins-common')}
+            />
+          </Grid>
+        </Grid>
+      </Box>
+
+      {/* Show message when logging is disabled */}
+      {!enableLogging && (
+        <Alert severity="info" sx={{ mb: 3 }}>
+          <Typography variant="body2">
+            {__('Logging is currently disabled. Enable logging above to view system logs and start recording new log entries.', 'flux-plugins-common')}
+          </Typography>
+        </Alert>
+      )}
+
+      {/* Logs content - only show when logging is enabled */}
+      {enableLogging && (
+        <>
+          <Grid container justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
             <Grid item>
               <Typography variant="h6" gutterBottom>
-                {__('Log Entries', 'flux-one')}
+                {__('Log Entries', 'flux-plugins-common')}
               </Typography>
             </Grid>
             <Grid item>
-              <Tooltip title={__('Refresh logs', 'flux-one')}>
+              <Tooltip title={__('Refresh logs', 'flux-plugins-common')}>
                 <IconButton onClick={handleRefresh} disabled={isLoading}>
                   <Refresh />
                 </IconButton>
@@ -133,7 +218,7 @@ const LogsPageContent = () => {
 
           {logsError && (
             <Alert severity="error" sx={{ mb: 3 }}>
-              {__('Error loading logs:', 'flux-one')} {logsError?.message || __('Unknown error occurred', 'flux-one')}
+              {__('Error loading logs:', 'flux-plugins-common')} {logsError?.message || __('Unknown error occurred', 'flux-plugins-common')}
             </Alert>
           )}
 
@@ -142,7 +227,7 @@ const LogsPageContent = () => {
             <Grid item xs={12} sm={6} md={3}>
               <TextField
                 fullWidth
-                label={__('Search logs', 'flux-one')}
+                label={__('Search logs', 'flux-plugins-common')}
                 value={search}
                 onChange={handleSearchChange}
                 InputProps={{
@@ -153,26 +238,26 @@ const LogsPageContent = () => {
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>{__('Log Level', 'flux-one')}</InputLabel>
+                <InputLabel>{__('Log Level', 'flux-plugins-common')}</InputLabel>
                 <Select
                   value={level}
                   onChange={handleLevelChange}
-                  label={__('Log Level', 'flux-one')}
+                  label={__('Log Level', 'flux-plugins-common')}
                 >
-                  <MenuItem value="">{__('All Levels', 'flux-one')}</MenuItem>
-                  <MenuItem value="ERROR">{__('Error', 'flux-one')}</MenuItem>
-                  <MenuItem value="WARNING">{__('Warning', 'flux-one')}</MenuItem>
-                  <MenuItem value="CRITICAL">{__('Critical', 'flux-one')}</MenuItem>
+                  <MenuItem value="">{__('All Levels', 'flux-plugins-common')}</MenuItem>
+                  <MenuItem value="ERROR">{__('Error', 'flux-plugins-common')}</MenuItem>
+                  <MenuItem value="WARNING">{__('Warning', 'flux-plugins-common')}</MenuItem>
+                  <MenuItem value="CRITICAL">{__('Critical', 'flux-plugins-common')}</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
             <Grid item xs={12} sm={6} md={3}>
               <FormControl fullWidth size="small">
-                <InputLabel>{__('Per Page', 'flux-one')}</InputLabel>
+                <InputLabel>{__('Per Page', 'flux-plugins-common')}</InputLabel>
                 <Select
                   value={perPage}
                   onChange={handlePerPageChange}
-                  label={__('Per Page', 'flux-one')}
+                  label={__('Per Page', 'flux-plugins-common')}
                 >
                   <MenuItem value={10}>10</MenuItem>
                   <MenuItem value={20}>20</MenuItem>
@@ -188,10 +273,10 @@ const LogsPageContent = () => {
             <Table>
               <TableHead>
                 <TableRow>
-                  <TableCell>{__('Level', 'flux-one')}</TableCell>
-                  <TableCell>{__('Message', 'flux-one')}</TableCell>
-                  <TableCell>{__('Context', 'flux-one')}</TableCell>
-                  <TableCell>{__('Date', 'flux-one')}</TableCell>
+                  <TableCell>{__('Level', 'flux-plugins-common')}</TableCell>
+                  <TableCell>{__('Message', 'flux-plugins-common')}</TableCell>
+                  <TableCell>{__('Context', 'flux-plugins-common')}</TableCell>
+                  <TableCell>{__('Date', 'flux-plugins-common')}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -259,7 +344,7 @@ const LogsPageContent = () => {
                   <TableRow>
                     <TableCell colSpan={4} align="center">
                       <Typography variant="body2" color="text.secondary">
-                        {__('No logs found', 'flux-one')}
+                        {__('No logs found', 'flux-plugins-common')}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -286,10 +371,12 @@ const LogsPageContent = () => {
           {logsData?.data && (
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
               <Typography variant="body2" color="text.secondary">
-                {__('Showing', 'flux-one')} {((page - 1) * perPage) + 1} - {Math.min(page * perPage, logsData.total)} {__('of', 'flux-one')} {logsData.total} {__('logs', 'flux-one')}
+                {__('Showing', 'flux-plugins-common')} {((page - 1) * perPage) + 1} - {Math.min(page * perPage, logsData.total)} {__('of', 'flux-plugins-common')} {logsData.total} {__('logs', 'flux-plugins-common')}
               </Typography>
             </Box>
           )}
+        </>
+      )}
     </PageLayout>
   );
 };

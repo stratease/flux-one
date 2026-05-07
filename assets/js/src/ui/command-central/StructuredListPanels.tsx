@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Suggestion } from '../../command/types';
 import { MenuListPanel } from './MenuListPanel';
+import { SuiteConfigPanel } from './suite-config/SuiteConfigPanel';
 
 export type StructuredListPanelsProps = {
   structuredPanelRef: React.RefObject<HTMLDivElement | null>;
@@ -10,6 +11,8 @@ export type StructuredListPanelsProps = {
   executeFromInput: (rawCommand: string, picked?: Suggestion | null) => void;
   /** When set, Lock is hidden for this user id (cannot lock own account). */
   currentUserId?: number;
+  /** Suite config row id to focus after open (entity pick). */
+  focusedSuiteConfigRowId?: string | null;
 };
 
 /**
@@ -18,6 +21,8 @@ export type StructuredListPanelsProps = {
  * @since 1.3.0
  * @since 1.4.0 Menus panel delegates to MenuListPanel (tree editor).
  * @since 1.4.0 Users panel omits Lock for currentUserId.
+ * @since 1.7.0 Suite config delegates to SuiteConfigPanel (grouped grid + field widgets).
+ * @since 1.5.0 Optional focusedSuiteConfigRowId for hybrid entity pick.
  */
 export function StructuredListPanels({
   structuredPanelRef,
@@ -26,6 +31,7 @@ export function StructuredListPanels({
   adminBase,
   executeFromInput,
   currentUserId,
+  focusedSuiteConfigRowId,
 }: StructuredListPanelsProps) {
   if (!Array.isArray(panelData)) {
     return null;
@@ -130,33 +136,12 @@ export function StructuredListPanels({
 
   if (panelId === 'suite_config') {
     return (
-      <div ref={structuredPanelRef} className="flux-one-structured-results">
-        <div className="flux-one-structured-panel flux-one-structured-panel--suite">
-          <div className="flux-one-structured-panel-title">Suite configuration</div>
-          {(panelData as any[]).map((row) => (
-            <div key={row.id} className="flux-one-structured-row flux-one-structured-row--suite">
-              <span className="flux-one-structured-cell-2" title={`Config id: ${row.id}`}>
-                {row.label}
-              </span>
-              <span className="flux-one-structured-suite-plugin">{row.plugin}</span>
-              <span className="flux-one-structured-suite-type">{row.type}</span>
-              <span className="flux-one-structured-suite-value">{row.valueDisplay}</span>
-              <span className="flux-one-structured-actions">
-                {row.type === 'bool' ? (
-                  <>
-                    <button type="button" className="flux-one-btn-small" onClick={() => executeFromInput(`config set ${row.id} true`)}>
-                      Set true
-                    </button>
-                    <button type="button" className="flux-one-btn-small" onClick={() => executeFromInput(`config set ${row.id} false`)}>
-                      Set false
-                    </button>
-                  </>
-                ) : null}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
+      <SuiteConfigPanel
+        structuredPanelRef={structuredPanelRef}
+        rows={panelData as any[]}
+        executeFromInput={executeFromInput}
+        focusedRowId={focusedSuiteConfigRowId}
+      />
     );
   }
 

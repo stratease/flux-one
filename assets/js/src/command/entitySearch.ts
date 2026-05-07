@@ -25,7 +25,16 @@ export type SearchEntitiesArgs<T> = {
   limit: number;
   /** Eager fuzzy threshold. Higher = more permissive. */
   threshold?: number;
+  /**
+   * When the query has multiple tokens, keep only rows whose searchable text contains every token (substring).
+   *
+   * @since 1.5.0
+   */
+  multiTokenAnd?: boolean;
 };
+
+/** Stricter than default 0.55 for suite config key picking in the Command Bar. */
+export const SUITE_CONFIG_KEY_FUSE_THRESHOLD = 0.38;
 
 function normTokens(q: string): string[] {
   return q
@@ -46,6 +55,27 @@ function buildDisplay(adapterHasHierarchy: boolean, pathLabels: string[] | undef
   return { displayLabel: pl.join(' > '), pathLabels: pl };
 }
 
+function filterItemsByTokenAnd<T>(
+  query: string,
+  items: T[],
+  adapter: EntityAdapter<T>,
+  adapterHasHierarchy: boolean
+): T[] {
+  const queryTokens = normTokens(query);
+  if (queryTokens.length <= 1) {
+    return items;
+  }
+  return items.filter((item) => {
+    const label = adapter.getLabel(item);
+    const value = adapter.getValue(item);
+    const pathLabels = adapterHasHierarchy ? adapter.getPathLabels?.(item) : undefined;
+    const { displayLabel } = buildDisplay(adapterHasHierarchy, pathLabels, label);
+    const searchText = adapter.getSearchText ? adapter.getSearchText(item) : '';
+    const searchable = `${displayLabel || label} ${label} ${value} ${searchText}`.toLowerCase().trim();
+    return queryTokens.every((t) => searchable.includes(t));
+  });
+}
+
 export function searchEntities<T>(args: SearchEntitiesArgs<T>): Suggestion[] {
   const { query, items, adapter, limit } = args;
   const q = (query || '').trim().toLowerCase();
@@ -54,8 +84,16 @@ export function searchEntities<T>(args: SearchEntitiesArgs<T>): Suggestion[] {
   const hasHierarchy = adapter.hasHierarchy === true;
   const queryTokens = normTokens(q);
 
+  let scopedItems = items;
+  if (args.multiTokenAnd === true && queryTokens.length > 1) {
+    scopedItems = filterItemsByTokenAnd(query, items, adapter, hasHierarchy);
+  }
+  if (!scopedItems.length) {
+    return [];
+  }
+
   // Build a light wrapper list so Fuse keys are stable.
-  const rows = items.map((item) => {
+  const rows = scopedItems.map((item) => {
     const label = adapter.getLabel(item);
     const value = adapter.getValue(item);
     const pathLabels = hasHierarchy ? adapter.getPathLabels?.(item) : undefined;

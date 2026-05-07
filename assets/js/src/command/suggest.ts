@@ -2,7 +2,7 @@ import { MULTISTEP_COMMANDS, ROOT_COMMANDS, SUBCOMMANDS_BY_ROOT } from './regist
 import { canonicalizeTokens, parseInput } from './normalize';
 import type { ParsedInput, Suggestion } from './types';
 import Fuse from 'fuse.js';
-import { searchEntities } from './entitySearch';
+import { searchEntities, SUITE_CONFIG_KEY_FUSE_THRESHOLD } from './entitySearch';
 import {
   configKeyAdapter,
   destinationAdapter,
@@ -33,6 +33,11 @@ export type IndexData = {
     plugin: string;
     type: string;
     searchText: string;
+    group?: string;
+    groupLabel?: string;
+    groupOrder?: number;
+    min?: number;
+    max?: number;
     choices?: string[];
   }>;
   /** Role slugs the current user may assign (from GET /bootstrap editableRoles). */
@@ -602,14 +607,27 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
               }),
             },
             limit: 12,
+            threshold: SUITE_CONFIG_KEY_FUSE_THRESHOLD,
+            multiTokenAnd: true,
           })
         );
       }
 
       if (verb === 'set') {
         const fs = rest.indexOf(' ');
-        const partialId = (fs === -1 ? rest : rest.slice(0, fs)).trim();
-        const valuePart = fs === -1 ? '' : rest.slice(fs + 1).trim();
+        let partialId = (fs === -1 ? rest : rest.slice(0, fs)).trim();
+        let valuePart = fs === -1 ? '' : rest.slice(fs + 1).trim();
+
+        // Only split "id" vs "value" on the first space when the first segment is an exact
+        // catalog id. Otherwise `config set flux one` becomes id=`flux` value=`one` and entity
+        // search never runs—multi-token input is a single search query (same idea as `config get`).
+        if (fs !== -1 && partialId) {
+          const firstIsKnownId = list.some((x) => String(x.id).toLowerCase() === partialId.toLowerCase());
+          if (!firstIsKnownId) {
+            partialId = rest.trim();
+            valuePart = '';
+          }
+        }
 
         if (!valuePart) {
           const exact = list.find((x) => String(x.id).toLowerCase() === partialId.toLowerCase());
@@ -654,6 +672,8 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
                 }),
               },
               limit: 12,
+              threshold: SUITE_CONFIG_KEY_FUSE_THRESHOLD,
+              multiTokenAnd: true,
             })
           );
         }
@@ -694,7 +714,7 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
       }
     }
 
-    // e.g. `config list`, `config search …`, `config li` — anything other than get/set entity flow.
+    // e.g. `config list`, `config li` — anything other than get/set entity flow.
     const tailAfterConfig = rawLower.replace(/^config\s+/, '').trim();
     const fuseCfgSub = new Fuse(subsAll, {
       keys: ['label', 'value'],

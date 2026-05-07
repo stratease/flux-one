@@ -2,3 +2,4 @@ vendor
 vendor-prefixed
 wporg
 node_modules
+src/assets/common/js/dist/*

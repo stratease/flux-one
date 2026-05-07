@@ -35,13 +35,16 @@ class ConfigHandler {
 		$low  = strtolower( $rest );
 		$toks = $low === '' ? [] : preg_split( '/\s+/', $low );
 
-		if ( $rest === '' || ( isset( $toks[0] ) && 'list' === $toks[0] ) ) {
-			return $this->panel_list();
+		if ( isset( $toks[0] ) && 'search' === $toks[0] ) {
+			return [
+				'type'    => 'error',
+				'command' => $raw,
+				'message' => __( '`config search` was removed. Use `config list` for the full grid, or type `config get` / `config set` and pick a key from suggestions.', 'flux-one' ),
+			];
 		}
 
-		if ( isset( $toks[0] ) && 'search' === $toks[0] ) {
-			$q = trim( (string) preg_replace( '/^search\s*/i', '', $rest ) );
-			return $this->panel_list( $q );
+		if ( $rest === '' || ( isset( $toks[0] ) && 'list' === $toks[0] ) ) {
+			return $this->panel_list();
 		}
 
 		if ( preg_match( '/^config\s+get\s+(\S+)\s*$/i', $raw, $gm ) ) {
@@ -55,39 +58,55 @@ class ConfigHandler {
 		return [
 			'type'    => 'error',
 			'command' => $raw,
-			'message' => 'Unknown config command. Try: config list, config search {query}, config get {id}, config set {id} {value}',
+			'message' => __( 'Unknown config command. Try: `config list`, `config get {id}`, `config set {id} {value}`.', 'flux-one' ),
 		];
 	}
 
-	private function panel_list( string $query = '' ) {
+	/**
+	 * Full catalog panel for `config list` (filtering is client-side via suite-config index).
+	 *
+	 * @since 1.7.0 Panel rows include group metadata, min/max, and choices for suite config UI.
+	 * @since 1.5.0 Drops query filtering; `config search` removed.
+	 */
+	private function panel_list() {
 		$defs = SuiteConfigCatalog::get_available_definitions();
-		$q    = strtolower( trim( $query ) );
 		$rows = [];
 
 		foreach ( $defs as $def ) {
-			$hay = strtolower(
-				( $def['id'] ?? '' ) . ' ' .
-				( $def['label'] ?? '' ) . ' ' .
-				( $def['plugin'] ?? '' ) . ' ' .
-				( $def['search'] ?? '' )
-			);
-			if ( $q !== '' && strpos( $hay, $q ) === false ) {
-				continue;
-			}
 			$raw = SuiteConfigCatalog::get_value( $def );
-			$rows[] = [
-				'id'          => (string) $def['id'],
-				'plugin'      => (string) ( $def['plugin'] ?? '' ),
-				'label'       => (string) ( $def['label'] ?? '' ),
-				'type'        => (string) ( $def['type'] ?? '' ),
+			$row = [
+				'id'           => (string) $def['id'],
+				'plugin'       => (string) ( $def['plugin'] ?? '' ),
+				'label'        => (string) ( $def['label'] ?? '' ),
+				'type'         => (string) ( $def['type'] ?? '' ),
 				'valueDisplay' => SuiteConfigCatalog::format_display( $def, $raw ),
+				'group'        => (string) ( $def['group'] ?? '' ),
+				'groupLabel'   => (string) ( $def['group_label'] ?? '' ),
+				'groupOrder'   => (int) ( $def['group_order'] ?? 0 ),
 			];
+			if ( isset( $def['min'] ) ) {
+				$row['min'] = (int) $def['min'];
+			}
+			if ( isset( $def['max'] ) ) {
+				$row['max'] = (int) $def['max'];
+			}
+			if ( isset( $def['choices'] ) && is_array( $def['choices'] ) ) {
+				$row['choices'] = array_values(
+					array_filter(
+						array_map( 'strval', $def['choices'] ),
+						static function ( $v ) {
+							return $v !== '';
+						}
+					)
+				);
+			}
+			$rows[] = $row;
 		}
 
 		return [
 			'type'    => 'panel',
 			'panelId' => 'suite_config',
-			'command' => $q === '' ? 'config list' : 'config search ' . $query,
+			'command' => 'config list',
 			'data'    => $rows,
 		];
 	}

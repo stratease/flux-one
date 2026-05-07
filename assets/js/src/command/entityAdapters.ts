@@ -6,7 +6,16 @@ type UserRow = { id: number; email: string; displayName?: string; login?: string
 type SiteRow = { blogId: number; domain: string; path: string };
 type DestinationRow = { id: string; label: string; value: string; url: string; searchText?: string; pathLabels: string[] };
 type MenuRow = { id: number; name: string; slug?: string };
-type ConfigKeyRow = { id: string; label: string; plugin: string; type: string; searchText: string; choices?: string[] };
+type ConfigKeyRow = {
+  id: string;
+  label: string;
+  plugin: string;
+  type: string;
+  searchText: string;
+  group?: string;
+  groupLabel?: string;
+  choices?: string[];
+};
 type ConfigValueRow = { id: string; value: string; label?: string; searchText?: string };
 type ContentRow = { id: number; postType: 'post' | 'page'; title: string; slug: string; editUrl: string; searchText?: string };
 
@@ -169,7 +178,8 @@ export const configKeyAdapter: EntityAdapter<ConfigKeyRow> = {
   getId: (c) => c.id,
   getLabel: (c) => `${c.label} (${c.plugin})`,
   getValue: (c) => c.id,
-  getSearchText: (c) => `${c.plugin} ${c.type} ${c.searchText}`,
+  getSearchText: (c) =>
+    `${c.id} ${c.label} ${c.plugin} ${c.type} ${c.group ?? ''} ${c.groupLabel ?? ''} ${c.searchText}`.trim(),
   toSuggestion: (c) => ({
     id: `cfg.${c.id}`,
     kind: 'entity',
@@ -181,9 +191,23 @@ export const configKeyAdapter: EntityAdapter<ConfigKeyRow> = {
     const q = ctx.query;
     if (!q) return 0;
     const id = c.id.toLowerCase();
-    if (q === id) return 0.8;
-    if (id.startsWith(q)) return 0.5;
-    return 0;
+    let boost = 0;
+    if (q === id) {
+      boost += 0.85;
+    } else if (id.startsWith(q)) {
+      boost += 0.55;
+    } else if (id.includes(q)) {
+      boost += 0.22;
+    }
+    const parts = id.split('.');
+    const leaf = parts[parts.length - 1] || '';
+    if (leaf && (q === leaf || leaf.startsWith(q))) {
+      boost += 0.38;
+    }
+    if (ctx.queryTokens.length > 1 && ctx.queryTokens.every((t) => id.includes(t))) {
+      boost += 0.12;
+    }
+    return boost;
   },
 };
 

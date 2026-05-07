@@ -297,9 +297,11 @@ class IndexController extends BaseController {
 	}
 
 	/**
-	 * Keys for `config` command autocomplete (active Flux suite plugins only).
+	 * Keys for `config` command autocomplete (active suite plugins + WordPress core subset).
 	 *
 	 * @since 0.1.0
+	 * @since 1.7.0 Adds group metadata and WordPress core definitions via SuiteConfigCatalog.
+	 * @since 1.5.0 searchText includes group and group label for Command Bar entity matching.
 	 * @return \WP_REST_Response
 	 */
 	public function suite_config() {
@@ -309,12 +311,28 @@ class IndexController extends BaseController {
 				continue;
 			}
 			$row = [
-				'id'         => (string) $def['id'],
-				'label'      => (string) ( $def['label'] ?? '' ),
-				'plugin'     => (string) ( $def['plugin'] ?? '' ),
-				'type'       => (string) ( $def['type'] ?? '' ),
-				'searchText' => trim( (string) ( $def['id'] ?? '' ) . ' ' . (string) ( $def['label'] ?? '' ) . ' ' . (string) ( $def['plugin'] ?? '' ) . ' ' . (string) ( $def['search'] ?? '' ) ),
+				'id'           => (string) $def['id'],
+				'label'        => (string) ( $def['label'] ?? '' ),
+				'plugin'       => (string) ( $def['plugin'] ?? '' ),
+				'type'         => (string) ( $def['type'] ?? '' ),
+				'group'        => (string) ( $def['group'] ?? '' ),
+				'groupLabel'   => (string) ( $def['group_label'] ?? '' ),
+				'groupOrder'   => (int) ( $def['group_order'] ?? 0 ),
+				'searchText'   => trim(
+					(string) ( $def['id'] ?? '' ) . ' ' .
+					(string) ( $def['label'] ?? '' ) . ' ' .
+					(string) ( $def['plugin'] ?? '' ) . ' ' .
+					(string) ( $def['group'] ?? '' ) . ' ' .
+					(string) ( $def['group_label'] ?? '' ) . ' ' .
+					(string) ( $def['search'] ?? '' )
+				),
 			];
+			if ( isset( $def['min'] ) ) {
+				$row['min'] = (int) $def['min'];
+			}
+			if ( isset( $def['max'] ) ) {
+				$row['max'] = (int) $def['max'];
+			}
 			if ( isset( $def['choices'] ) && is_array( $def['choices'] ) ) {
 				$choices = array_values(
 					array_filter(

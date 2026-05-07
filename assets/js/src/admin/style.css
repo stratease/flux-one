@@ -256,7 +256,7 @@
 
 .flux-one-modal--wide {
   width: min(1280px, calc(100vw - 24px));
-  max-height: min(90vh, 860px);
+  max-height: min(92vh, 860px);
 }
 
 .flux-one-modal-title {
@@ -318,6 +318,38 @@
   overflow: auto;
   flex: 1;
   min-height: 0;
+}
+
+/* Aggregate email modal: prefer inner pane scroll (no outer modal scrollbar). */
+.flux-one-modal--aggregate-email .flux-one-modal-body {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.flux-one-modal--aggregate-email .flux-one-email-tab-panel {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.flux-one-modal--aggregate-email .flux-one-email-master-detail {
+  height: 100%;
+  min-height: 0;
+}
+
+.flux-one-modal--aggregate-email .flux-one-email-list-pane,
+.flux-one-modal--aggregate-email .flux-one-email-detail-pane {
+  min-height: 0;
+}
+
+.flux-one-modal--aggregate-email .flux-one-email-list-scroll,
+.flux-one-modal--aggregate-email .flux-one-email-detail-pane {
+  overflow: auto;
+}
+
+.flux-one-modal--aggregate-email .flux-one-email-html-frame {
+  max-height: 100%;
 }
 
 .flux-one-modal-doc-list {
@@ -425,12 +457,8 @@
 }
 
 .flux-one-overlay-close-btn {
-  border: 1px solid var(--flux-one-color-border-medium);
-  background: var(--flux-one-color-surface);
-  border-radius: var(--flux-one-radius-sm);
-  padding: var(--flux-one-space-2);
-  cursor: pointer;
-  line-height: 1;
+  border: none;
+  background: transparent;
 }
 
 /* Recent nav */
@@ -613,7 +641,7 @@
 }
 
 .flux-one-structured-panel--suite {
-  max-height: 360px;
+  max-height: min(520px, 70vh);
 }
 
 .flux-one-structured-panel-title {
@@ -694,6 +722,127 @@
   border: 1px solid var(--flux-one-color-border-strong);
   background: var(--flux-one-color-surface);
   cursor: pointer;
+}
+
+/* Suite configuration panel (@since 1.7.0) */
+.flux-one-suite-config-scroll {
+  overflow-x: auto;
+  margin-top: var(--flux-one-space-2);
+  max-width: 100%;
+}
+
+.flux-one-suite-config-grid-root {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1.65fr)
+    minmax(6.5rem, 0.95fr)
+    minmax(3rem, 4.5rem)
+    minmax(5rem, 1fr)
+    minmax(9rem, 1.35fr);
+  gap: var(--flux-one-space-2) var(--flux-one-space-3);
+  align-items: center;
+  min-width: min(720px, 100%);
+  box-sizing: border-box;
+}
+
+.flux-one-suite-config-head {
+  min-width: 0;
+  font-size: var(--flux-one-font-size-xs);
+  font-weight: var(--flux-one-font-weight-semibold);
+  opacity: var(--flux-one-opacity-label);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.flux-one-suite-config-head--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding-bottom: var(--flux-one-space-2);
+  margin-bottom: var(--flux-one-space-1);
+  border-bottom: 1px solid var(--flux-one-color-divider);
+  background: var(--flux-one-color-surface-muted);
+}
+
+.flux-one-suite-config-cell {
+  min-width: 0;
+  padding: var(--flux-one-space-2) 0;
+  border-bottom: 1px solid var(--flux-one-color-divider);
+  font-size: var(--flux-one-font-size-base);
+}
+
+.flux-one-suite-config-grid-root > .flux-one-suite-config-cell:nth-last-child(-n + 5) {
+  border-bottom: none;
+}
+
+.flux-one-suite-config-cell--label {
+  font-weight: var(--flux-one-font-weight-semibold);
+}
+
+.flux-one-suite-config-label-text {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.flux-one-suite-config-cell--meta {
+  font-size: var(--flux-one-font-size-sm);
+  opacity: var(--flux-one-opacity-quiet);
+}
+
+.flux-one-suite-config-cell--type {
+  font-size: var(--flux-one-font-size-sm);
+  opacity: var(--flux-one-opacity-meta);
+}
+
+.flux-one-suite-config-cell--value {
+  font-weight: var(--flux-one-font-weight-semibold);
+  word-break: break-word;
+}
+
+.flux-one-suite-config-cell--actions {
+  min-width: 0;
+}
+
+.flux-one-suite-config-inline-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--flux-one-space-2);
+  box-sizing: border-box;
+}
+
+.flux-one-suite-config-inline-form--grow {
+  flex: 1 1 200px;
+}
+
+.flux-one-suite-config-input {
+  box-sizing: border-box;
+  min-height: var(--flux-one-control-min-height);
+  line-height: var(--flux-one-control-line-height, 1.25);
+  padding: var(--flux-one-space-1) var(--flux-one-space-2);
+  border-radius: var(--flux-one-radius-xs);
+  border: 1px solid var(--flux-one-color-border-strong);
+  background: var(--flux-one-color-surface);
+  font-size: var(--flux-one-font-size-sm);
+  max-width: 100%;
+}
+
+.flux-one-suite-config-select-wrap {
+  min-width: 0;
+}
+
+.flux-one-suite-config-select {
+  box-sizing: border-box;
+  min-height: var(--flux-one-control-min-height);
+  line-height: var(--flux-one-control-line-height, 1.25);
+  padding: var(--flux-one-space-1) var(--flux-one-space-2);
+  border-radius: var(--flux-one-radius-xs);
+  border: 1px solid var(--flux-one-color-border-strong);
+  background: var(--flux-one-color-surface);
+  font-size: var(--flux-one-font-size-sm);
+  max-width: 100%;
 }
 
 /* Aggregate email inline */
@@ -1260,6 +1409,7 @@
   display: -webkit-box;
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   overflow: hidden;
 }
 
@@ -1377,14 +1527,28 @@
   margin-bottom: var(--flux-one-space-2);
 }
 
+/* @since 1.4.2 Box sizing + control tokens so menu select matches custom link inputs. */
+.flux-one-menu-select,
+.flux-one-menu-input {
+  box-sizing: border-box;
+  min-height: var(--flux-one-control-min-height);
+  line-height: var(--flux-one-control-line-height);
+  font-size: var(--flux-one-font-size-base);
+}
+
 .flux-one-menu-select {
   width: 100%;
   max-width: 280px;
   padding: var(--flux-one-space-2) var(--flux-one-space-3);
   border: 1px solid var(--flux-one-color-border);
   border-radius: var(--flux-one-radius-sm);
-  font: inherit;
+  font-family: inherit;
   background: var(--flux-one-color-surface);
+}
+
+/* @since 1.4.2 Native form submit for Add custom link (Enter). */
+.flux-one-menu-add-form {
+  margin: 0;
 }
 
 .flux-one-menu-add-row {
@@ -1401,7 +1565,7 @@
   padding: var(--flux-one-space-2) var(--flux-one-space-3);
   border: 1px solid var(--flux-one-color-border);
   border-radius: var(--flux-one-radius-sm);
-  font: inherit;
+  font-family: inherit;
 }
 
 .flux-one-menu-tree-toolbar {

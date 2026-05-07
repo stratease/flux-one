@@ -1,10 +1,10 @@
 === Flux One - Command Bar by Flux Plugins ===
-Contributors: fluxplugins
-Tags: command bar, command palette, admin productivity, streamline, efficiency
+Contributors: edaniels
+Tags: command bar, command palette, admin productivity, streamline, wp-admin
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.3.0
+Stable tag: 1.4.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -89,6 +89,25 @@ Flux One includes a shared Flux Plugins Common library that can communicate with
 
 Privacy policy: https://fluxplugins.com/privacy
 
+== Development / Build instructions ==
+
+This plugin ships compiled JavaScript bundles in the WordPress.org package:
+
+* `assets/js/dist/*` (Flux One admin UI)
+* `src/assets/common/js/dist/*` (Flux Suite shared admin pages: License, Logs, Compatibility)
+
+Human-readable source code for these bundles is available in repository: https://github.com/stratease/flux-one.
+
+To rebuild bundles from source:
+
+1. Install Node dependencies:
+   - `npm ci`
+2. Build Flux One admin UI bundles:
+   - `npm run build`
+   - Output: `assets/js/dist/`
+
+The Flux Suite shared admin page bundles under `src/assets/common/js/dist/` are copied into this plugin during Composer install/update via the `copy-common-assets` script in `composer.json` (from `vendor/stratease/flux-plugins-common/src/assets/`).
+
 == Installation ==
 
 1. Upload the plugin ZIP to your WordPress site, or install it from the WordPress plugin directory.
@@ -131,14 +150,18 @@ Flux One may communicate with the Flux Plugins API for license validation, licen
 
 == Changelog ==
 
+= 1.4.2 =
+* Some UX improvements on config and fixed some entity search bugs.
+
+= 1.4.1 =
+* Improves AI email summary reliability with longer request timeout, compatibility gating, and clearer failure logging.
+
 = 1.3.0 =
 * Major update to email aggregate and email summary screen and functionality.
 * Improved sorting for email summaries and operational review.
 * Tested Flux API service integration.
 * General workflow and reliability improvements.
 
-= 1.2.0 =
-* Initial public release.
 
 == Upgrade Notice ==
 

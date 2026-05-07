@@ -319,7 +319,7 @@ class AdminController {
 
 		wp_add_dashboard_widget(
 			'flux_one_command_central_widget',
-			esc_html__( 'Flux One — Command Bar', 'flux-one' ),
+			esc_html__( 'Flux One', 'flux-one' ),
 			[ $this, 'render_dashboard_widget' ]
 		);
 	}

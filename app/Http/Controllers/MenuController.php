@@ -208,6 +208,14 @@ class MenuController extends BaseController {
 			require_once ABSPATH . 'wp-admin/includes/nav-menu.php';
 		}
 
+		/**
+		 * WordPress expects `menu-item-position` to be a global position across all items in the menu.
+		 * Payload from Command Bar provides sibling order per parent; convert to stable depth-first positions.
+		 *
+		 * @since 1.4.3
+		 */
+		$position_map = $this->build_menu_item_position_map( $items );
+
 		foreach ( $items as $row ) {
 			$item_id = (int) ( $row['id'] ?? 0 );
 			$parent   = (int) ( $row['parentId'] ?? 0 );
@@ -228,13 +236,18 @@ class MenuController extends BaseController {
 				return $this->create_error_response( 'Invalid menu item.', 'flux_one_menu_item_invalid', 400 );
 			}
 
+			$position = (int) ( $position_map[ $item_id ] ?? 0 );
+			if ( $position <= 0 ) {
+				return $this->create_error_response( 'Invalid menu item order.', 'flux_one_menu_order_invalid', 400 );
+			}
+
 			$result = wp_update_nav_menu_item(
 				$menu_id,
 				$item_id,
 				array_merge(
 					$base_args,
 					[
-						'menu-item-position'  => $order,
+						'menu-item-position'  => $position,
 						'menu-item-parent-id' => $parent,
 					]
 				)
@@ -250,6 +263,85 @@ class MenuController extends BaseController {
 		}
 
 		return $this->menu( $request );
+	}
+
+	/**
+	 * Compute stable depth-first global menu positions.
+	 *
+	 * The Command Bar menu editor stores `order` as a sibling index per parent.
+	 * WordPress's `menu-item-position` is a global ordering field across the entire menu.
+	 *
+	 * @since 1.4.3
+	 * @param array $items Payload rows.
+	 * @return array<int,int> Map of item id => 1-based position.
+	 */
+	private function build_menu_item_position_map( array $items ): array {
+		$rows = [];
+		foreach ( $items as $row ) {
+			$id = (int) ( $row['id'] ?? 0 );
+			if ( $id <= 0 ) {
+				continue;
+			}
+			$rows[ $id ] = [
+				'id'       => $id,
+				'parentId' => (int) ( $row['parentId'] ?? 0 ),
+				'order'    => (int) ( $row['order'] ?? 0 ),
+			];
+		}
+
+		$by_parent = [];
+		foreach ( $rows as $r ) {
+			$pid = (int) ( $r['parentId'] ?? 0 );
+			if ( ! isset( $by_parent[ $pid ] ) ) {
+				$by_parent[ $pid ] = [];
+			}
+			$by_parent[ $pid ][] = $r;
+		}
+
+		foreach ( $by_parent as $pid => $group ) {
+			usort(
+				$group,
+				static function ( $a, $b ) {
+					$ao = (int) ( $a['order'] ?? 0 );
+					$bo = (int) ( $b['order'] ?? 0 );
+					if ( $ao === $bo ) {
+						return ( (int) $a['id'] ) <=> ( (int) $b['id'] );
+					}
+					return $ao <=> $bo;
+				}
+			);
+			$by_parent[ $pid ] = $group;
+		}
+
+		$position_map = [];
+		$pos          = 1;
+		$seen         = [];
+		$walk         = static function ( int $parent_id ) use ( &$walk, &$by_parent, &$position_map, &$pos, &$seen ) {
+			$kids = $by_parent[ $parent_id ] ?? [];
+			foreach ( $kids as $k ) {
+				$id = (int) ( $k['id'] ?? 0 );
+				if ( $id <= 0 || isset( $seen[ $id ] ) ) {
+					continue;
+				}
+				$seen[ $id ]         = true;
+				$position_map[ $id ] = $pos;
+				++$pos;
+				$walk( $id );
+			}
+		};
+
+		$walk( 0 );
+
+		// Fallback: ensure every row has some position even if it was orphaned by a bad parent reference.
+		foreach ( array_keys( $rows ) as $id ) {
+			if ( isset( $position_map[ $id ] ) ) {
+				continue;
+			}
+			$position_map[ $id ] = $pos;
+			++$pos;
+		}
+
+		return $position_map;
 	}
 
 	/**

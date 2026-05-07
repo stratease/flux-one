@@ -35,7 +35,13 @@ export function CommandCentralHeader({
           <span className="dashicons dashicons-info" aria-hidden />
         </button>
         {kind === 'overlay' ? (
-          <button type="button" className="flux-one-overlay-close-btn" onClick={onCloseOverlay} aria-label="Close" title="Close">
+          <button
+            type="button"
+            className="flux-one-overlay-close-btn flux-one-icon-btn"
+            onClick={onCloseOverlay}
+            aria-label="Close"
+            title="Close"
+          >
             <span className="dashicons dashicons-no" aria-hidden />
           </button>
         ) : null}

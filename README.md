@@ -69,7 +69,7 @@ The dashboard widget shows up to **five** **recent admin pages** you have opened
 
 ### Flux Suite — License & Settings
 
-Flux One registers the shared **Flux Suite → License** page. **Flux Suite → Flux One** opens the plugin admin React app (`plugin-app.bundle.js`): **Overview** and **Settings** (HashRouter + shared `PageLayout` / `FluxAppProvider` from `flux-plugins-common`, same pattern as Flux Media Optimizer). Email aggregation options (capture on/off, suppress mail to self, default report window) are **per-user** where implemented: **`GET` / `PUT /flux-one/v1/settings`** reads and writes user meta (with legacy site options migrated on read). **Recent admin pages** in the dashboard widget use plain `<a href>` links; destinations are de-duplicated by normalized admin URL (including dashboard aliases). Outbound mail is logged via the **`wp_mail`** filter (`EmailEventLogger`); users who enable suppress-to-self have their addresses **stripped from To/Cc/Bcc** on a later **`wp_mail`** pass (`EmailMailPolicy`) so logs still reflect intended recipients while they skip receiving copies.
+Flux One registers the shared **Flux Suite → License** page. **Flux Suite → Flux One** opens the plugin admin React app (`plugin-app.bundle.js`): **Overview** and **Settings** (HashRouter + shared `PageLayout` / `FluxAppProvider` from `flux-plugins-common`, same pattern as Flux Media Optimizer). Email aggregation options (capture on/off, suppress mail to self) are **per-user** where implemented: **`GET` / `PUT /flux-one/v1/settings`** reads and writes user meta (with legacy site options migrated on read). **Recent admin pages** in the dashboard widget use plain `<a href>` links; destinations are de-duplicated by normalized admin URL (including dashboard aliases). Outbound mail is logged via the **`wp_mail`** filter (`EmailEventLogger`); users who enable suppress-to-self have their addresses **stripped from To/Cc/Bcc** on a later **`wp_mail`** pass (`EmailMailPolicy`) so logs still reflect intended recipients while they skip receiving copies.
 
 ### Flux Services API integration (suite common)
 
@@ -131,7 +131,7 @@ Main file: `flux-one.php`
 
 ### Multisite
 
-- v1 includes `sites`/`site switch` scaffolding.
+- v1 includes `sites`/`site switch` scaffolding, but **site commands are currently disabled** while UX and safety constraints are finalized.
 - Site context is persisted per-user in memory (`last_site_context`). Applying `switch_to_blog()` per request is a follow-up enhancement.
 
 ### Security model
@@ -158,7 +158,6 @@ Namespace: `flux-one/v1`
   - `GET /index/plugins?q=`
   - `GET /index/users?q=`
   - `GET /index/menus` (requires **`edit_theme_options`**, aligned with menu commands and `/menus/*`)
-  - `GET /index/sites?q=`
   - `GET /index/destinations?q=` → rows `{ id, label, value, url }` where **`url`** is an absolute same-origin `admin_url()` for trusted in-app navigation only
 - **Menus**
   - `GET /menus`
@@ -170,7 +169,7 @@ Namespace: `flux-one/v1`
   - `GET /aggregate/email?days=7` (non‑AI report; includes `summaries.by_event_id` + `summaries.urgent_event_ids` for **visible page** events only—DB cache read, no AI). The `events` page is always ordered **summarized matches first** (non-empty cached summary), then other rows, each bucket **newest first** (`created_at DESC`), with or without search **`q`**.
   - `POST /summary/email` body `{ event_ids: number[] }` (1..25); AI summary + cache in `flux_one_email_summaries`; gated by license
 - **Settings**
-  - `GET /settings` → `{ emailCaptureEnabled, suppressMailToSelf, aggregateDefaultDays }`
+  - `GET /settings` → `{ emailCaptureEnabled, suppressMailToSelf, commandShortcut }`
   - `PUT /settings` → partial update of the same keys (days clamped 1–30)
 - **Memory**
   - `POST /memory/recent-navigation` body: `{ url?: string, command?: string, label?: string }` (requires **`url`** and/or **`command`**; **`url`** must be same-origin wp-admin)
@@ -194,6 +193,24 @@ Current approach:
 - Data fetching uses **`@tanstack/react-query`** (`QueryClientProvider` in `assets/js/src/admin/index.tsx`).
 - HTTP uses **`@wordpress/api-fetch`** (nonce + REST paths only).
 
+### Command Bar style guide (forms + themes)
+
+High-level rules for Command Bar and portaled modals. **Normative sources:** `assets/js/src/admin/theme-tokens.css` (tokens) and `assets/js/src/admin/style.css` (component rules).
+
+- **Theme SSOT:** Shipping UI applies `flux-one-theme` on the mount and modal backdrop only. Alternate themes must add a companion class or data attribute on those same roots and **override `--flux-one-*` variables**—do not duplicate per-component selectors per skin.
+- **Form controls:** `<select>` and text inputs in the same row must share control metrics from tokens (e.g. `--flux-one-control-min-height`, `--flux-one-control-line-height`) and `box-sizing: border-box` so native controls match height across browsers.
+- **Forms:** Group related fields in a `<form>` with `onSubmit` (call `preventDefault`, then run the same logic as the primary action). Use `type="submit"` for the primary button so **Enter** in a focused field submits when the control is enabled—operators should not depend on clicking Apply. **`enum`** rows use a native `<select>` (change applies immediately; document if behavior diverges).
+- **View transition focus:** When results switch to a new primary surface (structured list panel, suite configuration grid, aggregate modal body, etc.), move keyboard focus to that surface’s **primary interactive control** (or a marked region such as `data-flux-config-row`), not only scroll it into view—unless global Command Bar busy state disables interaction.
+
+### Suite configuration panel (`config list`)
+
+- **`config search` removed:** There is no `config search` command. Use **`config list`** for the full grouped grid. Narrow keys via **`config get`** / **`config set`** and **Next steps** entity suggestions (matching uses ids, labels, plugin names, and group labels from **`GET /flux-one/v1/index/suite-config`** `searchText`).
+- **Hybrid entity pick:** Selecting an incomplete **`config set {id}`** suggestion opens the suite configuration panel for that row using cached index metadata; **`POST /command` `config get {id}`** supplies the live **`valueDisplay`** for controls. While values load, the Value column shows a loading hint and edit widgets stay disabled.
+- **Layout:** Five-column CSS grid (`flux-one-suite-config-grid-root` in `assets/js/src/admin/style.css`) with sticky header labels, horizontal scroll when the viewport is narrow, and ellipsis on long setting titles.
+- **Grouping:** Sections mirror the email aggregate modal pattern (`flux-one-email-list-section-label`). PHP assigns each catalog entry a `group` / `group_label` / `group_order` via `SuiteConfigCatalog` (`app/Services/SuiteConfigCatalog.php`).
+- **Field widgets (Command Bar only — no `@wordpress/components`):** Implemented under `assets/js/src/ui/command-central/suite-config/` — `SuiteConfigPanel.tsx` shells the grid; `SuiteConfigField.tsx` maps catalog `type` → control (`bool` buttons; `int` number input + Apply; `enum` `<select>`; `string` text + Apply; `secret` password + Apply). Inline edits dispatch the same `config set {id} {value}` contract as typed commands (spaces allowed after the id for string/secret values).
+- **Catalog scopes:** `suite_scope` `plugin` (active plugin required) vs `wordpress_core` (`manage_options`). WordPress core **v1** covers curated options from **Settings → General**, **Reading**, and **Permalinks** only (`wp.blogname`, `wp.posts_per_page`, `wp.permalink_structure`, …). Updating `wp.permalink_structure` runs `flush_rewrite_rules(false)` after saving the option.
+
 ### Loading states (skeleton vs. spinner)
 
 - **Skeleton loaders** — Prefer for **larger content areas** or anywhere the layout should stay stable while data loads: multi-pane modals, master–detail lists, tall panels, or other regions where a single line of text would feel wrong or jump the chrome. Implement with **`Skeleton`** / **`SkeletonText`** from **`assets/js/src/ui/skeleton/`**, shimmer styles in **`assets/js/src/admin/style.css`**, and **`--flux-one-color-skeleton-*`** tokens in **`assets/js/src/admin/theme-tokens.css`**. Honor **`prefers-reduced-motion`** (animation falls back to static blocks).
@@ -201,7 +218,7 @@ Current approach:
 
 ### UX must-haves (Command Bar)
 
-- **Next step focus**: when an overlay or modal opens, it must focus the next-step control (usually the primary input) and select text where appropriate. No extra click required.
+- **Next step focus**: when an overlay or modal opens, it must focus the next-step control (usually the primary input) and select text where appropriate. No extra click required. The same principle applies when inline structured panels replace or augment the empty state below the command field—see **View transition focus** under the Command Bar style guide.
 - **Standard modal close**: modals should have an X close affordance, close on outside click, and close on Escape; focus should return to the trigger/input that opened the modal.
 - **Running/busy operations**: show a single, consistent spinner notice whenever Command Bar is “busy” so operators always get feedback and the input can be safely disabled.
   - **Server commands**: `POST /command` uses React Query `useMutation` and drives the busy state via `commandMutation.isPending`; the label comes from the canonical executed command.
@@ -287,7 +304,7 @@ Implementation intent:
 - Keep docs synchronized across README + `commandDocs.ts` + registry definitions.
 
 - **Client-side `nav`**: destination rows from `GET /index/destinations` include **`url`**. Choosing a destination suggestion uses **`window.location.assign(url)`** and **does not** call `POST /command`. Typed `nav …` with an **unambiguous** match against the cached index also redirects client-side; otherwise execution falls back to `POST /command` (same as `NavigationHandler`).
-- **Read-only list fast path**: `plugin list` / `user list` / `site list` / `menu list` (and `show` variants) can render the structured panel from **React Query cache** when the corresponding index is already loaded, skipping `POST /command`. **`aggregate email` and `summary email` always use the backend** (no client shortcut for aggregates or AI).
+- **Read-only list fast path**: `plugin list` / `user list` / `menu list` (and `show` variants) can render the structured panel from **React Query cache** when the corresponding index is already loaded, skipping `POST /command`. **`aggregate email` and `summary email` always use the backend** (no client shortcut for aggregates or AI).
 - **`useMutation`** for commands that still need the server: disabled input + “Running…” notice while `POST /command` is in flight
 - Success / error notices show **human-readable text only** (no `error_code` in the palette)
 - Indices loaded from decoupled **`GET /flux-one/v1/index/*`** endpoints; after successful **`plugin update` / `activate` / `deactivate` / `delete`**, the plugins index query is **invalidated** so autocomplete stays fresh
@@ -395,9 +412,7 @@ This repository may include a `wporg/` folder used as a distribution/build artif
 - Navigation:
   - `nav {destination}` (aliases `go`, `open` → `nav`; **client redirect** when URL is known from destinations index)
 - Multisite:
-  - `site list` / `site show` (optional **client fast path** from cached sites index)
-  - `sites` → `site`
-  - `site switch {query}`
+  - (Disabled for now; planned feature.)
 - Aggregation:
   - `aggregate email` — **always** `POST /command` + follow-up `GET /aggregate/email` (no client-only shortcut); shows cached summaries when present
   - `summary email` (AI prefix; gated; opens same modal and runs AI for visible page, max 25 events)
@@ -409,6 +424,28 @@ This repository may include a `wporg/` folder used as a distribution/build artif
 - `uninstall.php` drops the events table and removes:
   - `flux_one_db_version`
   - `_flux_one_command_memory` user meta (all users)
+
+---
+
+## WordPress.org packaging (release manager)
+
+Production zips and SVN trunk are produced by [`flux-plugins-common/bin/build-plugin.sh`](../../../flux-plugins-common/bin/build-plugin.sh) (rsync from the plugin directory into `wporg/trunk/` using [`flux-plugins-common/bin/plugin-dist-rsync-excludes.txt`](../../../flux-plugins-common/bin/plugin-dist-rsync-excludes.txt)).
+
+**Authoritative excludes** live only in `plugin-dist-rsync-excludes.txt` (consumed by `build-plugin.sh` and the verifier below).
+
+**Pre-submission check:** From this plugin directory run:
+
+```bash
+../../../flux-plugins-common/bin/verify-plugin-distribution.sh .
+```
+
+This copies the same rsync-filtered tree to a temp directory and fails if `phpunit.xml.dist` or `audit-*.md` appear anywhere under that tree (WordPress.org–bound artifacts must not include dev or internal audit files). You can also run `npm run verify:dist` from this directory.
+
+**Dev-only files:** PHPUnit config lives at [`tests/phpunit.xml.dist`](tests/phpunit.xml.dist) (run `composer test` from the plugin directory). JavaScript unit tests: `npm run test:unit` (Vitest; `assets/js/src/**/*.test.ts`). Internal audit notes live under [`tests/dev-audit/`](tests/dev-audit/) and are excluded with the `tests/` tree. Other repo-only root files (for example `.eslintrc.cjs`, `tsconfig.json`, and the plugin `README.md`) may still be copied unless you extend `plugin-dist-rsync-excludes.txt` or remove them before packaging.
+
+**Source maps:** `*.map` files are excluded from the rsync copy so they do not ship in the WordPress.org zip while remaining available in the development tree.
+
+**Translations (Flux Suite UI in this tree):** React bundles under `src/assets/common/js/src/components/License/` and `…/Logs/` use the **`flux-one`** text domain for `__()` / `sprintf` so strings can be collected into this plugin’s `languages/` catalog alongside PHP strings.
 
 ---
 

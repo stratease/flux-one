@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../utils/api';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGhostRemainder } from '../command/ghost';
@@ -13,7 +13,9 @@ import { FluxOneModal } from './FluxOneModal';
 import { CommandCentralHeader } from './command-central/CommandCentralHeader';
 import { RecentAdminPages } from './command-central/RecentAdminPages';
 import { StructuredListPanels } from './command-central/StructuredListPanels';
+import type { SuiteConfigRow } from './command-central/suite-config/types';
 import { parseShortcut } from '../admin/commandShortcut';
+import { parseIncompleteConfigSet, suiteConfigRowFromIndex } from '../command/suiteConfigPick';
 
 type CommandResponse =
   | { type: 'panel'; panelId: string; command: string; data?: any }
@@ -139,6 +141,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [lastResult, setLastResult] = useState<CommandResponse | null>(null);
   const [lastDurationMs, setLastDurationMs] = useState<number | null>(null);
   const [panelData, setPanelData] = useState<any>(null);
+  const [suiteConfigFocusRowId, setSuiteConfigFocusRowId] = useState<string | null>(null);
   const [aiData, setAiData] = useState<any>(null);
   const [mergedSuggestions, setMergedSuggestions] = useState<Suggestion[]>([]);
   const [commandRow, setCommandRow] = useState<Suggestion[]>([]);
@@ -173,7 +176,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
   const [fastPathLoading, setFastPathLoading] = useState(false);
   const structuredPanelRef = useRef<HTMLDivElement | null>(null);
-  const blurDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const blurDismissTimerRef = useRef<number | null>(null);
 
   const uiShortcutRaw =
     typeof window !== 'undefined' && (window.fluxOneAdmin?.bootstrap as any)?.uiPrefs?.commandShortcut
@@ -196,10 +199,10 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const shortcutLabel = formatShortcutLabel(effectiveShortcut);
 
   const label = useMemo(() => {
-    if (kind === 'dashboardWidget') return 'Command Bar';
-    if (kind === 'overlay') return `Flux One (${shortcutLabel})`;
-    return `Flux One (Dev) (${shortcutLabel})`;
-  }, [kind, shortcutLabel]);
+    if (kind === 'dashboardWidget') return 'Flux One';
+    if (kind === 'overlay') return 'Flux One';
+    return 'Flux One (Dev)';
+  }, [kind]);
 
   const focusAndSelectPrompt = () => {
     setTimeout(() => {
@@ -275,7 +278,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     const rawLower = input.toLowerCase();
     const kindFromInput = rawLower.startsWith('edit page') ? 'page' : rawLower.startsWith('edit post') ? 'post' : 'any';
     setEditKind(kindFromInput);
-    const rest = rawLower.replace(/^edit\s+(p|post|page)\s*/i, '').trim();
+    const rest = rawLower.replace(/^edit\s+(post|page|p)\s*/i, '').trim();
     const t = window.setTimeout(() => {
       setEditDebouncedQ(rest);
     }, 160);
@@ -719,6 +722,9 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           }
         } else {
           setPanelData(result.data ?? null);
+          if (result.panelId === 'suite_config') {
+            setSuiteConfigFocusRowId(null);
+          }
         }
       }
 
@@ -821,6 +827,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         }
         setLastResult({ type: 'panel', panelId: row.panelId, command: canonical });
         setPanelData(data);
+        setSuiteConfigFocusRowId(null);
         setAiData(null);
         setLastDurationMs(0);
         return true;
@@ -830,6 +837,50 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     }
     return false;
   };
+
+  const openHybridSuiteConfigPanelFromPick = useCallback(
+    (configId: string, commandLine: string) => {
+      const rawList = (suiteConfigQuery.data as any)?.data ?? suiteConfigQuery.data;
+      const list = (Array.isArray(rawList) ? rawList : []) as NonNullable<IndexData['suiteConfig']>;
+      const hit = list.find((x) => String(x.id).toLowerCase() === configId.toLowerCase());
+      if (!hit) {
+        return;
+      }
+      setInput(commandLine);
+      setSuggestionsDismissed(true);
+      setAiData(null);
+      setLastDurationMs(null);
+      setLastResult({
+        type: 'panel',
+        panelId: 'suite_config',
+        command: commandLine.trim(),
+      });
+      setPanelData([suiteConfigRowFromIndex(hit, '', true)]);
+      setSuiteConfigFocusRowId(configId);
+      void (async () => {
+        try {
+          const res = await api.executeCommand(`config get ${configId}`);
+          const result = unwrapCommandEnvelope(res);
+          if (result?.type === 'action' && result.status === 'success' && result.data && typeof result.data === 'object') {
+            const vd = (result.data as { valueDisplay?: unknown }).valueDisplay;
+            if (vd != null) {
+              setPanelData((prev: SuiteConfigRow[] | null) => {
+                if (!Array.isArray(prev)) {
+                  return prev;
+                }
+                return prev.map((r) =>
+                  r.id === configId ? { ...r, valueDisplay: String(vd), valuePending: false } : r
+                );
+              });
+            }
+          }
+        } catch {
+          /* ignore */
+        }
+      })();
+    },
+    [suiteConfigQuery.data]
+  );
 
   const executeFromInput = (rawCommand: string, picked?: Suggestion | null) => {
     const cmd = rawCommand.trim();
@@ -842,6 +893,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     const { canonical } = canonicalizeInput(cmd);
 
     setPanelData(null);
+    setSuiteConfigFocusRowId(null);
     setAiData(null);
     setLastResult(null);
     setLastDurationMs(null);
@@ -969,7 +1021,25 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   }
 
   return (
-    <div className={`flux-one-theme flux-one-mount flux-one-mount--${kind}`}>
+    <div
+      className={`flux-one-theme flux-one-mount flux-one-mount--${kind}`}
+      onPointerDown={(e) => {
+        if (kind !== 'overlay') {
+          return;
+        }
+        if (e.target === e.currentTarget) {
+          closeOverlay();
+        }
+      }}
+      onMouseDown={(e) => {
+        if (kind !== 'overlay') {
+          return;
+        }
+        if (e.target === e.currentTarget) {
+          closeOverlay();
+        }
+      }}
+    >
       <div>
         <CommandCentralHeader
           label={label}
@@ -1054,6 +1124,13 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                   activeIndex: activeSuggestion,
                 });
                 if (outcome.kind === 'complete') {
+                  const activePick = mergedSuggestions[activeSuggestion] ?? null;
+                  const incompleteId =
+                    activePick?.entityType === 'configKey' ? parseIncompleteConfigSet(outcome.value) : null;
+                  if (incompleteId) {
+                    openHybridSuiteConfigPanelFromPick(incompleteId, outcome.value);
+                    return;
+                  }
                   setInput(outcome.value);
                   return;
                 }
@@ -1146,6 +1223,12 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                         const indices = buildIndices();
                         const outcome = interpretSuggestionPick(s, indices);
                         if (outcome.kind === 'complete') {
+                          const incompleteId =
+                            s.entityType === 'configKey' ? parseIncompleteConfigSet(outcome.value) : null;
+                          if (incompleteId) {
+                            openHybridSuiteConfigPanelFromPick(incompleteId, outcome.value);
+                            return;
+                          }
                           setInput(outcome.value);
                           return;
                         }
@@ -1327,6 +1410,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
             adminBase={adminBase}
             executeFromInput={executeFromInput}
             currentUserId={readBootstrapCurrentUser()?.id}
+            focusedSuiteConfigRowId={(lastResult as { panelId: string }).panelId === 'suite_config' ? suiteConfigFocusRowId : null}
           />
         ) : null}
 
@@ -1356,6 +1440,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           aggregateEmailDays
         )}
         size="wide"
+        className="flux-one-modal--aggregate-email"
         initialFocusRef={aggregateEmailSearchRef}
       >
         {!emailCaptureEnabled ? (

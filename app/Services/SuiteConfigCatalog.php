@@ -19,6 +19,20 @@ namespace FluxOne\App\Services;
 final class SuiteConfigCatalog {
 
 	/**
+	 * Suite config definition applies only when its plugin is active.
+	 *
+	 * @since 1.7.0
+	 */
+	public const SUITE_SCOPE_PLUGIN = 'plugin';
+
+	/**
+	 * Suite config definition for WordPress core options (requires manage_options).
+	 *
+	 * @since 1.7.0
+	 */
+	public const SUITE_SCOPE_WORDPRESS_CORE = 'wordpress_core';
+
+	/**
 	 * Filter: merge or replace definitions (receive list of definition arrays).
 	 *
 	 * @since 0.1.0
@@ -37,7 +51,72 @@ final class SuiteConfigCatalog {
 		 * @param array $defs List of definition arrays.
 		 */
 		$filtered = apply_filters( self::FILTER_DEFINITIONS, $defs );
-		return is_array( $filtered ) ? $filtered : $defs;
+		$list = is_array( $filtered ) ? $filtered : $defs;
+		$out    = [];
+		foreach ( $list as $def ) {
+			if ( is_array( $def ) ) {
+				$out[] = self::normalize_definition( $def );
+			}
+		}
+		return $out;
+	}
+
+	/**
+	 * Numeric sort order for config list grouping (lower first).
+	 *
+	 * @since 1.7.0
+	 */
+	public static function get_group_sort_order( string $group ): int {
+		static $orders = [
+			'flux_one'               => 10,
+			'flux_media_optimizer'   => 20,
+			'flux_ai_alt_text'       => 30,
+			'flux_ai_alt_text_pro'   => 40,
+			'flux_unused_media'      => 50,
+			'flux_gutenberg'         => 60,
+			'flux_audit_scanner'     => 70,
+			'wp_general'             => 100,
+			'wp_reading'             => 110,
+			'wp_permalinks'          => 120,
+		];
+		return $orders[ $group ] ?? 500;
+	}
+
+	/**
+	 * @since 1.7.0
+	 * @param array<string,mixed> $def Definition.
+	 * @return array<string,mixed>
+	 */
+	private static function normalize_definition( array $def ): array {
+		if ( ! isset( $def['suite_scope'] ) ) {
+			$def['suite_scope'] = self::SUITE_SCOPE_PLUGIN;
+		}
+		if ( ! empty( $def['group'] ) && empty( $def['group_label'] ) ) {
+			$def['group_label'] = self::resolve_group_label( (string) $def['group'] );
+		}
+		if ( ! empty( $def['group'] ) && ! isset( $def['group_order'] ) ) {
+			$def['group_order'] = self::get_group_sort_order( (string) $def['group'] );
+		}
+		return $def;
+	}
+
+	/**
+	 * @since 1.7.0
+	 */
+	private static function resolve_group_label( string $group ): string {
+		static $map = [
+			'flux_one'             => 'Flux One',
+			'flux_media_optimizer' => 'Flux Media Optimizer',
+			'flux_ai_alt_text'     => 'Flux AI Alt Text',
+			'flux_ai_alt_text_pro' => 'Flux AI Alt Text Pro',
+			'flux_unused_media'    => 'Flux Unused Media Cleaner',
+			'flux_gutenberg'       => 'Flux AI Gutenberg Page Builder',
+			'flux_audit_scanner'   => 'Flux Accessibility Audit Scanner',
+			'wp_general'           => 'WordPress — General',
+			'wp_reading'           => 'WordPress — Reading',
+			'wp_permalinks'        => 'WordPress — Permalinks',
+		];
+		return $map[ $group ] ?? $group;
 	}
 
 	/**
@@ -48,14 +127,48 @@ final class SuiteConfigCatalog {
 	public static function get_available_definitions() {
 		$out = [];
 		foreach ( self::get_definitions() as $def ) {
-			if ( ! is_array( $def ) || empty( $def['id'] ) || empty( $def['plugin_file'] ) ) {
+			if ( ! is_array( $def ) || empty( $def['id'] ) ) {
+				continue;
+			}
+			$scope = (string) ( $def['suite_scope'] ?? self::SUITE_SCOPE_PLUGIN );
+			if ( self::SUITE_SCOPE_WORDPRESS_CORE === $scope ) {
+				if ( current_user_can( 'manage_options' ) ) {
+					$out[] = $def;
+				}
+				continue;
+			}
+			if ( empty( $def['plugin_file'] ) ) {
 				continue;
 			}
 			if ( self::is_plugin_available( (string) $def['plugin_file'] ) ) {
 				$out[] = $def;
 			}
 		}
-		return $out;
+		return self::sort_definitions( $out );
+	}
+
+	/**
+	 * Stable sort: group order, then label.
+	 *
+	 * @since 1.7.0
+	 * @param list<array<string,mixed>> $defs Definitions.
+	 * @return list<array<string,mixed>>
+	 */
+	public static function sort_definitions( array $defs ): array {
+		usort(
+			$defs,
+			static function ( $a, $b ) {
+				if ( ! is_array( $a ) || ! is_array( $b ) ) {
+					return 0;
+				}
+				$go = (int) ( $a['group_order'] ?? 0 ) <=> (int) ( $b['group_order'] ?? 0 );
+				if ( 0 !== $go ) {
+					return $go;
+				}
+				return strcasecmp( (string) ( $a['label'] ?? '' ), (string) ( $b['label'] ?? '' ) );
+			}
+		);
+		return $defs;
 	}
 
 	/**
@@ -162,13 +275,15 @@ final class SuiteConfigCatalog {
 			self::alt_creator_pro_defs(),
 			self::unused_media_defs(),
 			self::gutenberg_defs(),
-			self::audit_scanner_defs()
+			self::audit_scanner_defs(),
+			self::wordpress_core_defs()
 		);
 	}
 
 	private static function flux_one_defs() {
 		return [
 			[
+				'group'       => 'flux_one',
 				'id'          => 'flux_one.email_capture_enabled',
 				'plugin_file' => 'flux-one/flux-one.php',
 				'plugin'      => 'Flux One',
@@ -179,6 +294,7 @@ final class SuiteConfigCatalog {
 				'sensitive'   => false,
 			],
 			[
+				'group'       => 'flux_one',
 				'id'          => 'flux_one.suppress_mail_to_self',
 				'plugin_file' => 'flux-one/flux-one.php',
 				'plugin'      => 'Flux One',
@@ -186,18 +302,6 @@ final class SuiteConfigCatalog {
 				'type'        => 'bool',
 				'handler'     => 'flux_one:suppress_mail_to_self',
 				'search'      => 'suppress self email cancel to-self',
-				'sensitive'   => false,
-			],
-			[
-				'id'          => 'flux_one.aggregate_default_days',
-				'plugin_file' => 'flux-one/flux-one.php',
-				'plugin'      => 'Flux One',
-				'label'       => 'Default aggregate window (days)',
-				'type'        => 'int',
-				'min'         => 1,
-				'max'         => 30,
-				'handler'     => 'flux_one:aggregate_default_days',
-				'search'      => 'aggregate email days window default',
 				'sensitive'   => false,
 			],
 		];
@@ -208,6 +312,7 @@ final class SuiteConfigCatalog {
 		return [
 			[
 				'id'          => 'media_optimizer.image_auto_convert',
+				'group'       => 'flux_media_optimizer',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Media Optimizer',
 				'label'       => 'Auto-convert images',
@@ -218,6 +323,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'media_optimizer.video_auto_convert',
+				'group'       => 'flux_media_optimizer',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Media Optimizer',
 				'label'       => 'Auto-convert video',
@@ -228,6 +334,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'media_optimizer.enable_logging',
+				'group'       => 'flux_media_optimizer',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Media Optimizer',
 				'label'       => 'Enable conversion logging',
@@ -238,6 +345,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'media_optimizer.external_service_enabled',
+				'group'       => 'flux_media_optimizer',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Media Optimizer',
 				'label'       => 'External SaaS conversion service',
@@ -248,6 +356,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'media_optimizer.bulk_conversion_enabled',
+				'group'       => 'flux_media_optimizer',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Media Optimizer',
 				'label'       => 'Bulk conversion enabled',
@@ -258,6 +367,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'media_optimizer.image_webp_quality',
+				'group'       => 'flux_media_optimizer',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Media Optimizer',
 				'label'       => 'WebP quality (1–100)',
@@ -270,6 +380,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'media_optimizer.image_avif_quality',
+				'group'       => 'flux_media_optimizer',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Media Optimizer',
 				'label'       => 'AVIF quality (1–100)',
@@ -288,6 +399,7 @@ final class SuiteConfigCatalog {
 		return [
 			[
 				'id'          => 'alt_creator.auto_generate_on_upload',
+				'group'       => 'flux_ai_alt_text',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Alt Text',
 				'label'       => 'Auto-generate alt text on upload',
@@ -298,6 +410,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'alt_creator.provider',
+				'group'       => 'flux_ai_alt_text',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Alt Text',
 				'label'       => 'Vision provider',
@@ -309,6 +422,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'alt_creator.openai_api_key',
+				'group'       => 'flux_ai_alt_text',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Alt Text',
 				'label'       => 'OpenAI API key',
@@ -319,6 +433,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'alt_creator.gemini_api_key',
+				'group'       => 'flux_ai_alt_text',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Alt Text',
 				'label'       => 'Gemini API key',
@@ -329,6 +444,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'alt_creator.claude_api_key',
+				'group'       => 'flux_ai_alt_text',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Alt Text',
 				'label'       => 'Claude API key',
@@ -345,6 +461,7 @@ final class SuiteConfigCatalog {
 		return [
 			[
 				'id'          => 'alt_creator_pro.auto_processing',
+				'group'       => 'flux_ai_alt_text_pro',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Alt Text Pro',
 				'label'       => 'Pro: auto processing',
@@ -355,6 +472,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'alt_creator_pro.compliance_scan_enabled',
+				'group'       => 'flux_ai_alt_text_pro',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Alt Text Pro',
 				'label'       => 'Pro: compliance scan',
@@ -371,6 +489,7 @@ final class SuiteConfigCatalog {
 		return [
 			[
 				'id'          => 'unused_media.scheduled_scan_enabled',
+				'group'       => 'flux_unused_media',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Unused Media Cleaner',
 				'label'       => 'Scheduled scan enabled',
@@ -381,6 +500,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'unused_media.scan_depth',
+				'group'       => 'flux_unused_media',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Unused Media Cleaner',
 				'label'       => 'Scan depth',
@@ -392,6 +512,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'unused_media.scheduled_scan_frequency',
+				'group'       => 'flux_unused_media',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Unused Media Cleaner',
 				'label'       => 'Scheduled scan frequency',
@@ -403,6 +524,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'unused_media.cloud_backup_enabled',
+				'group'       => 'flux_unused_media',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Unused Media Cleaner',
 				'label'       => 'Cloud backup enabled',
@@ -422,6 +544,7 @@ final class SuiteConfigCatalog {
 		return [
 			[
 				'id'          => 'gutenberg.model',
+				'group'       => 'flux_gutenberg',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Gutenberg Page Builder',
 				'label'       => 'OpenAI chat model',
@@ -433,6 +556,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'gutenberg.token_warning_threshold',
+				'group'       => 'flux_gutenberg',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Gutenberg Page Builder',
 				'label'       => 'Token warning threshold',
@@ -445,6 +569,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'gutenberg.openai_api_key',
+				'group'       => 'flux_gutenberg',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux AI Gutenberg Page Builder',
 				'label'       => 'OpenAI API key',
@@ -461,6 +586,7 @@ final class SuiteConfigCatalog {
 		return [
 			[
 				'id'          => 'audit_scanner.default_max_pages',
+				'group'       => 'flux_audit_scanner',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Accessibility Audit Scanner',
 				'label'       => 'Default max pages per audit',
@@ -473,6 +599,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'audit_scanner.default_depth',
+				'group'       => 'flux_audit_scanner',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Accessibility Audit Scanner',
 				'label'       => 'Default crawl depth',
@@ -485,6 +612,7 @@ final class SuiteConfigCatalog {
 			],
 			[
 				'id'          => 'audit_scanner.pages_per_batch',
+				'group'       => 'flux_audit_scanner',
 				'plugin_file' => $p,
 				'plugin'      => 'Flux Accessibility Audit Scanner',
 				'label'       => 'Pages per batch',
@@ -498,14 +626,294 @@ final class SuiteConfigCatalog {
 		];
 	}
 
+	/**
+	 * Curated WordPress options from Settings → General, Reading, Permalinks.
+	 *
+	 * @since 1.7.0
+	 * @return list<array<string,mixed>>
+	 */
+	private static function wordpress_core_defs() {
+		return [
+			[
+				'id'           => 'wp.blogname',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_general',
+				'label'        => 'Site title',
+				'type'         => 'string',
+				'handler'      => 'wordpress:blogname',
+				'search'       => 'blog title site name general options',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.blogdescription',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_general',
+				'label'        => 'Tagline',
+				'type'         => 'string',
+				'handler'      => 'wordpress:blogdescription',
+				'search'       => 'tagline description general',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.admin_email',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_general',
+				'label'        => 'Administration email address',
+				'type'         => 'string',
+				'handler'      => 'wordpress:admin_email',
+				'search'       => 'admin email general',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.timezone_string',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_general',
+				'label'        => 'Timezone string',
+				'type'         => 'string',
+				'handler'      => 'wordpress:timezone_string',
+				'search'       => 'timezone utc general',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.date_format',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_general',
+				'label'        => 'Date format',
+				'type'         => 'string',
+				'handler'      => 'wordpress:date_format',
+				'search'       => 'date format general',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.time_format',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_general',
+				'label'        => 'Time format',
+				'type'         => 'string',
+				'handler'      => 'wordpress:time_format',
+				'search'       => 'time format general',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.start_of_week',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_general',
+				'label'        => 'Week starts on',
+				'type'         => 'int',
+				'min'          => 0,
+				'max'          => 6,
+				'handler'      => 'wordpress:start_of_week',
+				'search'       => 'week calendar start general',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.show_on_front',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_reading',
+				'label'        => 'Your homepage displays',
+				'type'         => 'enum',
+				'choices'      => [ 'posts', 'page' ],
+				'handler'      => 'wordpress:show_on_front',
+				'search'       => 'homepage front page reading static posts',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.page_on_front',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_reading',
+				'label'        => 'Homepage (page ID)',
+				'type'         => 'int',
+				'min'          => 0,
+				'max'          => 2147483647,
+				'handler'      => 'wordpress:page_on_front',
+				'search'       => 'home page id reading static',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.page_for_posts',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_reading',
+				'label'        => 'Posts page (page ID)',
+				'type'         => 'int',
+				'min'          => 0,
+				'max'          => 2147483647,
+				'handler'      => 'wordpress:page_for_posts',
+				'search'       => 'blog posts page id reading',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.posts_per_page',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_reading',
+				'label'        => 'Blog pages show at most',
+				'type'         => 'int',
+				'min'          => 1,
+				'max'          => 500,
+				'handler'      => 'wordpress:posts_per_page',
+				'search'       => 'posts per page reading syndication',
+				'sensitive'    => false,
+			],
+			[
+				'id'           => 'wp.permalink_structure',
+				'suite_scope'  => self::SUITE_SCOPE_WORDPRESS_CORE,
+				'plugin'       => 'WordPress',
+				'group'        => 'wp_permalinks',
+				'label'        => 'Permalink structure',
+				'type'         => 'string',
+				'handler'      => 'wordpress:permalink_structure',
+				'search'       => 'permalink rewrite slug pretty links',
+				'sensitive'    => false,
+			],
+		];
+	}
+
+	/**
+	 * Read WordPress core option values for suite config.
+	 *
+	 * @since 1.7.0
+	 * @return mixed|null Null when this handler is not a WordPress core option.
+	 */
+	private static function wordpress_core_invoke_get( string $handler ) {
+		switch ( $handler ) {
+			case 'wordpress:blogname':
+				return (string) get_option( 'blogname', '' );
+			case 'wordpress:blogdescription':
+				return (string) get_option( 'blogdescription', '' );
+			case 'wordpress:admin_email':
+				return (string) get_option( 'admin_email', '' );
+			case 'wordpress:timezone_string':
+				return (string) get_option( 'timezone_string', '' );
+			case 'wordpress:date_format':
+				return (string) get_option( 'date_format', '' );
+			case 'wordpress:time_format':
+				return (string) get_option( 'time_format', '' );
+			case 'wordpress:start_of_week':
+				return (int) get_option( 'start_of_week', 1 );
+			case 'wordpress:show_on_front':
+				return (string) get_option( 'show_on_front', 'posts' );
+			case 'wordpress:page_on_front':
+				return (int) get_option( 'page_on_front', 0 );
+			case 'wordpress:page_for_posts':
+				return (int) get_option( 'page_for_posts', 0 );
+			case 'wordpress:posts_per_page':
+				return (int) get_option( 'posts_per_page', 10 );
+			case 'wordpress:permalink_structure':
+				return (string) get_option( 'permalink_structure', '' );
+			default:
+				return null;
+		}
+	}
+
+	/**
+	 * Persist WordPress core option values for suite config.
+	 *
+	 * @since 1.7.0
+	 * @param mixed $value Normalized value.
+	 * @return true|\WP_Error|null Null when handler is not WordPress core.
+	 */
+	private static function wordpress_core_invoke_set( string $handler, $value ) {
+		switch ( $handler ) {
+			case 'wordpress:blogname':
+				update_option( 'blogname', sanitize_text_field( (string) $value ), true );
+				return true;
+			case 'wordpress:blogdescription':
+				$s = function_exists( 'sanitize_textarea_field' )
+					? sanitize_textarea_field( (string) $value )
+					: sanitize_text_field( (string) $value );
+				update_option( 'blogdescription', $s, true );
+				return true;
+			case 'wordpress:admin_email':
+				$email = sanitize_email( (string) $value );
+				if ( ! is_email( $email ) ) {
+					return new \WP_Error( 'flux_one_wp_admin_email', 'Invalid email address.' );
+				}
+				update_option( 'admin_email', $email, true );
+				return true;
+			case 'wordpress:timezone_string':
+				update_option( 'timezone_string', sanitize_text_field( (string) $value ), true );
+				return true;
+			case 'wordpress:date_format':
+				update_option( 'date_format', sanitize_text_field( (string) $value ), true );
+				return true;
+			case 'wordpress:time_format':
+				update_option( 'time_format', sanitize_text_field( (string) $value ), true );
+				return true;
+			case 'wordpress:start_of_week':
+				update_option( 'start_of_week', (int) $value, true );
+				return true;
+			case 'wordpress:show_on_front':
+				$v = sanitize_key( (string) $value );
+				if ( ! in_array( $v, [ 'posts', 'page' ], true ) ) {
+					return new \WP_Error( 'flux_one_wp_show_on_front', 'Use posts or page.' );
+				}
+				update_option( 'show_on_front', $v, true );
+				return true;
+			case 'wordpress:page_on_front':
+				$n = (int) $value;
+				if ( $n < 0 ) {
+					return new \WP_Error( 'flux_one_wp_page', 'Page ID must be zero or positive.' );
+				}
+				if ( $n > 0 ) {
+					$post = get_post( $n );
+					if ( ! $post || 'page' !== $post->post_type ) {
+						return new \WP_Error( 'flux_one_wp_page', 'Homepage must be a published page ID.' );
+					}
+				}
+				update_option( 'page_on_front', $n, true );
+				return true;
+			case 'wordpress:page_for_posts':
+				$n = (int) $value;
+				if ( $n < 0 ) {
+					return new \WP_Error( 'flux_one_wp_page', 'Page ID must be zero or positive.' );
+				}
+				if ( $n > 0 ) {
+					$post = get_post( $n );
+					if ( ! $post || 'page' !== $post->post_type ) {
+						return new \WP_Error( 'flux_one_wp_page', 'Posts page must be a published page ID.' );
+					}
+				}
+				update_option( 'page_for_posts', $n, true );
+				return true;
+			case 'wordpress:posts_per_page':
+				update_option( 'posts_per_page', (int) $value, true );
+				return true;
+			case 'wordpress:permalink_structure':
+				$raw_ps = (string) $value;
+				$clean_ps = function_exists( 'sanitize_option' )
+					? sanitize_option( 'permalink_structure', $raw_ps )
+					: $raw_ps;
+				update_option( 'permalink_structure', $clean_ps, true );
+				if ( function_exists( 'flush_rewrite_rules' ) ) {
+					flush_rewrite_rules( false );
+				}
+				return true;
+			default:
+				return null;
+		}
+	}
+
 	private static function invoke_get( string $handler ) {
 		switch ( $handler ) {
 			case 'flux_one:email_capture_enabled':
 				return FluxOneSettings::is_email_capture_enabled_for_user( get_current_user_id() );
 			case 'flux_one:suppress_mail_to_self':
 				return FluxOneSettings::is_suppress_mail_enabled_for_user( get_current_user_id() );
-			case 'flux_one:aggregate_default_days':
-				return FluxOneSettings::get_aggregate_default_days();
+		}
+
+		$wp_read = self::wordpress_core_invoke_get( $handler );
+		if ( null !== $wp_read ) {
+			return $wp_read;
 		}
 
 		if ( class_exists( '\FluxMedia\App\Services\Settings' ) ) {
@@ -604,10 +1012,11 @@ final class SuiteConfigCatalog {
 			case 'flux_one:suppress_mail_to_self':
 				FluxOneSettings::update_from_array( [ 'suppressMailToSelf' => (bool) $value ] );
 				return true;
-			case 'flux_one:aggregate_default_days':
-				$d = max( 1, min( 30, (int) $value ) );
-				FluxOneSettings::update_from_array( [ 'aggregateDefaultDays' => $d ] );
-				return true;
+		}
+
+		$wp_set = self::wordpress_core_invoke_set( $handler, $value );
+		if ( null !== $wp_set ) {
+			return $wp_set;
 		}
 
 		if ( class_exists( '\FluxMedia\App\Services\Settings' ) ) {

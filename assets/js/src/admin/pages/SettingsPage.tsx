@@ -6,7 +6,6 @@ import { Alert, Box, Button, CircularProgress, FormControlLabel, FormHelperText,
 type SettingsShape = {
   emailCaptureEnabled: boolean;
   suppressMailToSelf: boolean;
-  aggregateDefaultDays: number;
   commandShortcut?: string;
 };
 
@@ -63,7 +62,7 @@ export function SettingsPage() {
     return isMac ? chunks.join('') : chunks.join('+');
   };
 
-  const captureShortcutFromEvent = (e: React.KeyboardEvent<HTMLInputElement>): string | null => {
+  const captureShortcutFromEvent = (e: React.KeyboardEvent<HTMLElement>): string | null => {
     const k = String(e.key || '').toLowerCase();
     if (['shift', 'alt', 'meta', 'control'].includes(k)) {
       return null;
@@ -83,7 +82,6 @@ export function SettingsPage() {
       ? String(window.fluxOneAdmin.adminUrl).replace(/\/?$/, '/')
       : '/wp-admin/';
   const licenseUrl = `${adminUrl}admin.php?page=flux-suite-license`;
-  const fluxSettingsHash = `${adminUrl}admin.php?page=flux-one#/settings`;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -144,9 +142,10 @@ export function SettingsPage() {
       ) : null}
 
       <Typography variant="body2" color="text.secondary">
-        {__('Manage your Flux Plugins license from the suite license page.', 'flux-one')}{' '}
-        <a href={licenseUrl}>{__('Open License', 'flux-one')}</a>
+        {__('Manage your Flux Plugins license from the', 'flux-one')}{' '}
+        <a href={licenseUrl}>{__('suite license page', 'flux-one')}</a>.
       </Typography>
+ 
 
       <Box>
         <Typography variant="h6" gutterBottom>
@@ -154,9 +153,23 @@ export function SettingsPage() {
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
           {__(
-            'These options apply to your WordPress user only. Email capture logs outbound mail you trigger while logged in, for your Command Bar aggregate. Retention follows the plugin cleanup schedule (see README).',
+            'These options apply to your user only. Review captured mail from the Command Bar with command:',
             'flux-one'
-          )}
+          )}{' '}
+          <Box
+            component="code"
+            sx={{
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace',
+              fontSize: '0.9em',
+              px: 0.75,
+              py: 0.25,
+              borderRadius: 1,
+              bgcolor: 'action.hover',
+            }}
+          >
+            {__('aggregate email', 'flux-one')}
+          </Box>
+          .
         </Typography>
         <Stack spacing={2} maxWidth={560}>
           <FormControlLabel
@@ -180,20 +193,6 @@ export function SettingsPage() {
               'flux-one'
             )}
           />
-          <TextField
-            label={__('Default report window (days, 1–30)', 'flux-one')}
-            type="number"
-            inputProps={{ min: 1, max: 30 }}
-            value={settings.aggregateDefaultDays}
-            onChange={(e) =>
-              setSettings({
-                ...settings,
-                aggregateDefaultDays: Math.min(30, Math.max(1, Number(e.target.value) || 7)),
-              })
-            }
-            size="small"
-            sx={{ maxWidth: 200 }}
-          />
         </Stack>
         <FormHelperText sx={{ mt: 1, maxWidth: 640 }}>
           {__(
@@ -201,10 +200,6 @@ export function SettingsPage() {
             'flux-one'
           )}
         </FormHelperText>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 1, maxWidth: 640 }}>
-          {__('This page:', 'flux-one')}{' '}
-          <a href={fluxSettingsHash}>{fluxSettingsHash}</a>
-        </Typography>
       </Box>
 
       <Box>
@@ -219,19 +214,13 @@ export function SettingsPage() {
         </Typography>
         <Stack spacing={2} maxWidth={560}>
           <TextField
-            label={__('Shortcut', 'flux-one')}
-            value={settings.commandShortcut ? settings.commandShortcut : 'mod+.'}
-            onChange={(e) => setSettings({ ...settings, commandShortcut: normalizeShortcut(e.target.value) })}
-            size="small"
-            helperText={`${__('Display:', 'flux-one')} ${shortcutLabel(settings.commandShortcut || 'mod+.')} · ${__(
-              'Format: mod+key (+shift, +alt).',
-              'flux-one'
-            )}`}
-          />
-          <TextField
             label={__('Record shortcut', 'flux-one')}
             value={recordingShortcut ? __('Press keys…', 'flux-one') : shortcutLabel(settings.commandShortcut || 'mod+.')}
             size="small"
+            helperText={`${__(
+              'Format: mod+key',
+              'flux-one'
+            )}`}
             onFocus={() => setRecordingShortcut(true)}
             onBlur={() => setRecordingShortcut(false)}
             onKeyDown={(e) => {

@@ -34,7 +34,7 @@
     }
   },
   "scripts": {
-    "test": "phpunit",
+    "test": "phpunit -c tests/phpunit.xml.dist",
     "phpstan": "phpstan analyse",
     "phpcs": "phpcs --standard=WordPress app/ tests/",
     "phpcbf": "phpcbf --standard=WordPress app/ tests/",

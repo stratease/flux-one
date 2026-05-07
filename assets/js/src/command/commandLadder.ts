@@ -10,8 +10,6 @@ const TERMINAL_EXACT = new Set([
   'user list',
   'user show',
   'menu list',
-  'site list',
-  'site show',
   'plugin update all',
   'plugin upload',
   'plugin install',
@@ -67,14 +65,6 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
     }
   }
 
-  const siteTok = /^site\s+(\S+)$/.exec(c);
-  if (siteTok) {
-    const expanded = expandUniqueSubcommandToken('site', siteTok[1]);
-    if (expanded && normalizeCanonical(expanded) !== c) {
-      return resolveRunnableCommand(expanded, indices);
-    }
-  }
-
   const userTok = /^user\s+(\S+)$/.exec(c);
   if (
     userTok &&
@@ -120,7 +110,6 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
 
   const plugins = indices.plugins || [];
   const users = indices.users || [];
-  const sites = indices.sites || [];
 
   const mUpdate = /^plugin update (.+)$/.exec(c);
   if (mUpdate) {
@@ -192,19 +181,6 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
       return { ok: false };
     }
     return { ok: true, command: c };
-  }
-
-  const mSwitch = /^site switch (.+)$/.exec(c);
-  if (mSwitch) {
-    const q = mSwitch[1].trim();
-    if (!q) return { ok: false };
-    const fuse = new Fuse(sites, { keys: ['domain', 'path'], threshold: 0.35, ignoreLocation: true });
-    const r = fuse.search(q);
-    if (r.length === 1) {
-      const s = r[0].item;
-      return { ok: true, command: `site switch ${s.domain}${s.path}` };
-    }
-    return { ok: false };
   }
 
   const mRole = /^user role set (\S+@\S+)\s+(\S+)$/.exec(c);

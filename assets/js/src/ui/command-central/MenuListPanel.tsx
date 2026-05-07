@@ -93,6 +93,7 @@ export type MenuListPanelProps = {
  * Command Bar nav menu editor (list pick + item tree).
  *
  * @since 1.4.0
+ * @since 1.4.2 Add custom link via form submit (Enter) and shared control styling tokens.
  */
 export function MenuListPanel({ structuredPanelRef, menus, adminBase }: MenuListPanelProps) {
   const queryClient = useQueryClient();
@@ -277,6 +278,14 @@ export function MenuListPanel({ structuredPanelRef, menus, adminBase }: MenuList
 
   const busy = saveMutation.isPending || addMutation.isPending || deleteMutation.isPending;
 
+  const handleAddCustomSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (busy || !customTitle.trim() || !customUrl.trim()) {
+      return;
+    }
+    addMutation.mutate();
+  };
+
   return (
     <div ref={structuredPanelRef} className="flux-one-structured-results flux-one-menu-panel">
       <div className="flux-one-structured-panel">
@@ -328,34 +337,35 @@ export function MenuListPanel({ structuredPanelRef, menus, adminBase }: MenuList
                 <>
                   <div className="flux-one-menu-add-custom">
                     <div className="flux-one-menu-panel-subtitle">Add custom link</div>
-                    <div className="flux-one-menu-add-row">
-                      <input
-                        type="text"
-                        className="flux-one-menu-input"
-                        placeholder="Label"
-                        value={customTitle}
-                        onChange={(e) => setCustomTitle(e.target.value)}
-                        disabled={busy}
-                        aria-label="Custom link label"
-                      />
-                      <input
-                        type="url"
-                        className="flux-one-menu-input"
-                        placeholder="https://"
-                        value={customUrl}
-                        onChange={(e) => setCustomUrl(e.target.value)}
-                        disabled={busy}
-                        aria-label="Custom link URL"
-                      />
-                      <button
-                        type="button"
-                        className="flux-one-btn-small"
-                        disabled={busy || !customTitle.trim() || !customUrl.trim()}
-                        onClick={() => addMutation.mutate()}
-                      >
-                        Add
-                      </button>
-                    </div>
+                    <form className="flux-one-menu-add-form" onSubmit={handleAddCustomSubmit}>
+                      <div className="flux-one-menu-add-row">
+                        <input
+                          type="text"
+                          className="flux-one-menu-input"
+                          placeholder="Label"
+                          value={customTitle}
+                          onChange={(e) => setCustomTitle(e.target.value)}
+                          disabled={busy}
+                          aria-label="Custom link label"
+                        />
+                        <input
+                          type="url"
+                          className="flux-one-menu-input"
+                          placeholder="https://"
+                          value={customUrl}
+                          onChange={(e) => setCustomUrl(e.target.value)}
+                          disabled={busy}
+                          aria-label="Custom link URL"
+                        />
+                        <button
+                          type="submit"
+                          className="flux-one-btn-small"
+                          disabled={busy || !customTitle.trim() || !customUrl.trim()}
+                        >
+                          Add
+                        </button>
+                      </div>
+                    </form>
                   </div>
                   <div className="flux-one-menu-tree-toolbar">
                     <button
