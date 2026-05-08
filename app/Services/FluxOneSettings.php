@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Option names and helpers for Command Bar email features.
  *

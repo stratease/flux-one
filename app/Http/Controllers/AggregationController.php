@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Http\Controllers;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use FluxOne\App\Services\Database;
 use FluxOne\App\Services\EmailAggregationService;
 use FluxOne\App\Services\EmailSummaryRepository;
@@ -273,6 +278,7 @@ class AggregationController extends BaseController {
 
 		$table = Database::events_table_name();
 		$row   = $wpdb->get_row(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Custom table from `$wpdb->prefix` + fixed suffix.
 			$wpdb->prepare(
 				"SELECT id, user_id, subject, payload FROM {$table} WHERE id = %d AND user_id = %d AND event_type = %s LIMIT 1",
 				$event_id,

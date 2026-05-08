@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Services\CommandHandlers;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use FluxOne\App\Services\IndexCacheService;
 
 /**

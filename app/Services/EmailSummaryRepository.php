@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Reads and writes rows in `flux_one_email_summaries`.
  *
@@ -42,6 +47,7 @@ class EmailSummaryRepository {
 		$sql          = "SELECT event_id, summary, action, is_urgent, raw_response, summarized_at, created_at FROM {$table} WHERE event_id IN ({$placeholders})";
 
 		$rows = $wpdb->get_results(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Custom table + dynamic IN placeholders from sanitized IDs only.
 			$wpdb->prepare( $sql, $event_ids ),
 			ARRAY_A
 		);

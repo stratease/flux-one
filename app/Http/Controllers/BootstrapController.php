@@ -8,7 +8,13 @@
 
 namespace FluxOne\App\Http\Controllers;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use WP_REST_Request;
+use FluxOne\App\Services\BootstrapCommandUsagePayload;
 use FluxOne\App\Services\CacheVersionService;
 use FluxOne\App\Services\FluxOneSettings;
 use FluxOne\App\Services\UserCommandMemory;
@@ -87,6 +93,7 @@ class BootstrapController extends BaseController {
 				'commandMemory'   => [
 					'recentNavigations' => $memory->get_recent_navigations(),
 				],
+				'commandUsage'    => BootstrapCommandUsagePayload::build( $memory ),
 				'emailPrefs'      => [
 					'emailCaptureEnabled' => FluxOneSettings::is_email_capture_enabled_for_user( get_current_user_id() ),
 				],

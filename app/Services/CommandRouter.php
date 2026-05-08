@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use FluxOne\App\Services\CommandHandlers\ConfigHandler;
 use FluxOne\App\Services\CommandHandlers\MenusHandler;
 use FluxOne\App\Services\CommandHandlers\NavigationHandler;

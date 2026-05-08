@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Daily cleanup jobs.
  *
@@ -62,6 +67,7 @@ class CleanupService {
 		$cutoff = gmdate( 'Y-m-d H:i:s', time() - ( 7 * DAY_IN_SECONDS ) );
 
 		$wpdb->query(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Custom table from `$wpdb->prefix` + fixed suffix.
 			$wpdb->prepare(
 				"DELETE FROM {$table} WHERE created_at < %s",
 				$cutoff

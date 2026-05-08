@@ -9,6 +9,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use FluxOne\FluxPlugins\Common\Account\AccountIdService;
 use FluxOne\FluxPlugins\Common\License\LicenseService;
 use FluxOne\FluxPlugins\Common\Logger\Logger;
@@ -174,6 +179,7 @@ class EmailSummaryService {
 		$sql          = "SELECT id, subject, payload, created_at FROM {$table} WHERE id IN ({$placeholders}) AND user_id = %d AND event_type = %s";
 		$args         = array_merge( $ids, [ $user_id, 'email' ] );
 
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Custom table + dynamic IN placeholders from sanitized IDs only.
 		$rows = $wpdb->get_results( $wpdb->prepare( $sql, $args ), ARRAY_A );
 
 		$by_id = [];

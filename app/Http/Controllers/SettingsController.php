@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Http\Controllers;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use FluxOne\App\Services\FluxOneSettings;
 use WP_REST_Request;
 

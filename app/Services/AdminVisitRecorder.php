@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Hooks {@see UserCommandMemory} on normal admin page loads (not only `nav` commands).
  *

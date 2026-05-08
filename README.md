@@ -69,7 +69,7 @@ The dashboard widget shows up to **five** **recent admin pages** you have opened
 
 ### Flux Suite — License & Settings
 
-Flux One registers the shared **Flux Suite → License** page. **Flux Suite → Flux One** opens the plugin admin React app (`plugin-app.bundle.js`): **Overview** and **Settings** (HashRouter + shared `PageLayout` / `FluxAppProvider` from `flux-plugins-common`, same pattern as Flux Media Optimizer). Email aggregation options (capture on/off, suppress mail to self) are **per-user** where implemented: **`GET` / `PUT /flux-one/v1/settings`** reads and writes user meta (with legacy site options migrated on read). **Recent admin pages** in the dashboard widget use plain `<a href>` links; destinations are de-duplicated by normalized admin URL (including dashboard aliases). Outbound mail is logged via the **`wp_mail`** filter (`EmailEventLogger`); users who enable suppress-to-self have their addresses **stripped from To/Cc/Bcc** on a later **`wp_mail`** pass (`EmailMailPolicy`) so logs still reflect intended recipients while they skip receiving copies.
+Flux One registers the shared **Flux Suite → License** page. **Flux Suite → Flux One** opens the plugin admin React app (`plugin-app.bundle.js`): **Overview** and **Settings** (HashRouter + shared `PageLayout` / `FluxAppProvider` from `flux-plugins-common`, same pattern as Flux Media Optimizer). The **Overview** tab shows **time saved** (estimated from per-user top-level command usage) as a bar chart via **`@mui/x-charts`**, a **Getting Started** welcome when there is no usage yet, and a right-column **`UpsellCard`** (from `flux-plugins-common`) when the suite license is invalid (same card as **Flux Suite → License**, with Flux One–specific bullet overrides). The **Open Command Bar** CTA dispatches the `flux-one-open` window event (same as the admin bar). Email aggregation options (capture on/off, suppress mail to self) are **per-user** where implemented: **`GET` / `PUT /flux-one/v1/settings`** reads and writes user meta (with legacy site options migrated on read). **Recent admin pages** in the dashboard widget use plain `<a href>` links; destinations are de-duplicated by normalized admin URL (including dashboard aliases). Outbound mail is logged via the **`wp_mail`** filter (`EmailEventLogger`); users who enable suppress-to-self have their addresses **stripped from To/Cc/Bcc** on a later **`wp_mail`** pass (`EmailMailPolicy`) so logs still reflect intended recipients while they skip receiving copies.
 
 ### Flux Services API integration (suite common)
 
@@ -123,7 +123,8 @@ Main file: `flux-one.php`
   - Created via `dbDelta()` in `app/Services/Database.php`
   - Retention: **indefinite** (retained until explicitly deleted)
 - **User memory:** `_flux_one_command_memory` user meta
-  - `recent_commands`, `recent_navigations` (max 5 admin URLs and/or `nav` commands with labels), `pinned_commands`, `frequent_entities`, `last_site_context`
+  - `recent_commands`, `recent_navigations` (max 5 admin URLs and/or `nav` commands with labels), `pinned_commands`, `frequent_entities`, `last_site_context`, `command_usage_counts` (map of top-level command root → run count: `nav`, `menu`, `plugin`, `user`, `config`, `aggregate`, `summary`, `edit` only; no subcommands or entities)
+- **Time-saved estimates (SSOT):** `app/Services/CommandUsageEstimates.php` defines seconds saved per root (used by bootstrap, heartbeat response, and Overview). Client reads `bootstrap.commandUsage.estimatesSeconds` and does not hardcode values.
 
 ### Cron
 
@@ -151,7 +152,9 @@ Main file: `flux-one.php`
 Namespace: `flux-one/v1`
 
 - **Bootstrap**
-  - `GET /bootstrap` → feature flags + slim bootstrap (indices are loaded via `/index/*` below); includes **`commandMemory.recentNavigations`**, **`currentUser`** (`id`, `email`) for Command Bar UX (e.g. excluding self from `user lock` targets). The same object is embedded in `window.fluxOneAdmin.bootstrap` on admin load.
+  - `GET /bootstrap` → feature flags + slim bootstrap (indices are loaded via `/index/*` below); includes **`commandMemory.recentNavigations`**, **`commandUsage`** (`counts`, `estimatesSeconds`, `totalSecondsSaved`), **`currentUser`** (`id`, `email`) for Command Bar UX (e.g. excluding self from `user lock` targets). The same object is embedded in `window.fluxOneAdmin.bootstrap` on admin load.
+- **Heartbeat** (extensible; usage today)
+  - `POST /heartbeat` body: optional `{ commandUsage: { [root: string]: number } }` (deltas per top-level root; unknown keys ignored). Merges into `command_usage_counts` in user meta. Response `data` echoes `{ counts, totalSecondsSaved }`. Client buffers increments in `localStorage` and flushes on each admin load and every 60s while a Command Bar or Plugin App bundle is mounted (`assets/js/src/admin/heartbeat.ts`). Future versions may add other heartbeat fields without a new route.
 - **Command execution**
   - `POST /command` body: `{ input: string }`
 - **Index** (cached JSON for Command Bar autocomplete; optional `q` where noted)
@@ -360,6 +363,8 @@ From `wp-content/plugins/flux-one/`:
 npm install
 ```
 
+**Plugin app (Overview / Settings)** also depends on **`@mui/x-charts`** (charts on Overview). **Command Bar** and **Plugin app** share `assets/js/src/admin/heartbeat.ts` and `usage-store.ts` for usage batching.
+
 ### JS dev server
 
 ```bash
@@ -457,4 +462,5 @@ This copies the same rsync-filtered tree to a temp directory and fails if `phpun
   - Async AI summary section for email
 - Expand `UserCommandMemory` usage for recent commands / pins.
 - Expand navigation coverage and non-React clients consuming `POST /command` navigation payloads.
+- Add a dedicated E2E harness (e.g. Playwright) for full admin flows; current coverage is PHPUnit + Vitest only.
 

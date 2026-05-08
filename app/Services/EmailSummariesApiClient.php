@@ -9,6 +9,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use FluxOne\FluxPlugins\Common\Account\AccountIdService;
 use FluxOne\FluxPlugins\Common\Api\ExternalApiClient;
 use FluxOne\FluxPlugins\Common\Logger\Logger;

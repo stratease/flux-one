@@ -13,6 +13,9 @@ if ( ! defined( 'DAY_IN_SECONDS' ) ) {
 
 if ( ! function_exists( 'current_user_can' ) ) {
 	function current_user_can( $capability ) {
+		if ( 'manage_options' === $capability && isset( $GLOBALS['flux_one_test_current_user_can_manage_options'] ) ) {
+			return (bool) $GLOBALS['flux_one_test_current_user_can_manage_options'];
+		}
 		return true;
 	}
 }
@@ -57,7 +60,13 @@ if ( ! function_exists( 'update_option' ) ) {
 }
 if ( ! function_exists( 'get_user_meta' ) ) {
 	function get_user_meta( $user_id, $key, $single = false ) {
-		return $single ? '' : [];
+		$uid = (int) $user_id;
+		$all = $GLOBALS['flux_one_test_user_meta'][ $uid ] ?? [];
+		if ( ! isset( $all[ $key ] ) ) {
+			return $single ? '' : [];
+		}
+		$v = $all[ $key ];
+		return $single ? $v : [ $v ];
 	}
 }
 if ( ! function_exists( 'sanitize_text_field' ) ) {
@@ -99,6 +108,69 @@ if ( ! class_exists( 'WP_Post' ) ) {
 	class WP_Post {
 		public $ID = 0;
 		public $post_type = 'page';
+	}
+}
+if ( ! class_exists( 'WP_REST_Controller' ) ) {
+	class WP_REST_Controller {
+	}
+}
+if ( ! class_exists( 'WP_REST_Request' ) ) {
+	class WP_REST_Request {
+		/**
+		 * @var array
+		 */
+		private $json_params = [];
+
+		/**
+		 * @param array $params JSON body.
+		 * @return void
+		 */
+		public function set_json_params( array $params ) {
+			$this->json_params = $params;
+		}
+
+		/**
+		 * @return array
+		 */
+		public function get_json_params() {
+			return $this->json_params;
+		}
+	}
+}
+if ( ! class_exists( 'WP_REST_Response' ) ) {
+	class WP_REST_Response {
+		/**
+		 * @var mixed
+		 */
+		public $data;
+
+		/**
+		 * @var int
+		 */
+		public $status;
+
+		/**
+		 * @param mixed $data Response data.
+		 * @param int   $status Status code.
+		 */
+		public function __construct( $data = null, $status = 200 ) {
+			$this->data   = $data;
+			$this->status = (int) $status;
+		}
+
+		/**
+		 * @return mixed
+		 */
+		public function get_data() {
+			return $this->data;
+		}
+
+		/**
+		 * @return int
+		 */
+		public function get_status() {
+			return $this->status;
+		}
 	}
 }
 if ( ! function_exists( 'get_post' ) ) {
@@ -157,6 +229,11 @@ if ( ! function_exists( 'get_user_by' ) ) {
 }
 if ( ! function_exists( 'update_user_meta' ) ) {
 	function update_user_meta( $user_id, $meta_key, $meta_value ) {
+		$uid = (int) $user_id;
+		if ( ! isset( $GLOBALS['flux_one_test_user_meta'] ) || ! is_array( $GLOBALS['flux_one_test_user_meta'] ) ) {
+			$GLOBALS['flux_one_test_user_meta'] = [];
+		}
+		$GLOBALS['flux_one_test_user_meta'][ $uid ][ $meta_key ] = $meta_value;
 		return true;
 	}
 }
@@ -186,7 +263,11 @@ require_once dirname( __DIR__ ) . '/app/Services/AdminDestinations.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/NavigationHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/MenusHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/IndexCacheService.php';
+require_once dirname( __DIR__ ) . '/app/Services/CommandUsageEstimates.php';
+require_once dirname( __DIR__ ) . '/app/Services/BootstrapCommandUsagePayload.php';
 require_once dirname( __DIR__ ) . '/app/Services/UserCommandMemory.php';
+require_once dirname( __DIR__ ) . '/app/Http/Controllers/BaseController.php';
+require_once dirname( __DIR__ ) . '/app/Http/Controllers/HeartbeatController.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/PluginsHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/UsersHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/MultisiteHandler.php';

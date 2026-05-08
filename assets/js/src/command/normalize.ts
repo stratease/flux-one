@@ -84,3 +84,24 @@ export function canonicalizeInput(raw: string): CanonicalizationResult {
   return { canonical, tokens: aliasCanonical, changed };
 }
 
+/**
+ * Root token for usage metrics (`summary email` → `summary`; aligns with CommandRouter).
+ *
+ * @since 1.6.0
+ */
+export function getRootToken(canonical: string): string {
+  const tokens = canonical
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, ' ')
+    .split(' ')
+    .filter(Boolean);
+  if (tokens.length === 0) {
+    return '';
+  }
+  if (tokens[0] === 'summary') {
+    return 'summary';
+  }
+  return tokens[0];
+}
+

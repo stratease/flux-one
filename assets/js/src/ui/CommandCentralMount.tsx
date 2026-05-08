@@ -3,7 +3,8 @@ import { api } from '../utils/api';
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getGhostRemainder } from '../command/ghost';
 import { getRouteTokens, getSuggestions, resolveNavDestinationUrl, type IndexData } from '../command/suggest';
-import { canonicalizeInput, parseInput } from '../command/normalize';
+import { recordCommandUsage } from '../admin/heartbeat';
+import { canonicalizeInput, getRootToken, parseInput } from '../command/normalize';
 import type { Suggestion } from '../command/types';
 import { filterCommandDocs } from '../command/commandDocs';
 import { interpretEnter, interpretSuggestionPick } from '../command/interpretEnter';
@@ -910,6 +911,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         command: navCanon,
         label: effectivePick.label,
       });
+      recordCommandUsage(getRootToken(navCanon));
       beginClientNav(navCanon);
       requestAnimationFrame(() => window.location.assign(navUrl));
       return;
@@ -921,6 +923,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       if (url) {
         const hit = destinationsList.find((d) => d.url === url);
         recordClientNavMemory({ url, command: canonical, label: hit?.label });
+        recordCommandUsage(getRootToken(canonical));
         beginClientNav(canonical);
         requestAnimationFrame(() => window.location.assign(url));
         return;
@@ -938,8 +941,10 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         setFastPathLoading(false);
       }
       if (usedFastPath) {
+        recordCommandUsage(getRootToken(canonical));
         return;
       }
+      recordCommandUsage(getRootToken(canonical));
       commandMutation.mutate(cmd);
     })();
   };

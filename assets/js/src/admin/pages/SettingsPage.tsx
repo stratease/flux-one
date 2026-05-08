@@ -179,7 +179,7 @@ export function SettingsPage() {
                 onChange={(e) => setSettings({ ...settings, emailCaptureEnabled: e.target.checked })}
               />
             }
-            label={__('Log outbound email events for my user (off by default)', 'flux-one')}
+            label={__('Log outbound email events', 'flux-one')}
           />
           <FormControlLabel
             control={
@@ -189,7 +189,7 @@ export function SettingsPage() {
               />
             }
             label={__(
-              'Remove my account email from To, Cc, and Bcc on outbound messages (others still receive copies)',
+              'Suppress all outbound emails to my user',
               'flux-one'
             )}
           />

@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Builds non-AI aggregate report for email events.
  *
@@ -104,6 +109,7 @@ class EmailAggregationService {
 		$count_where = $has_search ? $where_aliased : $where_plain;
 
 		$total = (int) $wpdb->get_var(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Tables and WHERE fragments built from prefix + fixed names and placeholder clauses.
 			$wpdb->prepare(
 				"SELECT COUNT(1) FROM {$count_from} WHERE {$count_where}",
 				$args
@@ -132,6 +138,7 @@ class EmailAggregationService {
 			LIMIT %d OFFSET %d";
 
 		$rows = $wpdb->get_results(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- JOIN targets use trusted table names; values use placeholders.
 			$wpdb->prepare(
 				$rows_sql,
 				array_merge( $args, [ $per_page, $offset ] )
@@ -176,6 +183,7 @@ class EmailAggregationService {
 		}
 
 		$group_rows = $wpdb->get_results(
+			// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Custom events table from `$wpdb->prefix` + fixed suffix.
 			$wpdb->prepare(
 				$group_sql,
 				array_merge( $args, [ self::MAX_GROUPS ] )

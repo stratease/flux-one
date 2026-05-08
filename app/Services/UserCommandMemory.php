@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Services;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 /**
  * Stores recent commands, pins, frequent entities, and last site context.
  *
@@ -36,13 +41,81 @@ class UserCommandMemory {
 		return wp_parse_args(
 			$mem,
 			[
-				'recent_commands'      => [],
-				'recent_navigations'   => [],
-				'pinned_commands'      => [],
-				'frequent_entities'    => [],
-				'last_site_context'    => '',
+				'recent_commands'        => [],
+				'recent_navigations'     => [],
+				'pinned_commands'        => [],
+				'frequent_entities'      => [],
+				'last_site_context'      => '',
+				'command_usage_counts'   => [],
 			]
 		);
+	}
+
+	/**
+	 * Increment usage counters for top-level command roots (canonical roots only).
+	 *
+	 * @since 1.6.0
+	 * @param array<string,int|string|float> $counts Delta counts keyed by root token.
+	 * @return void
+	 */
+	public function add_command_usage_batch( array $counts ) {
+		if ( empty( $counts ) ) {
+			return;
+		}
+
+		$allowed = array_flip( CommandUsageEstimates::get_allowed_roots() );
+		$mem     = $this->get();
+		$current = isset( $mem['command_usage_counts'] ) && is_array( $mem['command_usage_counts'] )
+			? $mem['command_usage_counts']
+			: [];
+
+		$dirty = false;
+		foreach ( $counts as $root => $delta ) {
+			$root = sanitize_key( (string) $root );
+			if ( '' === $root || ! isset( $allowed[ $root ] ) ) {
+				continue;
+			}
+			$d = CommandUsageEstimates::sanitize_count( $delta );
+			if ( $d <= 0 ) {
+				continue;
+			}
+			$prev = isset( $current[ $root ] ) ? CommandUsageEstimates::sanitize_count( $current[ $root ] ) : 0;
+			$current[ $root ] = $prev + $d;
+			$dirty            = true;
+		}
+
+		if ( ! $dirty ) {
+			return;
+		}
+
+		$mem['command_usage_counts'] = $current;
+		$this->save( $mem );
+	}
+
+	/**
+	 * Usage counts keyed by root token.
+	 *
+	 * @since 1.6.0
+	 * @return array<string, int>
+	 */
+	public function get_command_usage_counts() {
+		$mem = $this->get();
+		$raw = isset( $mem['command_usage_counts'] ) && is_array( $mem['command_usage_counts'] )
+			? $mem['command_usage_counts']
+			: [];
+
+		$out = [];
+		foreach ( CommandUsageEstimates::get_allowed_roots() as $root ) {
+			if ( ! isset( $raw[ $root ] ) ) {
+				continue;
+			}
+			$n = CommandUsageEstimates::sanitize_count( $raw[ $root ] );
+			if ( $n > 0 ) {
+				$out[ $root ] = $n;
+			}
+		}
+
+		return $out;
 	}
 
 	/**

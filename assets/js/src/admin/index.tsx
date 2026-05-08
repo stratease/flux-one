@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { createRoot } from 'react-dom/client';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { CommandCentralMount } from '../ui/CommandCentralMount';
+import { startHeartbeat } from './heartbeat';
 import './theme-tokens.css';
 import './style.css';
 
@@ -17,6 +18,11 @@ declare global {
       bootstrap?: unknown;
     };
   }
+}
+
+function HeartbeatMount({ children }: { children: React.ReactNode }) {
+  useEffect(() => startHeartbeat(), []);
+  return <>{children}</>;
 }
 
 const queryClient = new QueryClient({
@@ -37,7 +43,9 @@ function mountIfPresent(elementId: string, kind: 'overlay' | 'dashboardWidget' |
   const root = createRoot(el);
   root.render(
     <QueryClientProvider client={queryClient}>
-      <CommandCentralMount kind={kind} />
+      <HeartbeatMount>
+        <CommandCentralMount kind={kind} />
+      </HeartbeatMount>
     </QueryClientProvider>
   );
 }

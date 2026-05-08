@@ -8,12 +8,18 @@
 
 namespace FluxOne\App;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use FluxOne\App\Http\Controllers\AdminController;
 use FluxOne\App\Http\Controllers\CommandController;
 use FluxOne\App\Http\Controllers\BootstrapController;
 use FluxOne\App\Http\Controllers\IndexController;
 use FluxOne\App\Http\Controllers\MenuController;
 use FluxOne\App\Http\Controllers\AggregationController;
+use FluxOne\App\Http\Controllers\HeartbeatController;
 use FluxOne\App\Http\Controllers\MemoryController;
 use FluxOne\App\Http\Controllers\SettingsController;
 use FluxOne\App\Services\Database;
@@ -39,8 +45,6 @@ class Plugin {
 	public function init() {
 		Database::maybe_update_database();
 
-		// @since 1.2.1 Load translations.
-		add_action( 'plugins_loaded', [ $this, 'load_textdomain' ] );
 
 		add_action( 'plugins_loaded', [ FluxOneSettings::class, 'maybe_migrate_legacy_email_options' ], 20 );
 
@@ -67,20 +71,6 @@ class Plugin {
 	}
 
 	/**
-	 * Load plugin text domain.
-	 *
-	 * @since 1.2.1
-	 * @return void
-	 */
-	public function load_textdomain() {
-		load_plugin_textdomain(
-			'flux-one',
-			false,
-			dirname( plugin_basename( \FLUX_ONE_PLUGIN_FILE ) ) . '/languages'
-		);
-	}
-
-	/**
 	 * Register REST routes.
 	 *
 	 * @since 0.1.0
@@ -92,6 +82,7 @@ class Plugin {
 		( new IndexController() )->register_routes();
 		( new MenuController() )->register_routes();
 		( new AggregationController() )->register_routes();
+		( new HeartbeatController() )->register_routes();
 		( new MemoryController() )->register_routes();
 		( new SettingsController() )->register_routes();
 	}

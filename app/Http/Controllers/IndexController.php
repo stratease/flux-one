@@ -8,6 +8,11 @@
 
 namespace FluxOne\App\Http\Controllers;
 
+// @since 1.5.1 Guard against direct file access.
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
+
 use FluxOne\App\Services\AdminDestinations;
 use FluxOne\App\Services\IndexCacheService;
 use FluxOne\App\Services\SuiteConfigCatalog;
@@ -381,6 +386,7 @@ class IndexController extends BaseController {
 
 		// Title/slug only; return candidate IDs then filter by edit capability.
 		$placeholders = implode( ',', array_fill( 0, count( $post_types ), '%s' ) );
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- `posts` table from `$wpdb`; dynamic IN list uses `%s` placeholders only.
 		$sql          = $wpdb->prepare(
 			"SELECT ID, post_title, post_name, post_type
 			 FROM {$wpdb->posts}
