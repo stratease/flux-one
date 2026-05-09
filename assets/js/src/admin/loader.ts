@@ -1,6 +1,31 @@
 import { formatAdminBarHotkeyText, parseShortcut } from './commandShortcut';
 import { resolveAdminBarModifierWord } from './keyboardPlatform';
 
+declare global {
+  interface Window {
+    fluxOneOpenOverlay?: (opts?: OpenOverlayOptions) => Promise<void>;
+    fluxOneOpenCommandReference?: () => Promise<void>;
+  }
+}
+
+export type OpenOverlayOptions = {
+  input?: string;
+};
+
+function normalizePrefillInput(opts?: OpenOverlayOptions): string {
+  if (!opts || typeof opts.input !== 'string') {
+    return '';
+  }
+  return opts.input.length > 0 ? opts.input : '';
+}
+
+function buildOpenOverlayEvent(input: string): Event {
+  if (!input || typeof window.CustomEvent !== 'function') {
+    return new Event('flux-one-open');
+  }
+  return new CustomEvent('flux-one-open', { detail: { input } });
+}
+
 function getAdminBundleUrl(): string {
   const cfg: any = (window as any).fluxOneAdmin || {};
   if (typeof cfg.adminBundleUrl === 'string' && cfg.adminBundleUrl) {
@@ -99,13 +124,31 @@ function scheduleAdminBarHotkeyEnhancement(shortcutRaw: string) {
   setTimeout(run, 0);
 }
 
-async function openOverlay() {
+/**
+ * Open Command Bar, optionally prefilled with a canonical command string.
+ *
+ * @since 1.6.0
+ */
+export async function openOverlay(opts?: OpenOverlayOptions) {
+  const input = normalizePrefillInput(opts);
   // First open: allow the UI to see an “open requested” flag on mount.
   (window as any).__fluxOneOpenOnLoad = true;
+  if (input) {
+    (window as any).__fluxOneOpenPrefill = input;
+  }
   await loadMainBundle();
   // Subsequent opens: nudge already-mounted UI.
   try {
-    window.dispatchEvent(new Event('flux-one-open'));
+    window.dispatchEvent(buildOpenOverlayEvent(input));
+  } catch {
+    /* older browsers */
+  }
+}
+
+async function openCommandReference() {
+  await openOverlay();
+  try {
+    window.dispatchEvent(new Event('flux-one-open-commands'));
   } catch {
     /* older browsers */
   }
@@ -118,6 +161,9 @@ function init() {
       ? String((cfg.bootstrap as any).uiPrefs.commandShortcut)
       : 'mod+.';
   const effectiveShortcut = shortcutRaw && shortcutRaw.includes('mod+') ? shortcutRaw : 'mod+.';
+
+  window.fluxOneOpenOverlay = openOverlay;
+  window.fluxOneOpenCommandReference = openCommandReference;
 
   // Dashboard: widget needs UI immediately.
   const hasDashboardWidget = !!document.getElementById('flux-one-dashboard-widget-root');

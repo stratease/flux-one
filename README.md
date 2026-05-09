@@ -71,6 +71,10 @@ The dashboard widget shows up to **five** **recent admin pages** you have opened
 
 Flux One registers the shared **Flux Suite → License** page. **Flux Suite → Flux One** opens the plugin admin React app (`plugin-app.bundle.js`): **Overview** and **Settings** (HashRouter + shared `PageLayout` / `FluxAppProvider` from `flux-plugins-common`, same pattern as Flux Media Optimizer). The **Overview** tab shows **time saved** (estimated from per-user top-level command usage) as a bar chart via **`@mui/x-charts`**, a **Getting Started** welcome when there is no usage yet, and a right-column **`UpsellCard`** (from `flux-plugins-common`) when the suite license is invalid (same card as **Flux Suite → License**, with Flux One–specific bullet overrides). The **Open Command Bar** CTA dispatches the `flux-one-open` window event (same as the admin bar). Email aggregation options (capture on/off, suppress mail to self) are **per-user** where implemented: **`GET` / `PUT /flux-one/v1/settings`** reads and writes user meta (with legacy site options migrated on read). **Recent admin pages** in the dashboard widget use plain `<a href>` links; destinations are de-duplicated by normalized admin URL (including dashboard aliases). Outbound mail is logged via the **`wp_mail`** filter (`EmailEventLogger`); users who enable suppress-to-self have their addresses **stripped from To/Cc/Bcc** on a later **`wp_mail`** pass (`EmailMailPolicy`) so logs still reflect intended recipients while they skip receiving copies.
 
+The Overview time-saved hero reports "Across N commands" as the number of distinct command roots represented in the time-saved chart (roots with positive usage and a positive estimate), not total invocations.
+
+The Overview tab's **View all commands** CTA toggles an **inline** command reference panel inside the same left Overview card/Paper (no modal, no detached second paper, no global window event). The panel and the Command Bar overlay's `Command reference` modal both render the shared [`CommandsReferenceList`](assets/js/src/ui/CommandsReferenceList.tsx) component (plain HTML + class-based CSS, MUI-free) which is the SSOT for command reference markup, focus behaviour, and `filterCommandDocs(query)` wiring. The plugin app loads the Flux One theme tokens/styles around this surface so the shared command reference typography matches the overlay. This avoids the cross-bundle event-listener race that previously made the welcome card's button unreliable; `window.fluxOneOpenCommandReference` and the `flux-one-open-commands` event are retained only for the admin bar / external callers.
+
 ### Flux Services API integration (suite common)
 
 - **Base URL:** defaults to `https://api.fluxplugins.com`. Override site-wide in `wp-config.php` before plugins load: `FLUX_PLUGINS_COMMON_EXTERNAL_SERVICE_URL` (defined in bundled flux-plugins-common `includes/constants.php` when unset).
@@ -222,6 +226,7 @@ High-level rules for Command Bar and portaled modals. **Normative sources:** `as
 ### UX must-haves (Command Bar)
 
 - **Next step focus**: when an overlay or modal opens, it must focus the next-step control (usually the primary input) and select text where appropriate. No extra click required. The same principle applies when inline structured panels replace or augment the empty state below the command field—see **View transition focus** under the Command Bar style guide.
+- **Prefilled opens**: callers may use `window.fluxOneOpenOverlay({ input: 'nav ' })` or dispatch `new CustomEvent('flux-one-open', { detail: { input: 'nav ' } })` to open Command Bar with a canonical command prefix already in the input. The loader stores `input` across the async admin bundle load so plugin-app CTAs and Overview command chips work before `admin.bundle.js` has mounted.
 - **Standard modal close**: modals should have an X close affordance, close on outside click, and close on Escape; focus should return to the trigger/input that opened the modal.
 - **Running/busy operations**: show a single, consistent spinner notice whenever Command Bar is “busy” so operators always get feedback and the input can be safely disabled.
   - **Server commands**: `POST /command` uses React Query `useMutation` and drives the busy state via `commandMutation.isPending`; the label comes from the canonical executed command.
@@ -236,6 +241,21 @@ Inserted by PHP:
 - Overlay root: `#flux-one-command-central-root`
 - Dashboard widget root: `#flux-one-dashboard-widget-root`
 - **Flux Suite → Flux One** (Overview / Settings React app): `AdminController::render_settings_page()` outputs `<div class="wrap">` → **`<span class="wp-header-end"></span>`** → `#flux-one-plugin-app`. The `wp-header-end` marker is required so WordPress places admin notices (including Flux Suite license warnings) **above** the app shell; without it, notices can render inside the React `PageLayout` card.
+- Loader API: `admin-loader.bundle.js` exposes `window.fluxOneOpenOverlay({ input?: string })`. Optional `input` must be a canonical command prefix (usually with a trailing space) and is also supported by the `flux-one-open` `CustomEvent.detail.input` convention once the React overlay is mounted.
+
+### Dev-only UI design guide page
+
+Flux One includes a developer-only UI component design guide page inside the plugin app HashRouter.
+
+- Route: `admin.php?page=flux-one#/dev-ui`
+- Tab label: **Dev UI** (only visible when enabled).
+- Gate: enabled only when both `WP_DEBUG` and `SCRIPT_DEBUG` are true (aligned with dev bundle URL gating).
+- SSOT registry: `assets/js/src/admin/dev-ui/registry.tsx` lists each `assets/js/src/ui/` component by name + file and renders a live demo for styling/testing.
+
+Requirement:
+
+- Any new reusable UI component added under `assets/js/src/ui/` must also be added to `assets/js/src/admin/dev-ui/registry.tsx` with an example.
+- This is enforced by a unit test: `assets/js/src/admin/dev-ui/registryCompleteness.test.ts` (fails when a new `ui/` file exists without a registry entry).
 
 
 Entry:

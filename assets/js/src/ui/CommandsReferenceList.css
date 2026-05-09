@@ -1,0 +1,48 @@
+/* Command reference filter (shared by Command Bar overlay and Overview inline panel). */
+.flux-one-command-ref-search {
+  width: 100%;
+  box-sizing: border-box;
+  margin-bottom: var(--flux-one-space-3);
+  padding: var(--flux-one-space-3) var(--flux-one-space-4);
+  border-radius: var(--flux-one-radius-xs);
+  border: 1px solid var(--flux-one-color-border-strong);
+  font-size: var(--flux-one-font-size-base);
+}
+
+.flux-one-command-ref-row {
+  padding: var(--flux-one-space-3) 0;
+  border-bottom: 1px solid var(--flux-one-color-divider);
+  font-size: var(--flux-one-font-size-base);
+}
+
+.flux-one-command-ref-canonical {
+  font-weight: var(--flux-one-font-weight-normal);
+}
+
+.flux-one-command-ref-canonical--root {
+  font-weight: var(--flux-one-font-weight-semibold);
+}
+
+.flux-one-command-ref-summary {
+  opacity: var(--flux-one-opacity-secondary);
+  font-size: var(--flux-one-font-size-sm);
+  line-height: var(--flux-one-line-height-body);
+}
+
+.flux-one-command-ref-details {
+  opacity: var(--flux-one-opacity-tertiary);
+  font-size: var(--flux-one-font-size-sm);
+  line-height: var(--flux-one-line-height-body);
+  margin-top: var(--flux-one-space-1);
+}
+
+.flux-one-command-ref-aliases {
+  opacity: var(--flux-one-opacity-meta);
+  font-size: var(--flux-one-font-size-xs);
+  margin-top: var(--flux-one-space-1);
+}
+
+.flux-one-command-ref-empty {
+  opacity: var(--flux-one-opacity-muted-row);
+  font-size: var(--flux-one-font-size-base);
+}

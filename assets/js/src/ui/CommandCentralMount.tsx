@@ -6,11 +6,11 @@ import { getRouteTokens, getSuggestions, resolveNavDestinationUrl, type IndexDat
 import { recordCommandUsage } from '../admin/heartbeat';
 import { canonicalizeInput, getRootToken, parseInput } from '../command/normalize';
 import type { Suggestion } from '../command/types';
-import { filterCommandDocs } from '../command/commandDocs';
 import { interpretEnter, interpretSuggestionPick } from '../command/interpretEnter';
 import { getIntent } from '../command/intent';
 import { EmailAggregateView, type EmailAggregatePayload, type EmailSummaryMap } from './EmailAggregateView';
 import { FluxOneModal } from './FluxOneModal';
+import { CommandsReferenceList } from './CommandsReferenceList';
 import { CommandCentralHeader } from './command-central/CommandCentralHeader';
 import { RecentAdminPages } from './command-central/RecentAdminPages';
 import { StructuredListPanels } from './command-central/StructuredListPanels';
@@ -136,7 +136,19 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     const wantsOpen = typeof window !== 'undefined' && (window as any).__fluxOneOpenOnLoad === true;
     return wantsOpen;
   });
-  const [input, setInput] = useState('');
+  const [input, setInput] = useState(() => {
+    if (typeof window === 'undefined') return '';
+    const w = window as any;
+    const seed = typeof w.__fluxOneOpenPrefill === 'string' ? w.__fluxOneOpenPrefill : '';
+    if (seed) {
+      try {
+        delete w.__fluxOneOpenPrefill;
+      } catch {
+        /* ignore */
+      }
+    }
+    return seed;
+  });
   const [bootstrapped, setBootstrapped] = useState(false);
   const [bootstrapping, setBootstrapping] = useState(false);
   const [lastResult, setLastResult] = useState<CommandResponse | null>(null);
@@ -150,12 +162,15 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [activeSuggestion, setActiveSuggestion] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
   const commandsModalTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const commandsModalSearchRef = useRef<HTMLInputElement | null>(null);
   const aggregateEmailSearchRef = useRef<HTMLInputElement | null>(null);
   const dashboardFocusAppliedRef = useRef(false);
   const [selectedSuggestion, setSelectedSuggestion] = useState<Suggestion | null>(null);
+  /**
+   * @since 1.6.0 Search query state moved into the shared `CommandsReferenceList`
+   *              component so the Overview tab and Command Bar overlay reuse the
+   *              same SSOT markup + filter logic.
+   */
   const [commandsModalOpen, setCommandsModalOpen] = useState(false);
-  const [commandsHelpQuery, setCommandsHelpQuery] = useState('');
   const [aggregateEmailModalOpen, setAggregateEmailModalOpen] = useState(false);
   const [aggregateEmailDays, setAggregateEmailDays] = useState<number>(7);
   const [aggregateEmailQ, setAggregateEmailQ] = useState<string>('');
@@ -320,7 +335,25 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   useEffect(() => {
     if (kind !== 'overlay') return;
 
-    const open = () => openOverlay();
+    /**
+     * @since 1.6.0 Honor optional `detail.input` on the `flux-one-open`
+     *              CustomEvent so callers (e.g. Overview suggestion chips)
+     *              can prefill the Command Bar input on open.
+     */
+    const open = (e?: Event) => {
+      openOverlay();
+      const detail = (e as CustomEvent | undefined)?.detail as
+        | { input?: unknown }
+        | null
+        | undefined;
+      if (detail && typeof detail === 'object' && typeof detail.input === 'string' && detail.input.length > 0) {
+        setInput(detail.input);
+      }
+    };
+    const openCommands = () => {
+      openOverlay();
+      setCommandsModalOpen(true);
+    };
 
     const node = document.getElementById('wp-admin-bar-flux-one-command');
     const anchor = node?.querySelector('a');
@@ -331,10 +364,12 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
     anchor?.addEventListener('click', onClick);
     window.addEventListener('flux-one-open', open as EventListener);
+    window.addEventListener('flux-one-open-commands', openCommands as EventListener);
 
     return () => {
       anchor?.removeEventListener('click', onClick);
       window.removeEventListener('flux-one-open', open as EventListener);
+      window.removeEventListener('flux-one-open-commands', openCommands as EventListener);
     };
   }, [kind]);
 
@@ -1019,8 +1054,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     !!selectedSuggestion &&
     (commandRow.length > 0 || subcommandRow.length > 0);
 
-  const filteredCommandDocs = useMemo(() => filterCommandDocs(commandsHelpQuery), [commandsHelpQuery]);
-
   if (kind === 'overlay' && !isOpen) {
     return null;
   }
@@ -1690,37 +1723,9 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         open={commandsModalOpen}
         onClose={() => setCommandsModalOpen(false)}
         title="Command reference"
-        initialFocusRef={commandsModalSearchRef}
       >
-        <input
-          ref={commandsModalSearchRef}
-          type="search"
-          value={commandsHelpQuery}
-          onChange={(e) => setCommandsHelpQuery(e.currentTarget.value)}
-          placeholder="Filter…"
-          className="flux-one-command-ref-search"
-        />
-        <div className="flux-one-modal-doc-list">
-          {filteredCommandDocs.map((row) => (
-            <div key={row.canonical} className="flux-one-command-ref-row">
-              <div
-                className={
-                  row.kind === 'root'
-                    ? 'flux-one-command-ref-canonical flux-one-command-ref-canonical--root'
-                    : 'flux-one-command-ref-canonical'
-                }
-              >
-                {row.canonical}
-              </div>
-              <div className="flux-one-command-ref-summary">{row.summary}</div>
-              {row.details ? <div className="flux-one-command-ref-details">{row.details}</div> : null}
-              {row.aliases?.length ? (
-                <div className="flux-one-command-ref-aliases">Aliases: {row.aliases.join(', ')}</div>
-              ) : null}
-            </div>
-          ))}
-          {filteredCommandDocs.length === 0 ? <div className="flux-one-command-ref-empty">No matches.</div> : null}
-        </div>
+        {/* @since 1.6.0 Body delegated to shared CommandsReferenceList (SSOT). */}
+        {commandsModalOpen ? <CommandsReferenceList autoFocusSearch /> : null}
       </FluxOneModal>
     </div>
   );

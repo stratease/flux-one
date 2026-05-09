@@ -2,7 +2,7 @@ import React from 'react';
 import { BarChart } from '@mui/x-charts/BarChart';
 import { useTheme } from '@mui/material/styles';
 import { __, sprintf } from '@wordpress/i18n';
-import { formatDuration } from '../formatDuration';
+import { formatDurationLong, formatDurationShort } from '../formatDuration';
 
 export type OverviewBarChartProps = {
   counts: Record<string, number>;
@@ -10,6 +10,49 @@ export type OverviewBarChartProps = {
   rootLabels: Record<string, string>;
   totalSecondsSaved: number;
 };
+
+type ChartRow = {
+  root: string;
+  n: number;
+  seconds: number;
+  label: string;
+};
+
+function normalizePositiveInt(value: unknown): number {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
+}
+
+function isChartedCommand(count: number, seconds: number): boolean {
+  return count > 0 && seconds > 0;
+}
+
+function getChartRows(
+  counts: Record<string, number>,
+  estimatesSeconds: Record<string, number>,
+  rootLabels: Record<string, string> = {}
+): ChartRow[] {
+  return Object.entries(counts)
+    .map(([root, c]) => {
+      const n = normalizePositiveInt(c);
+      const per = normalizePositiveInt(estimatesSeconds[root]);
+      const seconds = n * per;
+      return { root, n, seconds, label: rootLabels[root] ?? root };
+    })
+    .filter((r) => isChartedCommand(r.n, r.seconds))
+    .sort((a, b) => b.seconds - a.seconds);
+}
+
+/**
+ * Count distinct command roots represented as bars in the Overview chart.
+ *
+ * @since 1.6.0
+ */
+export function countChartedCommands(
+  counts: Record<string, number>,
+  estimatesSeconds: Record<string, number>
+): number {
+  return getChartRows(counts, estimatesSeconds).length;
+}
 
 /**
  * Per-command time saved (seconds), sorted descending.
@@ -24,15 +67,7 @@ export function OverviewBarChart({
 }: OverviewBarChartProps) {
   const theme = useTheme();
 
-  const rows = Object.entries(counts)
-    .map(([root, c]) => {
-      const n = typeof c === 'number' && c > 0 ? Math.floor(c) : 0;
-      const per = estimatesSeconds[root] ?? 0;
-      const seconds = n * per;
-      return { root, n, seconds, label: rootLabels[root] ?? root };
-    })
-    .filter((r) => r.n > 0 && r.seconds > 0)
-    .sort((a, b) => b.seconds - a.seconds);
+  const rows = getChartRows(counts, estimatesSeconds, rootLabels);
 
   if (rows.length === 0) {
     return null;
@@ -43,7 +78,7 @@ export function OverviewBarChart({
   const ariaSummary = sprintf(
     /* translators: %s: Human-readable duration. */
     __('Time saved chart. Total about %s.', 'flux-one'),
-    formatDuration(totalSecondsSaved)
+    formatDurationLong(totalSecondsSaved)
   );
 
   return (
@@ -58,11 +93,17 @@ export function OverviewBarChart({
             scaleType: 'band',
           },
         ]}
+        yAxis={[
+          {
+            valueFormatter: (v: any) => formatDurationShort(Number(v) || 0),
+          },
+        ]}
         series={[
           {
             id: 'seconds',
-            label: __('Seconds saved', 'flux-one'),
+            label: __('Time saved', 'flux-one'),
             data: values,
+            valueFormatter: (v: any) => formatDurationShort(Number(v) || 0),
           },
         ]}
         margin={{ top: 24, bottom: 40, left: 48, right: 12 }}

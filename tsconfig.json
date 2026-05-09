@@ -15,6 +15,6 @@
       "@flux-one/*": ["assets/js/src/*"]
     }
   },
-  "include": ["assets/js/src/**/*.ts", "assets/js/src/**/*.tsx"]
+  "include": ["assets/js/src/**/*.ts", "assets/js/src/**/*.tsx", "assets/js/src/**/*.d.ts"]
 }
 

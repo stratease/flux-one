@@ -6,6 +6,7 @@ import { __ } from '@wordpress/i18n';
 import { FluxAppProvider, PageLayout } from '@flux-plugins-common/components';
 import { OverviewPage } from './pages/OverviewPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { DevUiPage } from './dev-ui/DevUiPage';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,11 +21,27 @@ function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const tabIndex =
-    location.pathname === '/settings' ? 1 : 0;
+  const isDev =
+    typeof window !== 'undefined' && (window as any).fluxOneAdmin?.isDev === true;
+
+  const tabIndex = (() => {
+    if (location.pathname === '/settings') return 1;
+    if (location.pathname === '/dev-ui' && isDev) return 2;
+    return 0;
+  })();
 
   const handleChange = (_: React.SyntheticEvent, newValue: number) => {
-    navigate(newValue === 0 ? '/overview' : '/settings');
+    if (newValue === 0) {
+      navigate('/overview');
+      return;
+    }
+    if (newValue === 1) {
+      navigate('/settings');
+      return;
+    }
+    if (newValue === 2 && isDev) {
+      navigate('/dev-ui');
+    }
   };
 
   return (
@@ -32,6 +49,7 @@ function Navigation() {
       <Tabs value={tabIndex} onChange={handleChange} aria-label={__('Flux One navigation', 'flux-one')}>
         <Tab label={__('Overview', 'flux-one')} />
         <Tab label={__('Settings', 'flux-one')} />
+        {isDev ? <Tab label={__('Dev UI', 'flux-one')} /> : null}
       </Tabs>
     </Box>
   );
@@ -44,6 +62,7 @@ function AppRoutes() {
       <Routes>
         <Route path="/overview" element={<OverviewPage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/dev-ui" element={<DevUiPage />} />
         <Route path="/" element={<Navigate to="/overview" replace />} />
       </Routes>
     </>
