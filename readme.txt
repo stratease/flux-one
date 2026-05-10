@@ -4,7 +4,7 @@ Tags: command bar, command palette, admin productivity, streamline, wp-admin
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.6.0
+Stable tag: 1.6.1
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -150,6 +150,9 @@ Flux One may communicate with the Flux Plugins API for license validation, licen
 
 == Changelog ==
 
+= 1.6.1 =
+* The command reference was not always displaying.
+
 = 1.6.0 =
 * Added some help and onboarding for the Overview page.
 
@@ -157,11 +160,8 @@ Flux One may communicate with the Flux Plugins API for license validation, licen
 * Lots of UI cleanup.
 * Removed `site` command for future release.
 
-= 1.4.2 =
-* Some UX improvements on config and fixed some entity search bugs.
-
 
 == Upgrade Notice ==
 
-= 1.3.0 =
-Improves the email aggregate and summary experience with better sorting, tested API integration, and clearer operational review workflows.
+= 1.6.0 =
+Adds Overview onboarding help; see changelog for prior releases.

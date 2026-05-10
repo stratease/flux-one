@@ -34,12 +34,12 @@ class AdminController {
 	 * Initialize admin hooks.
 	 *
 	 * @since 0.1.0
+	 * @since 1.6.1 Removed post-activation Overview redirect.
 	 * @return void
 	 */
 	public function init() {
 		add_action( 'init', [ $this, 'register_menu' ], 1 );
 		add_action( 'init', [ $this, 'register_flux_suite_pages' ], 10 );
-		add_action( 'admin_init', [ $this, 'maybe_redirect_after_activation' ] );
 		AdminVisitRecorder::register();
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_scripts' ] );
 		add_action( 'admin_bar_menu', [ $this, 'register_admin_bar' ], 100 );
@@ -94,35 +94,6 @@ class AdminController {
 			'<div class="wrap flux-one-plugin-admin-wrap"><span class="wp-header-end"></span><div id="flux-one-plugin-app" class="flux-one-plugin-app" data-initial-hash="%s"></div></div>',
 			esc_attr( '#/overview' )
 		);
-	}
-
-	/**
-	 * After first activation, redirect activating user to Overview once.
-	 *
-	 * @since 1.6.0
-	 * @return void
-	 */
-	public function maybe_redirect_after_activation() {
-		if ( ! is_admin() || ! current_user_can( 'manage_options' ) ) {
-			return;
-		}
-
-		if ( is_network_admin() || isset( $_GET['activate-multi'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-			return;
-		}
-
-		$flag_user = (int) get_option( '_flux_one_activation_redirect_user', 0 );
-		$user_id   = (int) get_current_user_id();
-
-		if ( ! $flag_user || ! $user_id || $flag_user !== $user_id ) {
-			return;
-		}
-
-		delete_option( '_flux_one_activation_redirect_user' );
-
-		$target = admin_url( 'admin.php?page=flux-one#/overview' );
-		wp_safe_redirect( $target );
-		exit;
 	}
 
 	/**

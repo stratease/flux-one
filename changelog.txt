@@ -1,3 +1,6 @@
+= 1.6.1 =
+* The command reference was not always displaying.
+
 = 1.6.0 =
 * Added some help and onboarding for the Overview page.
 

@@ -3,7 +3,7 @@
  * Plugin Name: Flux One - Command Bar by Flux Plugins
  * Plugin URI: https://fluxplugins.com/flux-one
  * Description: Command-driven control panel for WordPress admin (command palette, dashboard widget, and operational actions).
- * Version: 1.6.0
+ * Version: 1.6.1
  * Author: Flux Plugins
  * Author URI: https://fluxplugins.com
  * License: GPL-2.0-or-later
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'FLUX_ONE_VERSION', '1.6.0' );
+define( 'FLUX_ONE_VERSION', '1.6.1' );
 define( 'FLUX_ONE_PLUGIN_FILE', __FILE__ );
 define( 'FLUX_ONE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'FLUX_ONE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -126,7 +126,7 @@ register_deactivation_hook( __FILE__, 'flux_one_deactivate' );
  * Plugin activation handler.
  *
  * @since 0.1.0
- * @since 1.6.0 Store one-time Overview redirect flag.
+ * @since 1.6.1 Removed post-activation redirect to Overview (WordPress.org guideline alignment).
  * @param bool $network_wide Whether activating network-wide (multisite).
  * @return void
  */
@@ -139,15 +139,6 @@ function flux_one_activate( $network_wide = false ) {
 	Database::create_tables();
 	// v1 retention originally scheduled a daily cleanup; email events are now retained until explicitly deleted.
 	CleanupService::clear_schedule();
-
-	if ( $network_wide || is_network_admin() || isset( $_GET['activate-multi'] ) ) { // phpcs:ignore WordPress.Security.NonceVerification.Recommended
-		return;
-	}
-
-	$user_id = get_current_user_id();
-	if ( $user_id ) {
-		update_option( '_flux_one_activation_redirect_user', (int) $user_id, false );
-	}
 }
 
 /**
