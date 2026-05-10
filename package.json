@@ -1,7 +1,7 @@
 {
   "name": "flux-one-admin",
-  "version": "1.6.1",
-  "description": "Flux One - Command Bar by Flux Plugins (admin UI)",
+  "version": "1.6.2",
+  "description": "Flux One - Command Bar (admin UI)",
   "private": true,
   "scripts": {
     "validate:docs": "node scripts/validate-docs-triangle.js",

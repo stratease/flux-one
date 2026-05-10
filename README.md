@@ -1,6 +1,6 @@
 # Flux One — Command Bar (v1)
 
-**Plugin Name (wp-admin):** Flux One - Command Bar by Flux Plugins  
+**Plugin Name:** Flux One - Command Bar  
 **Slug / folder / text-domain:** `flux-one`  
 **Primary goal:** Provide a command-driven control layer in wp-admin (admin bar command palette + dashboard widget) to run common operational tasks quickly.
 

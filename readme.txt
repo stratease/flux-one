@@ -1,10 +1,10 @@
-=== Flux One - Command Bar by Flux Plugins ===
+=== Flux One - Command Bar ===
 Contributors: edaniels
 Tags: command bar, command palette, admin productivity, streamline, wp-admin
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.6.1
+Stable tag: 1.6.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
