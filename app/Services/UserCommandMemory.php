@@ -14,7 +14,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 /**
- * Stores recent commands, pins, frequent entities, and last site context.
+ * Stores recent commands, pins, and frequent entities.
  *
  * @since 0.1.0
  */
@@ -45,7 +45,6 @@ class UserCommandMemory {
 				'recent_navigations'     => [],
 				'pinned_commands'        => [],
 				'frequent_entities'      => [],
-				'last_site_context'      => '',
 				'command_usage_counts'   => [],
 			]
 		);
@@ -148,7 +147,7 @@ class UserCommandMemory {
 			}
 			$label = isset( $row['label'] ) && is_string( $row['label'] ) && $row['label'] !== ''
 				? $row['label']
-				: ( $cmd !== '' ? $cmd : __( 'Admin', 'flux-one' ) );
+				: ( $cmd !== '' ? $cmd : __( 'Admin', 'flux-one-command-bar' ) );
 
 			$item = [
 				'label' => $label,
@@ -180,7 +179,7 @@ class UserCommandMemory {
 
 		$label = trim( (string) $label );
 		if ( '' === $label ) {
-			$label = __( 'Admin', 'flux-one' );
+			$label = __( 'Admin', 'flux-one-command-bar' );
 		}
 
 		$command = null !== $command ? trim( (string) $command ) : '';
@@ -375,7 +374,7 @@ class UserCommandMemory {
 			)
 		);
 		if ( empty( $labels ) ) {
-			return __( 'Admin', 'flux-one' );
+			return __( 'Admin', 'flux-one-command-bar' );
 		}
 		$best       = $labels[0];
 		$best_score = -1.0;
@@ -502,19 +501,6 @@ class UserCommandMemory {
 		$recent = array_slice( $recent, 0, 50 );
 
 		$mem['recent_commands'] = $recent;
-		$this->save( $mem );
-	}
-
-	/**
-	 * Set last multisite context blog id.
-	 *
-	 * @since 0.1.0
-	 * @param int $blog_id Blog id.
-	 * @return void
-	 */
-	public function set_last_site_context( $blog_id ) {
-		$mem = $this->get();
-		$mem['last_site_context'] = (string) (int) $blog_id;
 		$this->save( $mem );
 	}
 

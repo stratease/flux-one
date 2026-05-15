@@ -77,7 +77,7 @@ export function OverviewBarChart({
   const values = rows.map((r) => r.seconds);
   const ariaSummary = sprintf(
     /* translators: %s: Human-readable duration. */
-    __('Time saved chart. Total about %s.', 'flux-one'),
+    __('Time saved chart. Total about %s.', 'flux-one-command-bar'),
     formatDurationLong(totalSecondsSaved)
   );
 
@@ -101,7 +101,7 @@ export function OverviewBarChart({
         series={[
           {
             id: 'seconds',
-            label: __('Time saved', 'flux-one'),
+            label: __('Time saved', 'flux-one-command-bar'),
             data: values,
             valueFormatter: (v: any) => formatDurationShort(Number(v) || 0),
           },

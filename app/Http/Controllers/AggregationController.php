@@ -154,7 +154,7 @@ class AggregationController extends BaseController {
 
 		$report['summaries'] = $this->cached_summaries_for_visible_events( $report );
 
-		return $this->create_success_response( $report, __( 'Email aggregation.', 'flux-one' ) );
+		return $this->create_success_response( $report, __( 'Email aggregation.', 'flux-one-command-bar' ) );
 	}
 
 	/**
@@ -213,7 +213,7 @@ class AggregationController extends BaseController {
 	}
 
 	/**
-	 * AI summary for email aggregation (feature-gated).
+	 * AI summary for email aggregation.
 	 *
 	 * @since 0.1.0
 	 * @since 1.3.0 Expects JSON `{ "event_ids": [1,2,...] }` (1..25); uses Flux API for uncached IDs.

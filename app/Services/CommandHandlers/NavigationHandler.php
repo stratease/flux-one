@@ -37,7 +37,7 @@ class NavigationHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'nav',
-				'message' => __( 'Try e.g. nav plugins or nav dashboard.', 'flux-one' ),
+				'message' => __( 'Try e.g. nav plugins or nav dashboard.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -46,7 +46,7 @@ class NavigationHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'nav ' . $query,
-				'message' => __( 'No matching admin screen.', 'flux-one' ),
+				'message' => __( 'No matching admin screen.', 'flux-one-command-bar' ),
 			];
 		}
 

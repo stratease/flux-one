@@ -35,6 +35,7 @@ class AdminController {
 	 *
 	 * @since 0.1.0
 	 * @since 1.6.1 Removed post-activation Overview redirect.
+	 * @since 1.6.3 Front-end `wp_enqueue_scripts` / `wp_footer` for Command Bar when user has `manage_options`.
 	 * @return void
 	 */
 	public function init() {
@@ -42,8 +43,10 @@ class AdminController {
 		add_action( 'init', [ $this, 'register_flux_suite_pages' ], 10 );
 		AdminVisitRecorder::register();
 		add_action( 'admin_enqueue_scripts', [ $this, 'enqueue_admin_scripts' ] );
+		add_action( 'wp_enqueue_scripts', [ $this, 'enqueue_frontend_command_bar' ] );
 		add_action( 'admin_bar_menu', [ $this, 'register_admin_bar' ], 100 );
 		add_action( 'admin_footer', [ $this, 'render_overlay_mount' ] );
+		add_action( 'wp_footer', [ $this, 'maybe_render_overlay_mount_front' ], 20 );
 		add_action( 'wp_dashboard_setup', [ $this, 'register_dashboard_widget' ] );
 		add_action( 'wp_dashboard_setup', [ $this, 'maybe_apply_default_dashboard_widget_order' ], 999 );
 	}
@@ -75,7 +78,7 @@ class AdminController {
 
 		$menu_service->register_submenu_page(
 			'flux-one',
-			__( 'Flux One', 'flux-one' ),
+			__( 'Flux One', 'flux-one-command-bar' ),
 			[ $this, 'render_settings_page' ],
 			'manage_options',
 			5
@@ -104,7 +107,37 @@ class AdminController {
 	 * @return void
 	 */
 	public function enqueue_admin_scripts( $hook ) {
-		$handle = 'flux-one-admin';
+		$hook = is_string( $hook ) ? $hook : '';
+		$this->enqueue_command_bar_assets( $hook );
+	}
+
+	/**
+	 * Enqueue Command Bar loader on the public site for operators who match REST capability.
+	 *
+	 * @since 1.6.3
+	 * @return void
+	 */
+	public function enqueue_frontend_command_bar() {
+		if ( is_admin() ) {
+			return;
+		}
+
+		if ( ! is_user_logged_in() || ! current_user_can( 'manage_options' ) ) {
+			return;
+		}
+
+		$this->enqueue_command_bar_assets( null );
+	}
+
+	/**
+	 * Shared loader, localization, and admin-bar hotkey styles; optionally enqueues plugin app on Flux One admin screen.
+	 *
+	 * @since 1.6.3 Extracted from enqueue_admin_scripts; supports front (null hook) vs admin.
+	 * @param string|null $admin_hook Current admin screen hook suffix, or null on the front.
+	 * @return void
+	 */
+	private function enqueue_command_bar_assets( ?string $admin_hook ) {
+		$handle     = 'flux-one-admin';
 		$script_url = $this->get_loader_script_url();
 
 		wp_enqueue_script(
@@ -122,9 +155,9 @@ class AdminController {
 			? array_keys( get_editable_roles() )
 			: [];
 
-		$versions = ( new CacheVersionService() )->get_versions();
-		$memory   = new UserCommandMemory();
-		$license  = LicenseService::get_instance();
+		$versions      = ( new CacheVersionService() )->get_versions();
+		$memory        = new UserCommandMemory();
+		$license       = LicenseService::get_instance();
 		$license_valid = (bool) $license->is_license_valid();
 
 		$bootstrap = [
@@ -134,7 +167,6 @@ class AdminController {
 				'plugins'        => [ 'enabled' => true ],
 				'users'          => [ 'enabled' => true ],
 				'menus'          => [ 'enabled' => true ],
-				'multisite'       => [ 'enabled' => is_multisite() ],
 				'aggregateEmail'  => [ 'enabled' => true ],
 				'summaryEmail'    => [ 'enabled' => $license_valid ],
 				'navigation'      => [ 'enabled' => true ],
@@ -191,7 +223,7 @@ class AdminController {
 			'#wpadminbar #wp-admin-bar-flux-one-command .flux-one-admin-bar-hotkey{font-size:.85em;font-weight:400;opacity:.82;color:#c3c4c7}'
 		);
 
-		if ( $hook === 'flux-suite_page_flux-one' ) {
+		if ( is_string( $admin_hook ) && $admin_hook === 'flux-suite_page_flux-one' ) {
 			$this->enqueue_plugin_app_scripts();
 		}
 	}
@@ -279,7 +311,7 @@ class AdminController {
 			],
 		];
 		$title_html = wp_kses(
-			esc_html__( 'Flux One', 'flux-one' )
+			esc_html__( 'Flux One', 'flux-one-command-bar' )
 				. ' <span class="flux-one-admin-bar-hotkey"><span class="flux-one-admin-bar-hotkey-inner">'
 				. esc_html( $paren )
 				. '</span></span>',
@@ -294,7 +326,7 @@ class AdminController {
 				'meta'  => [
 					'title' => sprintf(
 						/* translators: %s: Keyboard shortcut e.g. (Ctrl+.) */
-						__( 'Open Flux One %s', 'flux-one' ),
+						__( 'Open Flux One %s', 'flux-one-command-bar' ),
 						$paren
 					),
 				],
@@ -303,7 +335,7 @@ class AdminController {
 	}
 
 	/**
-	 * Render overlay mount container.
+	 * Render overlay mount container (wp-admin footer).
 	 *
 	 * @since 0.1.0
 	 * @return void
@@ -313,6 +345,20 @@ class AdminController {
 			return;
 		}
 		echo '<div id="flux-one-command-central-root"></div>';
+	}
+
+	/**
+	 * Render overlay mount on the front only so it is not duplicated with admin_footer.
+	 *
+	 * @since 1.6.3
+	 * @return void
+	 */
+	public function maybe_render_overlay_mount_front() {
+		if ( is_admin() ) {
+			return;
+		}
+
+		$this->render_overlay_mount();
 	}
 
 	/**
@@ -329,7 +375,7 @@ class AdminController {
 
 		wp_add_dashboard_widget(
 			'flux_one_command_central_widget',
-			esc_html__( 'Flux One', 'flux-one' ),
+			esc_html__( 'Flux One', 'flux-one-command-bar' ),
 			[ $this, 'render_dashboard_widget' ]
 		);
 	}

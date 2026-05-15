@@ -30,6 +30,7 @@ class CommandRouter {
 	 * Handle a command input.
 	 *
 	 * @since 0.1.0
+	 * @since 1.6.3 Internationalized empty-command and unknown-command error messages; removed `site` command routing (unknown root).
 	 * @param string $input Raw input.
 	 * @return array
 	 */
@@ -46,7 +47,8 @@ class CommandRouter {
 			return [
 				'type'    => 'error',
 				'command' => '',
-				'message' => 'Empty command.',
+				/* translators: Command Bar error when input is empty. */
+				'message' => __( 'Empty command.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -77,17 +79,6 @@ class CommandRouter {
 		// Users (`users` → `user` except `users lock|unlock` rewritten earlier).
 		if ( 'user' === ( $tokens[0] ?? '' ) ) {
 			return ( new UsersHandler() )->handle( array_slice( $tokens, 1 ) );
-		}
-
-		// Multisite (`sites` → `site` in canonicalize_tokens).
-		if ( 'site' === ( $tokens[0] ?? '' ) ) {
-			// @since 1.4.3 Site commands temporarily disabled.
-			return [
-				'type'    => 'error',
-				'command' => implode( ' ', $tokens ),
-				/* translators: 1: Example command. */
-				'message' => sprintf( __( 'Site commands are currently disabled. Planned feature: %s', 'flux-one' ), 'site list' ),
-			];
 		}
 
 		// Aggregates.
@@ -156,7 +147,8 @@ class CommandRouter {
 		return [
 			'type'    => 'error',
 			'command' => implode( ' ', $tokens ),
-			'message' => 'Unknown command.',
+			/* translators: Command Bar error when no handler matches the input. */
+			'message' => __( 'Unknown command.', 'flux-one-command-bar' ),
 		];
 	}
 
@@ -178,6 +170,7 @@ class CommandRouter {
 	 *
 	 * @since 0.1.0
 	 * @since 1.4.0 Maps `menu show` to `menu list`.
+	 * @since 1.6.3 Removed `sites` → `site` alias (site command removed).
 	 * @param array $tokens Tokens.
 	 * @return array
 	 */
@@ -219,9 +212,6 @@ class CommandRouter {
 		}
 		if ( 'users' === ( $tokens[0] ?? '' ) ) {
 			$tokens[0] = 'user';
-		}
-		if ( 'sites' === ( $tokens[0] ?? '' ) ) {
-			$tokens[0] = 'site';
 		}
 
 		// "menu show" => "menu list" (alias; matches client normalize.ts).

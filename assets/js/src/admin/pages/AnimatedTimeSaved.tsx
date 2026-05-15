@@ -97,7 +97,7 @@ export function AnimatedTimeSaved({
       <Typography variant="h5" component="h2">
         {sprintf(
           /* translators: %s: Duration such as 2h 15m. */
-          __("You've saved %s", 'flux-one'),
+          __("You've saved %s", 'flux-one-command-bar'),
           formatDurationLong(shownSeconds)
         )}
       </Typography>
@@ -110,7 +110,7 @@ export function AnimatedTimeSaved({
         <Typography variant="body2" color="text.secondary">
           {sprintf(
             /* translators: %d: Distinct command roots shown in the time-saved chart. */
-            _n('Across %d command', 'Across %d commands', commandCount, 'flux-one'),
+            _n('Across %d command', 'Across %d commands', commandCount, 'flux-one-command-bar'),
             commandCount
           )}
         </Typography>

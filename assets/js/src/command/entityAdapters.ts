@@ -3,7 +3,6 @@ import type { Suggestion } from './types';
 
 type PluginRow = { name: string; pluginFile: string; active?: boolean; version?: string; updateAvailable?: boolean };
 type UserRow = { id: number; email: string; displayName?: string; login?: string };
-type SiteRow = { blogId: number; domain: string; path: string };
 type DestinationRow = { id: string; label: string; value: string; url: string; searchText?: string; pathLabels: string[] };
 type MenuRow = { id: number; name: string; slug?: string };
 type ConfigKeyRow = {
@@ -17,20 +16,30 @@ type ConfigKeyRow = {
   choices?: string[];
 };
 type ConfigValueRow = { id: string; value: string; label?: string; searchText?: string };
-type ContentRow = { id: number; postType: 'post' | 'page'; title: string; slug: string; editUrl: string; searchText?: string };
+type ContentRow = {
+  id: number;
+  postType: 'post' | 'page';
+  title: string;
+  slug: string;
+  editUrl: string;
+  /** Front URL from REST (`IndexController::content`); falls back to `editUrl` if missing. */
+  viewUrl?: string;
+  searchText?: string;
+};
 
 export const pluginAdapter: EntityAdapter<PluginRow> = {
   entityType: 'plugin',
   getId: (p) => p.pluginFile,
   getLabel: (p) => `${p.name}${p.updateAvailable ? ' (update available)' : ''}${p.active ? ' (active)' : ''}`,
-  getValue: (p) => p.name,
-  getSearchText: (p) => `${p.pluginFile} ${p.version || ''}`,
+  /** Stable tail for server `resolve_plugin_file` (matches plugin header `Name` in suggest overrides). */
+  getValue: (p) => p.pluginFile,
+  getSearchText: (p) => `${p.name} ${p.pluginFile} ${p.version || ''}`,
   toSuggestion: (p) => ({
     id: `plugin.${p.pluginFile}`,
     kind: 'entity',
     entityType: 'plugin',
     label: `${p.name}${p.active ? ' (active)' : ''}`,
-    value: p.name,
+    value: p.pluginFile,
   }),
   rankBoost: (p, ctx) => {
     const q = ctx.query;
@@ -63,21 +72,6 @@ export const userAdapter: EntityAdapter<UserRow> = {
     if (em.startsWith(q)) return 0.4;
     return 0;
   },
-};
-
-export const siteAdapter: EntityAdapter<SiteRow> = {
-  entityType: 'site',
-  getId: (s) => String(s.blogId),
-  getLabel: (s) => `${s.domain}${s.path}`,
-  getValue: (s) => `${s.domain}${s.path}`,
-  getSearchText: (s) => `${s.blogId}`,
-  toSuggestion: (s) => ({
-    id: `site.${s.blogId}`,
-    kind: 'entity',
-    entityType: 'site',
-    label: `${s.domain}${s.path}`,
-    value: `${s.domain}${s.path}`,
-  }),
 };
 
 export const destinationAdapter: EntityAdapter<DestinationRow> = {
@@ -149,7 +143,7 @@ export function makeEditContentAdapter(opts: {
     getValue: (r) => `edit ${typedSub} ${String(r.title || '').trim()}`,
     getSearchText: (r) => `${r.slug || ''} ${r.searchText || ''}`,
     getPathLabels: (r) =>
-      kind === 'any' ? [r.postType === 'page' ? 'Page' : 'Post', String(r.title || '(no title)')] : undefined,
+      kind === 'any' ? [r.postType === 'page' ? 'Page' : 'Post', String(r.title || '(no title)')] : [],
     toSuggestion: (r, ctx) => ({
       id: `edit.${r.postType}.${r.id}`,
       kind: 'entity',
@@ -161,6 +155,52 @@ export function makeEditContentAdapter(opts: {
       clientAction: 'nav',
       navUrl: r.editUrl,
     }),
+    rankBoost: (r, ctx) => {
+      const q = ctx.query;
+      if (!q) return 0;
+      const title = String(r.title || '').toLowerCase();
+      const slug = String(r.slug || '').toLowerCase();
+      if (q === title || q === slug) return 0.8;
+      if (title.startsWith(q) || slug.startsWith(q)) return 0.45;
+      return 0;
+    },
+  };
+}
+
+/**
+ * Same search rows as {@link makeEditContentAdapter}; navigates to public `viewUrl` (or `editUrl` fallback).
+ *
+ * @since 1.6.3
+ */
+export function makePublicContentAdapter(opts: {
+  kind: 'any' | 'post' | 'page';
+  typedSub: 'p' | 'post' | 'page';
+}): EntityAdapter<ContentRow> {
+  const { kind, typedSub } = opts;
+  return {
+    entityType: 'content',
+    hasHierarchy: kind === 'any',
+    getId: (r) => String(r.id),
+    getLabel: (r) => String(r.title || '(no title)'),
+    getValue: (r) => `pnav ${typedSub} ${String(r.title || '').trim()}`,
+    getSearchText: (r) => `${r.slug || ''} ${r.searchText || ''}`,
+    getPathLabels: (r) =>
+      kind === 'any' ? [r.postType === 'page' ? 'Page' : 'Post', String(r.title || '(no title)')] : [],
+    toSuggestion: (r, ctx) => {
+      const view =
+        typeof r.viewUrl === 'string' && r.viewUrl.trim() !== '' ? r.viewUrl.trim() : String(r.editUrl || '').trim();
+      return {
+        id: `pnav.${r.postType}.${r.id}`,
+        kind: 'entity',
+        entityType: 'content',
+        label: String(r.title || '(no title)'),
+        displayLabel: kind === 'any' ? ctx.displayLabel : undefined,
+        pathLabels: kind === 'any' ? ctx.pathLabels : undefined,
+        value: `pnav ${typedSub} ${String(r.title || '').trim()}`,
+        clientAction: 'nav',
+        navUrl: view,
+      };
+    },
     rankBoost: (r, ctx) => {
       const q = ctx.query;
       if (!q) return 0;
@@ -232,7 +272,6 @@ export const ENTITY_ADAPTERS: EntityAdapterMap = {
   plugin: pluginAdapter,
   user: userAdapter,
   menu: menuShowAdapter,
-  site: siteAdapter,
   destination: destinationAdapter,
   content: makeEditContentAdapter({ kind: 'any', typedSub: 'p' }),
   configKey: configKeyAdapter,

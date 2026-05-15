@@ -24,10 +24,12 @@ final class CommandUsageEstimates {
 	 * Balanced estimates (seconds per successful run).
 	 *
 	 * @since 1.6.0
+	 * @since 1.6.3 Adds `pnav` (same estimate as `nav`).
 	 * @var array<string, int>
 	 */
 	private const SECONDS_PER_ROOT = [
 		'nav'       => 5,
+		'pnav'      => 5,
 		'edit'      => 8,
 		'plugin'    => 15,
 		'user'      => 20,

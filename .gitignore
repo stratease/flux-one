@@ -3,3 +3,6 @@ vendor-prefixed
 wporg
 node_modules
 src/assets/common/js/dist/*
+
+# Local release zips (also excluded from WordPress.org rsync via flux-plugins-common).
+/*.zip

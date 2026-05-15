@@ -1,6 +1,6 @@
 <?php
 /**
- * AI summary service (feature-gated).
+ * AI summary service.
  *
  * @package FluxOne
  * @since 0.1.0

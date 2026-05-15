@@ -90,7 +90,7 @@ class EmailSummariesApiClient {
 					'ok'            => false,
 					'http_status'   => null,
 					'body'          => null,
-					'error_message' => __( 'Compatibility check failed. Please update Flux One.', 'flux-one' ),
+					'error_message' => __( 'Compatibility check failed. Please update Flux One.', 'flux-one-command-bar' ),
 				];
 			}
 		}
@@ -108,7 +108,7 @@ class EmailSummariesApiClient {
 				'ok'            => false,
 				'http_status'   => null,
 				'body'          => null,
-				'error_message' => __( 'Account ID not available.', 'flux-one' ),
+				'error_message' => __( 'Account ID not available.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -122,7 +122,7 @@ class EmailSummariesApiClient {
 
 		if ( empty( $result['success'] ) ) {
 			$code = isset( $result['status_code'] ) ? (int) $result['status_code'] : null;
-			$msg  = isset( $result['message'] ) ? (string) $result['message'] : __( 'Email summarization request failed.', 'flux-one' );
+			$msg  = isset( $result['message'] ) ? (string) $result['message'] : __( 'Email summarization request failed.', 'flux-one-command-bar' );
 			$err  = isset( $result['error'] ) ? (string) $result['error'] : '';
 			$this->logger->warning(
 				'Email summaries API request failed.',
@@ -157,7 +157,7 @@ class EmailSummariesApiClient {
 				'ok'            => false,
 				'http_status'   => 200,
 				'body'          => null,
-				'error_message' => __( 'Invalid response from summarization service.', 'flux-one' ),
+				'error_message' => __( 'Invalid response from summarization service.', 'flux-one-command-bar' ),
 			];
 		}
 

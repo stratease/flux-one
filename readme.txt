@@ -4,7 +4,7 @@ Tags: command bar, command palette, admin productivity, streamline, wp-admin
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.6.2
+Stable tag: 1.6.3
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -34,7 +34,7 @@ Instead of navigating through multiple admin screens, open the Flux One command 
 * Command-style access to supported WordPress actions
 * Cleaner workflow for repetitive site-management tasks
 * Email aggregate and summary screen
-* Optional AI-powered email summaries with urgent and important items surfaced first
+* Optional AI-powered email summaries (Flux-connected processing when integrated) with urgent and important items surfaced first
 * Designed for agencies, power users, and day-to-day site operators
 
 = Example workflows =
@@ -52,7 +52,7 @@ Flux One is designed for common admin tasks such as:
 
 Flux One includes an email aggregate and summary interface.
 
-With a valid Flux Suite license, Flux One can summarize captured outbound email content into a clearer operational view, with urgent and important action items prioritized above the full summary.
+With an active Flux Suite connection, Flux One can send captured outbound email content to Flux-hosted services for summarization into a clearer operational view, with urgent and important action items prioritized above the full summary. That processing runs on Flux infrastructure, not entirely inside the plugin.
 
 This is useful for site owners and agencies who want better visibility into what their WordPress site is sending and which items may need attention.
 
@@ -64,7 +64,7 @@ It is built for normal WordPress admin workflows where speed, clarity, and fewer
 
 = Flux Suite =
 
-Flux One can connect with Flux Suite for licensed features such as AI-powered summaries and future Flux workflow enhancements.
+Flux One can connect with Flux Suite to use Flux-hosted capabilities such as AI-powered summaries and future Flux workflow enhancements.
 
 The core plugin provides command and dashboard workflow functionality. Licensed Flux Suite features add advanced intelligence and summarization capabilities.
 
@@ -75,19 +75,19 @@ This plugin bundles third-party libraries in the distributed build. Exact conten
 Bundled libraries include:
 
 * WooCommerce Action Scheduler (`vendor/woocommerce/action-scheduler/`) — GPLv3 compatible. See included library license/readme.
-* Monolog (`vendor-prefixed/monolog/monolog/` and/or `vendor/monolog/monolog/`) — MIT License.
-* PSR-3 Logger Interface (`vendor-prefixed/psr/log/` and/or `vendor/psr/log/`) — MIT License.
 * Flux Plugins Common (Strauss-prefixed) (`vendor-prefixed/stratease/flux-plugins-common/` and/or `vendor/stratease/flux-plugins-common/`) — license as included with the library.
 
 = External services =
 
-Flux One includes a shared Flux Plugins Common library that can communicate with the Flux Plugins API service for license validation/activation and compatibility checks.
+Flux One includes a shared Flux Plugins Common library that can communicate with the Flux Plugins API service for license validation/activation, compatibility checks, and optional hosted capabilities (for example AI-assisted summarization) when you use those features.
 
 * Service: Flux Plugins API. Default base URL: `https://api.fluxplugins.com`. This may be overridden with `FLUX_PLUGINS_COMMON_EXTERNAL_SERVICE_URL`.
-* When requests occur: when a license key is activated or validated, and when compatibility checks are performed by the shared library.
+* When requests occur: when a license key is activated or validated, when compatibility checks are performed by the shared library, and when optional hosted features (such as AI-assisted summarization) request processing.
 * Data sent may include: license key, account ID, site URL/domain (`home_url()`), and plugin version. See the `ExternalApiClient` implementation in the bundled common library.
 
-Privacy policy: https://fluxplugins.com/privacy
+Privacy policy: https://fluxplugins.com/privacy/
+
+Terms of use: https://fluxplugins.com/terms-of-service/
 
 == Development / Build instructions ==
 
@@ -96,7 +96,7 @@ This plugin ships compiled JavaScript bundles in the WordPress.org package:
 * `assets/js/dist/*` (Flux One admin UI)
 * `src/assets/common/js/dist/*` (Flux Suite shared admin pages: License, Logs, Compatibility)
 
-Human-readable source code for these bundles is available in repository: https://github.com/stratease/flux-one.
+Human-readable source code for these bundles is available in repository: https://github.com/stratease/flux-one (WordPress.org listing slug: `flux-one-command-bar`; text domain matches that slug).
 
 To rebuild bundles from source:
 
@@ -131,15 +131,15 @@ No. WP-CLI is a developer command-line tool. Flux One is a wp-admin productivity
 
 = Does Flux One include AI features? =
 
-Flux One includes an email aggregate and summary screen. AI-powered email summaries and urgent action prioritization require a valid Flux Suite license.
+Flux One includes an email aggregate and summary screen. AI-powered email summaries and urgent action prioritization use Flux-connected processing and need an active Flux Suite license and external connection so those hosted services can run the work.
 
 = What is Flux Suite? =
 
-Flux Suite is the Flux Plugins license that unlocks Pro features across supported Flux plugins, including AI-powered summaries and other advanced workflow features.
+Flux Suite is the Flux Plugins offering that connects supported plugins—including Flux One to shared Flux services. It provides access to hosted capabilities such as AI-powered summaries and related workflow enhancements. Core Flux One command bar features work without a license and are not locked; the Flux Suite license applies where processing is delivered from Flux infrastructure.
 
 = Does Flux One send data to an external service? =
 
-Flux One may communicate with the Flux Plugins API for license validation, license activation, and compatibility checks. See the External services section for details.
+Flux One may communicate with the Flux Plugins API for license validation, license activation, compatibility checks, and optional hosted feature requests such as AI-assisted summarization when you use those capabilities. See the External services section for details.
 
 == Screenshots ==
 
@@ -150,18 +150,22 @@ Flux One may communicate with the Flux Plugins API for license validation, licen
 
 == Changelog ==
 
+= 1.6.3 =
+* Removed any references to incomplete "site" feature.
+* Updated some language around licensing features to clarify the service requires integration with our 3rd party infrastructure, and it is not trialware or feature locked capabilities.
+* Removed direct Composer requirement on Monolog; `vendor/monolog/monolog/` may still appear as a transitive dependency.
+
+= 1.6.2 =
+* Maintenance and WordPress.org readiness (documentation, i18n text domain alignment, serviceware disclosure).
+
 = 1.6.1 =
 * The command reference was not always displaying.
 
-= 1.6.0 =
-* Added some help and onboarding for the Overview page.
-
-= 1.5.0 =
-* Lots of UI cleanup.
-* Removed `site` command for future release.
-
 
 == Upgrade Notice ==
+
+= 1.6.3 =
+Documentation and disclosure copy only (Flux Suite described as connected services).
 
 = 1.6.0 =
 Adds Overview onboarding help; see changelog for prior releases.

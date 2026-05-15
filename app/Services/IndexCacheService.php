@@ -98,41 +98,6 @@ class IndexCacheService {
 	}
 
 	/**
-	 * Get multisite index.
-	 *
-	 * @since 0.1.0
-	 * @return array
-	 */
-	public function get_multisite_index() {
-		if ( ! is_multisite() ) {
-			return [
-				'enabled' => false,
-				'sites'   => [],
-			];
-		}
-
-		$sites = get_sites(
-			[
-				'number' => 200,
-			]
-		);
-
-		return [
-			'enabled' => true,
-			'sites'   => array_map(
-				static function ( $site ) {
-					return [
-						'blogId' => (int) $site->blog_id,
-						'domain' => (string) $site->domain,
-						'path'   => (string) $site->path,
-					];
-				},
-				$sites
-			),
-		];
-	}
-
-	/**
 	 * Get users index (lightweight).
 	 *
 	 * @since 0.1.0

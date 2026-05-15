@@ -50,7 +50,7 @@ class UsersHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'user ' . $op,
-					'message' => __( 'You do not have permission to list users.', 'flux-one' ),
+					'message' => __( 'You do not have permission to list users.', 'flux-one-command-bar' ),
 				];
 			}
 			return [
@@ -88,14 +88,14 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user',
-				'message' => __( 'Try user list.', 'flux-one' ),
+				'message' => __( 'Try user list.', 'flux-one-command-bar' ),
 			];
 		}
 
 		return [
 			'type'    => 'error',
 			'command' => 'user ' . implode( ' ', $tokens ),
-			'message' => __( 'Unknown user command. Try user list.', 'flux-one' ),
+			'message' => __( 'Unknown user command. Try user list.', 'flux-one-command-bar' ),
 		];
 	}
 
@@ -104,6 +104,7 @@ class UsersHandler {
 	 *
 	 * @since 0.1.0
 	 * @since 1.4.0 Refuses to lock the account of the user running the command.
+	 * @since 1.6.3 Internationalized lock and unlock command messages.
 	 * @param string $email Email.
 	 * @param bool   $locked Locked state.
 	 * @return array
@@ -113,7 +114,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => $locked ? 'user lock' : 'user unlock',
-				'message' => 'You do not have permission to manage users.',
+				'message' => __( 'You do not have permission to manage users.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -122,7 +123,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => ( $locked ? 'user lock ' : 'user unlock ' ) . $email,
-				'message' => 'User not found.',
+				'message' => __( 'User not found.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -130,7 +131,7 @@ class UsersHandler {
 			return [
 				'type'        => 'error',
 				'command'     => 'user lock ' . $email,
-				'message'     => __( 'You cannot lock your own account.', 'flux-one' ),
+				'message'     => __( 'You cannot lock your own account.', 'flux-one-command-bar' ),
 				'error_code'  => 'flux_one_user_lock_self',
 			];
 		}
@@ -145,7 +146,7 @@ class UsersHandler {
 			'type'    => 'action',
 			'command' => ( $locked ? 'user lock ' : 'user unlock ' ) . $email,
 			'status'  => 'success',
-			'message' => $locked ? 'User locked.' : 'User unlocked.',
+			'message' => $locked ? __( 'User locked.', 'flux-one-command-bar' ) : __( 'User unlocked.', 'flux-one-command-bar' ),
 			'data'    => [
 				'userId' => (int) $user->ID,
 				'email'  => (string) $email,
@@ -169,7 +170,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user add',
-				'message' => __( 'You do not have permission to create users.', 'flux-one' ),
+				'message' => __( 'You do not have permission to create users.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -178,7 +179,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user add',
-				'message' => __( 'A valid username is required.', 'flux-one' ),
+				'message' => __( 'A valid username is required.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -187,7 +188,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user add ' . $login,
-				'message' => __( 'A valid email address is required.', 'flux-one' ),
+				'message' => __( 'A valid email address is required.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -196,7 +197,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user add ' . $login . ' ' . $email,
-				'message' => __( 'A role is required. Use a role you are allowed to assign (see user list / autocomplete).', 'flux-one' ),
+				'message' => __( 'A role is required. Use a role you are allowed to assign (see user list / autocomplete).', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -208,7 +209,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
-				'message' => __( 'That role is not available for your account.', 'flux-one' ),
+				'message' => __( 'That role is not available for your account.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -216,7 +217,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
-				'message' => __( 'That username is already taken.', 'flux-one' ),
+				'message' => __( 'That username is already taken.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -224,7 +225,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
-				'message' => __( 'That email address is already registered.', 'flux-one' ),
+				'message' => __( 'That email address is already registered.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -253,7 +254,7 @@ class UsersHandler {
 			'type'    => 'action',
 			'command' => 'user add ' . $login . ' ' . $email . ' ' . $role,
 			'status'  => 'success',
-			'message' => __( 'User created. A welcome email will be sent shortly.', 'flux-one' ),
+			'message' => __( 'User created. A welcome email will be sent shortly.', 'flux-one-command-bar' ),
 			'data'    => [
 				'userId' => (int) $user_id,
 				'login'  => (string) $login,
@@ -267,6 +268,7 @@ class UsersHandler {
 	 * Set role for a user.
 	 *
 	 * @since 0.1.0
+	 * @since 1.6.3 Internationalized role-set error messages.
 	 * @param string $email Email.
 	 * @param string $role Role key.
 	 * @return array
@@ -276,7 +278,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user role set ' . $email . ' ' . $role,
-				'message' => 'You do not have permission to change roles.',
+				'message' => __( 'You do not have permission to change roles.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -285,7 +287,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user role set ' . $email . ' ' . $role,
-				'message' => 'User not found.',
+				'message' => __( 'User not found.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -294,7 +296,7 @@ class UsersHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'user role set ' . $email,
-				'message' => 'Role is required.',
+				'message' => __( 'Role is required.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -304,7 +306,7 @@ class UsersHandler {
 			'type'    => 'action',
 			'command' => 'user role set ' . $email . ' ' . $role,
 			'status'  => 'success',
-			'message' => 'Role updated.',
+			'message' => __( 'Role updated.', 'flux-one-command-bar' ),
 			'data'    => [
 				'userId' => (int) $user->ID,
 				'email'  => (string) $email,
@@ -332,7 +334,7 @@ class UsersHandler {
 
 		return new \WP_Error(
 			'flux_one_user_locked',
-			__( 'Your account has been locked by an administrator.', 'flux-one' )
+			__( 'Your account has been locked by an administrator.', 'flux-one-command-bar' )
 		);
 	}
 }

@@ -7,14 +7,21 @@
  */
 
 // Minimal stubs so unit tests can run without a full WP test suite.
+if ( ! defined( 'ABSPATH' ) ) {
+	define( 'ABSPATH', __DIR__ . '/' );
+}
 if ( ! defined( 'DAY_IN_SECONDS' ) ) {
 	define( 'DAY_IN_SECONDS', 86400 );
 }
 
 if ( ! function_exists( 'current_user_can' ) ) {
-	function current_user_can( $capability ) {
+	function current_user_can( $capability, ...$args ) {
 		if ( 'manage_options' === $capability && isset( $GLOBALS['flux_one_test_current_user_can_manage_options'] ) ) {
 			return (bool) $GLOBALS['flux_one_test_current_user_can_manage_options'];
+		}
+		if ( 'edit_post' === $capability && isset( $GLOBALS['flux_one_test_edit_post_caps'] ) && is_array( $GLOBALS['flux_one_test_edit_post_caps'] ) ) {
+			$pid = isset( $args[0] ) ? (int) $args[0] : 0;
+			return ! empty( $GLOBALS['flux_one_test_edit_post_caps'][ $pid ] );
 		}
 		return true;
 	}
@@ -247,6 +254,44 @@ if ( ! function_exists( 'admin_url' ) ) {
 		return 'https://example.test/wp-admin/' . ltrim( (string) $path, '/' );
 	}
 }
+if ( ! function_exists( 'get_edit_post_link' ) ) {
+	function get_edit_post_link( $post = 0, $context = 'display' ) {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		return admin_url( 'post.php?post=' . $id . '&action=edit' );
+	}
+}
+if ( ! function_exists( 'get_permalink' ) ) {
+	function get_permalink( $post = 0, $leavename = false ) {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		if ( isset( $GLOBALS['flux_one_test_permalinks'] ) && is_array( $GLOBALS['flux_one_test_permalinks'] ) && isset( $GLOBALS['flux_one_test_permalinks'][ $id ] ) ) {
+			return (string) $GLOBALS['flux_one_test_permalinks'][ $id ];
+		}
+		return 'https://example.test/hello-world/';
+	}
+}
+if ( ! function_exists( 'get_preview_post_link' ) ) {
+	function get_preview_post_link( $post = null, $args = [] ) {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		if ( isset( $GLOBALS['flux_one_test_preview_links'] ) && is_array( $GLOBALS['flux_one_test_preview_links'] ) && isset( $GLOBALS['flux_one_test_preview_links'][ $id ] ) ) {
+			return (string) $GLOBALS['flux_one_test_preview_links'][ $id ];
+		}
+		return 'https://example.test/?p=' . $id . '&preview=true';
+	}
+}
+if ( ! function_exists( 'is_post_publicly_viewable' ) ) {
+	function is_post_publicly_viewable( $post = null ) {
+		$id = is_object( $post ) ? (int) $post->ID : (int) $post;
+		if ( isset( $GLOBALS['flux_one_test_public_post'] ) && is_array( $GLOBALS['flux_one_test_public_post'] ) && array_key_exists( $id, $GLOBALS['flux_one_test_public_post'] ) ) {
+			return (bool) $GLOBALS['flux_one_test_public_post'][ $id ];
+		}
+		return true;
+	}
+}
+if ( ! function_exists( 'register_rest_route' ) ) {
+	function register_rest_route( $namespace, $route, $args = [], $override = false ) {
+		return true;
+	}
+}
 if ( ! function_exists( 'wp_is_file_mod_allowed' ) ) {
 	function wp_is_file_mod_allowed( $context = '' ) {
 		return true;
@@ -254,6 +299,19 @@ if ( ! function_exists( 'wp_is_file_mod_allowed' ) ) {
 }
 if ( ! function_exists( 'wp_get_nav_menus' ) ) {
 	function wp_get_nav_menus() {
+		return [];
+	}
+}
+if ( ! function_exists( 'get_plugins' ) ) {
+	/**
+	 * Test double for plugin resolution tests.
+	 *
+	 * @return array<string, array<string, string>>
+	 */
+	function get_plugins() {
+		if ( isset( $GLOBALS['flux_one_test_plugins'] ) && is_array( $GLOBALS['flux_one_test_plugins'] ) ) {
+			return $GLOBALS['flux_one_test_plugins'];
+		}
 		return [];
 	}
 }
@@ -267,10 +325,10 @@ require_once dirname( __DIR__ ) . '/app/Services/CommandUsageEstimates.php';
 require_once dirname( __DIR__ ) . '/app/Services/BootstrapCommandUsagePayload.php';
 require_once dirname( __DIR__ ) . '/app/Services/UserCommandMemory.php';
 require_once dirname( __DIR__ ) . '/app/Http/Controllers/BaseController.php';
+require_once dirname( __DIR__ ) . '/app/Http/Controllers/IndexController.php';
 require_once dirname( __DIR__ ) . '/app/Http/Controllers/HeartbeatController.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/PluginsHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/UsersHandler.php';
-require_once dirname( __DIR__ ) . '/app/Services/CommandHandlers/MultisiteHandler.php';
 require_once dirname( __DIR__ ) . '/app/Services/CommandRouter.php';
 require_once dirname( __DIR__ ) . '/app/Services/Database.php';
 require_once dirname( __DIR__ ) . '/app/Services/EmailAggregationService.php';

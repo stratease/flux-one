@@ -96,7 +96,7 @@ class EmailSummaryService {
 	public function summarize_event_ids( $event_ids, $user_id ) {
 		$user_id = (int) $user_id;
 		if ( $user_id <= 0 ) {
-			return $this->disabled_payload( __( 'Not logged in.', 'flux-one' ) );
+			return $this->disabled_payload( __( 'Not logged in.', 'flux-one-command-bar' ) );
 		}
 
 		$ids = $this->normalize_event_ids( $event_ids );
@@ -104,13 +104,13 @@ class EmailSummaryService {
 			return [
 				'http_error'  => true,
 				'code'        => 'flux_one_bad_request',
-				'message'     => __( 'Provide between 1 and 25 event IDs.', 'flux-one' ),
+				'message'     => __( 'Provide between 1 and 25 event IDs.', 'flux-one-command-bar' ),
 				'http_status' => 422,
 			];
 		}
 
 		if ( ! $this->is_ai_enabled() ) {
-			return $this->disabled_payload( __( 'AI summary is unavailable (license required).', 'flux-one' ) );
+			return $this->disabled_payload( __( 'AI summary is unavailable (license required).', 'flux-one-command-bar' ) );
 		}
 
 		$events = $this->load_events_for_user( $ids, $user_id );
@@ -118,7 +118,7 @@ class EmailSummaryService {
 			return [
 				'http_error'  => true,
 				'code'        => 'flux_one_bad_request',
-				'message'     => __( 'One or more email events were not found or are not accessible.', 'flux-one' ),
+				'message'     => __( 'One or more email events were not found or are not accessible.', 'flux-one-command-bar' ),
 				'http_status' => 422,
 			];
 		}
@@ -205,7 +205,7 @@ class EmailSummaryService {
 			return [
 				'http_error'  => true,
 				'code'        => 'flux_one_account_required',
-				'message'     => __( 'Account ID not available.', 'flux-one' ),
+				'message'     => __( 'Account ID not available.', 'flux-one-command-bar' ),
 				'http_status' => 400,
 			];
 		}
@@ -223,7 +223,7 @@ class EmailSummaryService {
 					'code'        => 'flux_one_bad_request',
 					'message'     => sprintf(
 						/* translators: %d: event id */
-						__( 'Email event %d has no summarizable body text.', 'flux-one' ),
+						__( 'Email event %d has no summarizable body text.', 'flux-one-command-bar' ),
 						$eid
 					),
 					'http_status' => 422,
@@ -253,7 +253,7 @@ class EmailSummaryService {
 
 		$body = $result['body'];
 		if ( isset( $body['success'] ) && false === $body['success'] ) {
-			$msg = isset( $body['error'] ) && is_string( $body['error'] ) ? $body['error'] : __( 'Failed to summarize emails.', 'flux-one' );
+			$msg = isset( $body['error'] ) && is_string( $body['error'] ) ? $body['error'] : __( 'Failed to summarize emails.', 'flux-one-command-bar' );
 			$this->logger->warning(
 				'Email summary orchestration: summarization API returned success=false.',
 				[
@@ -378,23 +378,23 @@ class EmailSummaryService {
 	 */
 	private function map_api_transport_error( array $result ) {
 		$code = isset( $result['http_status'] ) ? (int) $result['http_status'] : 0;
-		$msg  = isset( $result['error_message'] ) ? (string) $result['error_message'] : __( 'Email summarization request failed.', 'flux-one' );
+		$msg  = isset( $result['error_message'] ) ? (string) $result['error_message'] : __( 'Email summarization request failed.', 'flux-one-command-bar' );
 
 		switch ( $code ) {
 			case 403:
-				$msg = __( 'License is not active for this site.', 'flux-one' );
+				$msg = __( 'License is not active for this site.', 'flux-one-command-bar' );
 				break;
 			case 429:
-				$msg = __( 'Monthly summarization quota exceeded.', 'flux-one' );
+				$msg = __( 'Monthly summarization quota exceeded.', 'flux-one-command-bar' );
 				break;
 			case 413:
-				$msg = __( 'Request payload too large.', 'flux-one' );
+				$msg = __( 'Request payload too large.', 'flux-one-command-bar' );
 				break;
 			case 422:
-				$msg = __( 'Invalid summarization request.', 'flux-one' );
+				$msg = __( 'Invalid summarization request.', 'flux-one-command-bar' );
 				break;
 			case 500:
-				$msg = __( 'Summarization service error. Try again later.', 'flux-one' );
+				$msg = __( 'Summarization service error. Try again later.', 'flux-one-command-bar' );
 				break;
 			default:
 				break;
@@ -520,8 +520,8 @@ class EmailSummaryService {
 		}
 
 		$message = $has_any
-			? __( 'Summaries loaded.', 'flux-one' )
-			: __( 'Summary: none generated yet.', 'flux-one' );
+			? __( 'Summaries loaded.', 'flux-one-command-bar' )
+			: __( 'Summary: none generated yet.', 'flux-one-command-bar' );
 
 		return [
 			'enabled'   => true,

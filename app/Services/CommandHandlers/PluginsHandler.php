@@ -28,6 +28,7 @@ class PluginsHandler {
 	 * Supported (v1): update all, activate/deactivate/delete {query}.
 	 *
 	 * @since 0.1.0
+	 * @since 1.6.3 Internationalized plugin name required and mutate-plugin messages.
 	 * @param array $tokens Tokens after "plugin".
 	 * @return array
 	 */
@@ -40,7 +41,7 @@ class PluginsHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'plugin ' . $op,
-					'message' => __( 'You do not have permission to view plugins.', 'flux-one' ),
+					'message' => __( 'You do not have permission to view plugins.', 'flux-one-command-bar' ),
 				];
 			}
 			return [
@@ -61,7 +62,7 @@ class PluginsHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'plugin update',
-					'message' => 'Plugin name is required.',
+					'message' => __( 'Plugin name is required.', 'flux-one-command-bar' ),
 				];
 			}
 			return $this->update_one( $query );
@@ -73,7 +74,7 @@ class PluginsHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'plugin ' . $op,
-					'message' => 'Plugin name is required.',
+					'message' => __( 'Plugin name is required.', 'flux-one-command-bar' ),
 				];
 			}
 			return $this->mutate_plugin( $op, $query );
@@ -84,7 +85,7 @@ class PluginsHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'plugin ' . $op,
-					'message' => __( 'You do not have permission to install plugins.', 'flux-one' ),
+					'message' => __( 'You do not have permission to install plugins.', 'flux-one-command-bar' ),
 				];
 			}
 			return [
@@ -100,14 +101,14 @@ class PluginsHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'plugin',
-				'message' => __( 'Try plugin list.', 'flux-one' ),
+				'message' => __( 'Try plugin list.', 'flux-one-command-bar' ),
 			];
 		}
 
 		return [
 			'type'    => 'error',
 			'command' => 'plugin ' . implode( ' ', $tokens ),
-			'message' => __( 'Unknown plugin command. Try plugin list.', 'flux-one' ),
+			'message' => __( 'Unknown plugin command. Try plugin list.', 'flux-one-command-bar' ),
 		];
 	}
 
@@ -123,7 +124,7 @@ class PluginsHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'plugin update ' . $query,
-				'message' => __( 'You do not have permission to update plugins.', 'flux-one' ),
+				'message' => __( 'You do not have permission to update plugins.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -136,7 +137,7 @@ class PluginsHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'plugin update ' . $query,
-				'message' => __( 'Plugin not found.', 'flux-one' ),
+				'message' => __( 'Plugin not found.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -148,7 +149,7 @@ class PluginsHandler {
 			|| ! is_array( $updates->response )
 			|| ! isset( $updates->response[ $plugin_file ] )
 		) {
-			$msg = __( 'No update is available for this plugin.', 'flux-one' );
+			$msg = __( 'No update is available for this plugin.', 'flux-one-command-bar' );
 			return [
 				'type'    => 'action',
 				'command' => 'plugin update ' . $query,
@@ -165,7 +166,7 @@ class PluginsHandler {
 		}
 
 		if ( ! $this->ensure_wp_filesystem_for_plugin_updates() ) {
-			$msg = __( 'Could not access the filesystem to update plugins.', 'flux-one' );
+			$msg = __( 'Could not access the filesystem to update plugins.', 'flux-one-command-bar' );
 			return [
 				'type'    => 'action',
 				'command' => 'plugin update ' . $query,
@@ -186,7 +187,7 @@ class PluginsHandler {
 		$ok       = ( true === $result );
 
 		if ( $ok ) {
-			$msg = __( 'Plugin updated.', 'flux-one' );
+			$msg = __( 'Plugin updated.', 'flux-one-command-bar' );
 			return [
 				'type'    => 'action',
 				'command' => 'plugin update ' . $query,
@@ -234,7 +235,7 @@ class PluginsHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'plugin update all',
-				'message' => __( 'You do not have permission to update plugins.', 'flux-one' ),
+				'message' => __( 'You do not have permission to update plugins.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -250,7 +251,7 @@ class PluginsHandler {
 		}
 
 		if ( empty( $to_update ) ) {
-			$msg = __( 'No plugin updates available.', 'flux-one' );
+			$msg = __( 'No plugin updates available.', 'flux-one-command-bar' );
 			return [
 				'type'    => 'action',
 				'command' => 'plugin update all',
@@ -264,7 +265,7 @@ class PluginsHandler {
 		}
 
 		if ( ! $this->ensure_wp_filesystem_for_plugin_updates() ) {
-			$msg = __( 'Could not access the filesystem to update plugins.', 'flux-one' );
+			$msg = __( 'Could not access the filesystem to update plugins.', 'flux-one-command-bar' );
 			return [
 				'type'    => 'action',
 				'command' => 'plugin update all',
@@ -311,7 +312,7 @@ class PluginsHandler {
 
 		if ( 0 === $fail_count ) {
 			/* translators: %d: number of plugins updated. */
-			$msg = sprintf( __( '%d plugin(s) updated.', 'flux-one' ), (int) $success_count );
+			$msg = sprintf( __( '%d plugin(s) updated.', 'flux-one-command-bar' ), (int) $success_count );
 			return [
 				'type'    => 'action',
 				'command' => 'plugin update all',
@@ -325,11 +326,11 @@ class PluginsHandler {
 		}
 
 		if ( 0 === $success_count ) {
-			$summary = __( 'No plugins could be updated.', 'flux-one' );
+			$summary = __( 'No plugins could be updated.', 'flux-one-command-bar' );
 			$code    = 'flux_one_plugin_bulk_all_failed';
 		} else {
 			/* translators: 1: number succeeded, 2: number failed. */
-			$summary = sprintf( __( '%1$d updated, %2$d failed.', 'flux-one' ), (int) $success_count, (int) $fail_count );
+			$summary = sprintf( __( '%1$d updated, %2$d failed.', 'flux-one-command-bar' ), (int) $success_count, (int) $fail_count );
 			$code    = 'flux_one_plugin_bulk_partial_failure';
 		}
 
@@ -351,6 +352,7 @@ class PluginsHandler {
 	 * Activate/deactivate/delete a resolved plugin.
 	 *
 	 * @since 0.1.0
+	 * @since 1.6.3 Internationalized user-facing success and error messages.
 	 * @param string $op Operation.
 	 * @param string $query Query.
 	 * @return array
@@ -365,7 +367,7 @@ class PluginsHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'plugin ' . $op . ' ' . $query,
-				'message' => 'Plugin not found.',
+				'message' => __( 'Plugin not found.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -374,7 +376,7 @@ class PluginsHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'plugin activate ' . $query,
-					'message' => 'You do not have permission to activate plugins.',
+					'message' => __( 'You do not have permission to activate plugins.', 'flux-one-command-bar' ),
 				];
 			}
 			$result = activate_plugin( $plugin_file );
@@ -389,7 +391,7 @@ class PluginsHandler {
 				'type'    => 'action',
 				'command' => 'plugin activate ' . $query,
 				'status'  => 'success',
-				'message' => 'Plugin activated.',
+				'message' => __( 'Plugin activated.', 'flux-one-command-bar' ),
 				'data'    => [
 					'pluginFile' => $plugin_file,
 				],
@@ -401,7 +403,7 @@ class PluginsHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'plugin deactivate ' . $query,
-					'message' => 'You do not have permission to deactivate plugins.',
+					'message' => __( 'You do not have permission to deactivate plugins.', 'flux-one-command-bar' ),
 				];
 			}
 			deactivate_plugins( $plugin_file, false, is_multisite() );
@@ -409,7 +411,7 @@ class PluginsHandler {
 				'type'    => 'action',
 				'command' => 'plugin deactivate ' . $query,
 				'status'  => 'success',
-				'message' => 'Plugin deactivated.',
+				'message' => __( 'Plugin deactivated.', 'flux-one-command-bar' ),
 				'data'    => [
 					'pluginFile' => $plugin_file,
 				],
@@ -421,7 +423,7 @@ class PluginsHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'plugin delete ' . $query,
-					'message' => 'You do not have permission to delete plugins.',
+					'message' => __( 'You do not have permission to delete plugins.', 'flux-one-command-bar' ),
 				];
 			}
 
@@ -440,7 +442,7 @@ class PluginsHandler {
 				'type'    => 'action',
 				'command' => 'plugin delete ' . $query,
 				'status'  => 'success',
-				'message' => 'Plugin deleted.',
+				'message' => __( 'Plugin deleted.', 'flux-one-command-bar' ),
 				'data'    => [
 					'pluginFile' => $plugin_file,
 				],
@@ -450,7 +452,7 @@ class PluginsHandler {
 		return [
 			'type'    => 'error',
 			'command' => 'plugin ' . $op . ' ' . $query,
-			'message' => 'Unsupported operation.',
+			'message' => __( 'Unsupported operation.', 'flux-one-command-bar' ),
 		];
 	}
 
@@ -458,6 +460,7 @@ class PluginsHandler {
 	 * Resolve plugin file from a fuzzy query.
 	 *
 	 * @since 0.1.0
+	 * @since 1.6.3 Prefer exact display-name match; require unique substring match when not exact.
 	 * @param string $query Query.
 	 * @return string|null
 	 */
@@ -484,12 +487,31 @@ class PluginsHandler {
 			}
 		}
 
-		// Match by display name.
+		// Exact display name (case-insensitive), unique only.
+		$exact = [];
+		foreach ( $plugins as $plugin_file => $meta ) {
+			$name = strtolower( trim( (string) ( $meta['Name'] ?? '' ) ) );
+			if ( '' !== $name && $name === $query ) {
+				$exact[] = (string) $plugin_file;
+			}
+		}
+		if ( 1 === count( $exact ) ) {
+			return $exact[0];
+		}
+		if ( count( $exact ) > 1 ) {
+			return null;
+		}
+
+		// Substring on display name only when exactly one plugin matches.
+		$substr = [];
 		foreach ( $plugins as $plugin_file => $meta ) {
 			$name = strtolower( (string) ( $meta['Name'] ?? '' ) );
 			if ( '' !== $name && false !== strpos( $name, $query ) ) {
-				return (string) $plugin_file;
+				$substr[] = (string) $plugin_file;
 			}
+		}
+		if ( 1 === count( $substr ) ) {
+			return $substr[0];
 		}
 
 		return null;
@@ -555,7 +577,7 @@ class PluginsHandler {
 			$debug['wp_error_message'] = $result->get_error_message();
 			$msg                       = $this->shorten_user_sentence( $result->get_error_message(), 180 );
 			return [
-				'userMessage' => '' !== $msg ? $msg : __( 'Update could not be completed.', 'flux-one' ),
+				'userMessage' => '' !== $msg ? $msg : __( 'Update could not be completed.', 'flux-one-command-bar' ),
 				'error_code'  => 'flux_one_plugin_wp_error',
 				'debug'       => $debug,
 			];
@@ -579,7 +601,7 @@ class PluginsHandler {
 			$debug['skin_message'] = $last_skin;
 			$lower                 = strtolower( $last_skin );
 			if ( false !== strpos( $lower, 'latest version' ) || false !== strpos( $lower, 'up to date' ) ) {
-				$msg = __( 'No update is available for this plugin.', 'flux-one' );
+				$msg = __( 'No update is available for this plugin.', 'flux-one-command-bar' );
 				return [
 					'userMessage' => $msg,
 					'error_code'  => 'flux_one_plugin_no_update',
@@ -594,7 +616,7 @@ class PluginsHandler {
 		}
 
 		return [
-			'userMessage' => __( 'Update could not be completed.', 'flux-one' ),
+			'userMessage' => __( 'Update could not be completed.', 'flux-one-command-bar' ),
 			'error_code'  => 'flux_one_plugin_upgrade_unknown',
 			'debug'       => $debug,
 		];

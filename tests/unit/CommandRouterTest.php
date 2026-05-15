@@ -137,5 +137,19 @@ final class CommandRouterTest extends TestCase {
 		$this->assertIsArray( $list['data'] ?? null );
 		$this->assertIsArray( $show['data'] ?? null );
 	}
+
+	/**
+	 * @since 1.6.3 Site / sites commands removed; unknown root returns standard error.
+	 */
+	public function test_site_and_sites_roots_return_unknown_command(): void {
+		$router = new CommandRouter();
+		$site   = $router->handle( 'site list' );
+		$sites  = $router->handle( 'sites list' );
+
+		$this->assertSame( 'error', $site['type'] );
+		$this->assertSame( 'error', $sites['type'] );
+		$this->assertSame( __( 'Unknown command.', 'flux-one-command-bar' ), $site['message'] );
+		$this->assertSame( __( 'Unknown command.', 'flux-one-command-bar' ), $sites['message'] );
+	}
 }
 

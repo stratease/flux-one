@@ -7,8 +7,8 @@ import {
   configKeyAdapter,
   destinationAdapter,
   makeEditContentAdapter,
+  makePublicContentAdapter,
   pluginAdapter,
-  siteAdapter,
   userAdapter,
 } from './entityAdapters';
 
@@ -16,7 +16,6 @@ export type IndexData = {
   plugins?: Array<{ name: string; pluginFile: string; active?: boolean; version?: string; updateAvailable?: boolean }>;
   users?: Array<{ id: number; email: string; displayName?: string; login?: string }>;
   menus?: Array<{ id: number; name: string; slug?: string }>;
-  sites?: Array<{ blogId: number; domain: string; path: string }>;
   destinations?: Array<{
     id: string;
     label: string;
@@ -46,13 +45,14 @@ export type IndexData = {
   /** Logged-in user (from bootstrap); used to exclude self from `user lock` targets. */
   currentUser?: { id: number; email: string };
 
-  /** Content search (XHR) for edit command. */
+  /** Content search (XHR) for `edit` / `pnav` commands. */
   content?: Array<{
     id: number;
     postType: 'post' | 'page';
     title: string;
     slug: string;
     editUrl: string;
+    viewUrl?: string;
     searchText?: string;
   }>;
 };
@@ -216,13 +216,13 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
         items: list,
         adapter: {
           ...pluginAdapter,
-          getValue: (p) => `plugin update ${p.name}`,
+          getValue: (p) => `plugin update ${p.pluginFile}`,
           toSuggestion: (p) => ({
             id: `plugin.update.${p.pluginFile}`,
             kind: 'entity',
             entityType: 'plugin',
             label: `${p.name}${p.updateAvailable ? ' (update available)' : ''}`,
-            value: `plugin update ${p.name}`,
+            value: `plugin update ${p.pluginFile}`,
           }),
         },
         limit: 10,
@@ -241,13 +241,13 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
         items: q ? list : list.slice(0, 200),
         adapter: {
           ...pluginAdapter,
-          getValue: (p) => `plugin ${t1} ${p.name}`,
+          getValue: (p) => `plugin ${t1} ${p.pluginFile}`,
           toSuggestion: (p) => ({
             id: `plugin.${t1}.${p.pluginFile}`,
             kind: 'entity',
             entityType: 'plugin',
             label: `${p.name}${p.active ? ' (active)' : ''}`,
-            value: `plugin ${t1} ${p.name}`,
+            value: `plugin ${t1} ${p.pluginFile}`,
           }),
         },
         limit: 10,
@@ -510,42 +510,6 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
     return pack([], []);
   }
 
-  if (t0 === 'site') {
-    if (rt.length === 1) {
-      const subsAll = SUBCOMMANDS_BY_ROOT.site;
-      const subs = filterSubsForRoot('site', normalized);
-      const subSuggestions = subs.length ? subs : subsAll;
-      const commandRow = filterRoots(normalized);
-      const subRow =
-        parsed.hasTrailingSpace || (!parsed.hasTrailingSpace && t0 === 'site') ? subSuggestions.slice(0, 12) : [];
-      return pack(parsed.hasTrailingSpace ? [] : commandRow, subRow);
-    }
-
-    if (t1 === 'switch') {
-      const query = rawLower.replace(/^.*site\s+switch\s+/i, '').trim();
-      const list = indices.sites || [];
-      const matches = searchEntities({
-        query,
-        items: query ? list : list.slice(0, 200),
-        adapter: {
-          ...siteAdapter,
-          getValue: (s) => `site switch ${s.domain}${s.path}`,
-          toSuggestion: (s) => ({
-            id: `site.${s.blogId}`,
-            kind: 'entity',
-            entityType: 'site',
-            label: `${s.domain}${s.path}`,
-            value: `site switch ${s.domain}${s.path}`,
-          }),
-        },
-        limit: 10,
-      });
-      return pack([], matches);
-    }
-
-    return pack([], []);
-  }
-
   if (t0 === 'edit') {
     if (rt.length === 1) {
       const subsAll = SUBCOMMANDS_BY_ROOT.edit || [];
@@ -565,6 +529,30 @@ export function getSuggestions(raw: string, indices: IndexData): SuggestionsResu
       query: rest,
       items: list,
       adapter: makeEditContentAdapter({ kind, typedSub }),
+      limit: 10,
+    });
+    return pack([], results);
+  }
+
+  if (t0 === 'pnav') {
+    if (rt.length === 1) {
+      const subsAll = SUBCOMMANDS_BY_ROOT.pnav || [];
+      const subs = filterSubsForRoot('pnav', normalized);
+      const subSuggestions = subs.length ? subs : subsAll;
+      const commandRow = filterRoots(normalized);
+      const subRow =
+        parsed.hasTrailingSpace || (!parsed.hasTrailingSpace && t0 === 'pnav') ? subSuggestions.slice(0, 12) : [];
+      return pack(parsed.hasTrailingSpace ? [] : commandRow, subRow);
+    }
+
+    const kind = t1 === 'post' ? 'post' : t1 === 'page' ? 'page' : 'any';
+    const typedSub = t1 === 'post' ? 'post' : t1 === 'page' ? 'page' : 'p';
+    const rest = rawLower.replace(/^pnav\s+(p|post|page)\s*/i, '').trim();
+    const list = indices.content || [];
+    const results = searchEntities({
+      query: rest,
+      items: list,
+      adapter: makePublicContentAdapter({ kind, typedSub }),
       limit: 10,
     });
     return pack([], results);

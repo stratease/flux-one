@@ -6,7 +6,7 @@ export type MultiStepCommandField = {
   field: string;
   kind: MultiStepFieldKind;
   prompt: string;
-  source?: 'roles' | 'users' | 'plugins' | 'sites' | 'menus' | 'destinations' | 'configKeys';
+  source?: 'roles' | 'users' | 'plugins' | 'menus' | 'destinations' | 'configKeys';
 };
 
 export type MultiStepCommandDefinition = {
@@ -73,6 +73,11 @@ export const SUBCOMMANDS_BY_ROOT: Record<string, Suggestion[]> = {
     { id: 'cmd.edit.post', kind: 'subcommand', label: 'edit post', value: 'edit post ', description: 'Edit a post (search as you type)' },
     { id: 'cmd.edit.page', kind: 'subcommand', label: 'edit page', value: 'edit page ', description: 'Edit a page (search as you type)' },
   ],
+  pnav: [
+    { id: 'cmd.pnav.p', kind: 'subcommand', label: 'pnav p', value: 'pnav p ', description: 'Open public view of a post or page (search as you type)' },
+    { id: 'cmd.pnav.post', kind: 'subcommand', label: 'pnav post', value: 'pnav post ', description: 'Open public view of a post (search as you type)' },
+    { id: 'cmd.pnav.page', kind: 'subcommand', label: 'pnav page', value: 'pnav page ', description: 'Open public view of a page (search as you type)' },
+  ],
 };
 
 /**
@@ -105,6 +110,14 @@ export const ROOT_COMMANDS: Suggestion[] = [
     description: 'Edit a post or page by searching title/slug',
     searchText: 'post page p',
   },
+  {
+    id: 'cmd.pnav',
+    kind: 'command',
+    label: 'pnav',
+    value: 'pnav ',
+    description: 'Open public view of a post or page (search title/slug)',
+    searchText: 'post page p public view',
+  },
   { id: 'cmd.aggregate.email', kind: 'command', label: 'aggregate email', value: 'aggregate email' },
   { id: 'cmd.summary.email', kind: 'command', label: 'summary email', value: 'summary email' },
 ];
@@ -117,4 +130,5 @@ export const COMMANDS: Suggestion[] = [
   ...SUBCOMMANDS_BY_ROOT.menu,
   ...SUBCOMMANDS_BY_ROOT.config,
   ...SUBCOMMANDS_BY_ROOT.edit,
+  ...SUBCOMMANDS_BY_ROOT.pnav,
 ];

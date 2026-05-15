@@ -143,7 +143,7 @@ class AdminVisitRecorder {
 		$base = (string) $screen->base;
 		$id   = (string) $screen->id;
 		if ( $base === 'dashboard' || $id === 'dashboard' ) {
-			return __( 'Dashboard', 'flux-one' );
+			return __( 'Dashboard', 'flux-one-command-bar' );
 		}
 
 		$hum = str_replace( [ '_', '-' ], ' ', $id );

@@ -9,10 +9,13 @@ export type CommandIntent = {
   wantsPlugins: boolean;
   wantsUsers: boolean;
   wantsMenus: boolean;
-  wantsSites: boolean;
   wantsDestinations: boolean;
   wantsSuiteConfig: boolean;
   wantsEdit: boolean;
+  /** @since 1.6.3 Public content navigation (`pnav`). */
+  wantsPnav: boolean;
+  /** Shared XHR index for `edit` and `pnav`. */
+  wantsContentIndex: boolean;
 };
 
 export function getIntent(input: string): CommandIntent {
@@ -22,16 +25,20 @@ export function getIntent(input: string): CommandIntent {
   const rt1 = rt[1] || '';
   const root = rt0 === 'summary' ? rt1 : rt0;
   const sub = rt0 === 'summary' ? (rt[2] || '') : rt1;
+  const wantsEdit = root === 'edit';
+  const wantsPnav = root === 'pnav';
+
   return {
     root,
     sub,
     wantsPlugins: root === 'plugin',
     wantsUsers: root === 'user',
     wantsMenus: root === 'menu',
-    wantsSites: false,
     wantsDestinations: root === 'nav',
     wantsSuiteConfig: root === 'config',
-    wantsEdit: root === 'edit',
+    wantsEdit,
+    wantsPnav,
+    wantsContentIndex: wantsEdit || wantsPnav,
   };
 }
 

@@ -44,10 +44,10 @@ export function OverviewWelcome({
   return (
     <Stack spacing={2}>
       <Typography variant="h5" component="h2">
-        {__('Welcome to Flux One', 'flux-one')}
+        {__('Welcome to Flux One', 'flux-one-command-bar')}
       </Typography>
       <Typography variant="body1" color="text.secondary">
-        {__('Drive WordPress admin with commands. Less clicking, more doing.', 'flux-one')}
+        {__('Drive WordPress admin with commands. Less clicking, more doing.', 'flux-one-command-bar')}
       </Typography>
 
       <Stack spacing={2}>
@@ -56,11 +56,11 @@ export function OverviewWelcome({
             <TerminalIcon fontSize="medium" />
           </Box>
           <Box>
-            <Typography variant="subtitle1">{__('Open the command bar', 'flux-one')}</Typography>
+            <Typography variant="subtitle1">{__('Open the command bar', 'flux-one-command-bar')}</Typography>
             <Typography variant="body2" color="text.secondary">
               {sprintf(
                 /* translators: %s: Keyboard shortcut such as Ctrl+. or ⌘. */
-                __('Press %s from any wp-admin screen.', 'flux-one'),
+                __('Press %s from any wp-admin screen.', 'flux-one-command-bar'),
                 commandShortcut
               )}
             </Typography>
@@ -72,9 +72,9 @@ export function OverviewWelcome({
             <KeyboardIcon fontSize="medium" />
           </Box>
           <Box>
-            <Typography variant="subtitle1">{__('Type a command', 'flux-one')}</Typography>
+            <Typography variant="subtitle1">{__('Type a command', 'flux-one-command-bar')}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {__('Try: nav posts, plugin update all, or menu list.', 'flux-one')}
+              {__('Try: nav posts, plugin update all, or menu list.', 'flux-one-command-bar')}
             </Typography>
           </Box>
         </Stack>
@@ -84,9 +84,9 @@ export function OverviewWelcome({
             <PlayArrowIcon fontSize="medium" />
           </Box>
           <Box>
-            <Typography variant="subtitle1">{__('Run it', 'flux-one')}</Typography>
+            <Typography variant="subtitle1">{__('Run it', 'flux-one-command-bar')}</Typography>
             <Typography variant="body2" color="text.secondary">
-              {__('Press Enter to execute the command.', 'flux-one')}
+              {__('Press Enter to execute the command.', 'flux-one-command-bar')}
             </Typography>
           </Box>
         </Stack>
@@ -94,7 +94,7 @@ export function OverviewWelcome({
 
       <Stack direction="row" spacing={2} flexWrap="wrap" alignItems="center">
         <Button variant="contained" color="primary" onClick={openCommandBar}>
-          {__('Open Command Bar', 'flux-one')}
+          {__('Open Command Bar', 'flux-one-command-bar')}
         </Button>
         <Button
           variant="text"
@@ -102,7 +102,7 @@ export function OverviewWelcome({
           aria-expanded={commandsExpanded}
           aria-controls={commandsReferenceId}
         >
-          {commandsExpanded ? __('Hide commands', 'flux-one') : __('View all commands', 'flux-one')}
+          {commandsExpanded ? __('Hide commands', 'flux-one-command-bar') : __('View all commands', 'flux-one-command-bar')}
         </Button>
       </Stack>
     </Stack>

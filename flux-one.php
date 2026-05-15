@@ -3,12 +3,12 @@
  * Plugin Name: Flux One - Command Bar
  * Plugin URI: https://fluxplugins.com/flux-one
  * Description: Command-driven control panel for WordPress admin (command palette, dashboard widget, and operational actions).
- * Version: 1.6.2
+ * Version: 1.6.3
  * Author: Flux Plugins
  * Author URI: https://fluxplugins.com
  * License: GPL-2.0-or-later
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
- * Text Domain: flux-one
+ * Text Domain: flux-one-command-bar
  * Requires at least: 5.8
  * Tested up to: 6.9
  * Requires PHP: 8.1
@@ -25,7 +25,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 	exit;
 }
 
-define( 'FLUX_ONE_VERSION', '1.6.2' );
+define( 'FLUX_ONE_VERSION', '1.6.3' );
 define( 'FLUX_ONE_PLUGIN_FILE', __FILE__ );
 define( 'FLUX_ONE_PLUGIN_DIR', plugin_dir_path( __FILE__ ) );
 define( 'FLUX_ONE_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
@@ -43,7 +43,7 @@ if ( version_compare( PHP_VERSION, '8.1', '<' ) ) {
 					<?php
 					printf(
 						/* translators: 1: Current PHP version, 2: Required PHP version */
-						esc_html__( 'Flux One requires PHP %2$s or higher. You are running PHP %1$s.', 'flux-one' ),
+						esc_html__( 'Flux One requires PHP %2$s or higher. You are running PHP %1$s.', 'flux-one-command-bar' ),
 						esc_html( PHP_VERSION ),
 						'8.1'
 					);
@@ -68,7 +68,7 @@ if ( version_compare( (string) $wp_version, '5.8', '<' ) ) {
 					<?php
 					printf(
 						/* translators: 1: Current WordPress version, 2: Required WordPress version */
-						esc_html__( 'Flux One requires WordPress %2$s or higher. You are running WordPress %1$s.', 'flux-one' ),
+						esc_html__( 'Flux One requires WordPress %2$s or higher. You are running WordPress %1$s.', 'flux-one-command-bar' ),
 						esc_html( (string) $wp_version ),
 						'5.8'
 					);
@@ -100,7 +100,7 @@ if ( ! class_exists( $flux_plugins_class ) ) {
 			?>
 			<div class="notice notice-error">
 				<p>
-					<?php esc_html_e( 'Flux One is missing required dependencies. Please run Composer install for this plugin.', 'flux-one' ); ?>
+					<?php esc_html_e( 'Flux One is missing required dependencies. Please run Composer install for this plugin.', 'flux-one-command-bar' ); ?>
 				</p>
 			</div>
 			<?php
@@ -110,10 +110,10 @@ if ( ! class_exists( $flux_plugins_class ) ) {
 }
 
 call_user_func(
-	[ $flux_plugins_class, 'init' ],
+	array( $flux_plugins_class, 'init' ),
 	FLUX_ONE_PLUGIN_SLUG,
 	FLUX_ONE_VERSION,
-	'flux-one',
+	'flux-one-command-bar',
 	FLUX_ONE_PLUGIN_URL . 'src/assets/common/'
 );
 
@@ -127,7 +127,7 @@ register_deactivation_hook( __FILE__, 'flux_one_deactivate' );
  *
  * @since 0.1.0
  * @since 1.6.1 Removed post-activation redirect to Overview (WordPress.org guideline alignment).
- * @param bool $network_wide Whether activating network-wide (multisite).
+ * @param bool $network_wide Whether activating for the entire network (network admin).
  * @return void
  */
 function flux_one_activate( $network_wide = false ) {

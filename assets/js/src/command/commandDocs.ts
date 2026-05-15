@@ -138,8 +138,6 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     aliases: ['menu show'],
   },
 
-  // (Site commands temporarily disabled; see README planned features.)
-
   {
     canonical: 'config',
     kind: 'root',
@@ -193,6 +191,33 @@ export const COMMAND_DOCS: CommandDocRow[] = [
     summary: 'Search pages only.',
     backend: 'none',
   },
+
+  {
+    canonical: 'pnav',
+    kind: 'root',
+    summary: 'Open public view of a post or page (search title/slug).',
+    details: 'Uses the same index as `edit`; navigates to permalink or preview URL.',
+    backend: 'none',
+  },
+  {
+    canonical: 'pnav p',
+    kind: 'sub',
+    summary: 'Search posts + pages; open public view.',
+    backend: 'none',
+  },
+  {
+    canonical: 'pnav post',
+    kind: 'sub',
+    summary: 'Search posts only; open public view.',
+    backend: 'none',
+  },
+  {
+    canonical: 'pnav page',
+    kind: 'sub',
+    summary: 'Search pages only; open public view.',
+    backend: 'none',
+  },
+
   {
     canonical: 'nav',
     kind: 'root',

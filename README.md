@@ -1,7 +1,8 @@
 # Flux One — Command Bar (v1)
 
 **Plugin Name:** Flux One - Command Bar  
-**Slug / folder / text-domain:** `flux-one`  
+**Slug / folder:** `flux-one` (local checkout)  
+**WordPress.org slug / gettext text domain:** `flux-one-command-bar`  
 **Primary goal:** Provide a command-driven control layer in wp-admin (admin bar command palette + dashboard widget) to run common operational tasks quickly.
 
 This README is intentionally “prompt-friendly”: it contains the current v1 spec decisions, architecture notes, and the local dev workflow so future prompts and contributors have a single source of truth.
@@ -17,8 +18,9 @@ This README is intentionally “prompt-friendly”: it contains the current v1 s
   - Recent commands / pinned actions (planned)
   - Lightweight indicators (planned)
 - **Global command toggle**
+  - Same **`manage_options`** gate as REST and the Flux Suite admin UI: loads in **wp-admin** and on the **public site** when a logged-in user can manage options (so the admin bar and Command Bar stay aligned on the front).
   - Admin bar node: **Flux One** with hotkey hint (server renders **Ctrl** for the mod key first; admin-loader async-refines **Cmd** on Apple-like clients via User-Agent Client Hints + fallback, matching localized `uiPrefs.commandShortcut`).
-  - Keyboard shortcut: **Ctrl+K** / **⌘K**
+  - Keyboard shortcut: default **`mod+.`** (shown as **Ctrl+.** / **⌘.** depending on OS). Operators can change it in **Flux Suite → Flux One → Settings** (`commandShortcut` / `uiPrefs.commandShortcut`).
   - Opens an overlay and focuses the input
 
 ### Command model
@@ -43,7 +45,7 @@ All commands produce a typed response:
 Flux One treats `summary` as a **prefix** that requests an AI-enhanced summary for a supported aggregate. It is **not** a 1:1 alias for `aggregate`.
 
 - **`aggregate {thing}`**: always works without AI (deterministic aggregation + grouping + counts).
-- **`summary {thing}`**: requests AI summarization for that aggregate only (feature-gated by license).
+- **`summary {thing}`**: requests AI summarization for that aggregate only (requires license to integrate with Flux Services API).
 
 Current implemented examples:
 
@@ -57,7 +59,7 @@ Flux One supports “forgiving” command inputs by canonicalizing token order/s
 
 ### Enter key (Command Bar)
 
-**Enter** uses layered intent: a small client ladder (`interpretEnter` + `commandLadder`) completes unique prefixes (e.g. `plugin li` → `plugin list`, `menu li` → `menu list`) and only **POSTs** when the command is runnable or uniquely disambiguated (single plugin/user/site match, terminal list commands, `nav` with a resolved URL, etc.). **Tab** still fills the highlighted suggestion without running. Suggestion **clicks** follow the same run vs. fill rules where possible. When a command **runs** (Enter or click), the input is filled with the **canonical** executed string (except `config …`, where raw casing is preserved for values). **Autocomplete** shows **top-level** commands only on an empty field; after a root and space (e.g. `user `), **Next steps** lists subcommands such as lock, unlock, add, and role set. Partial tails like **`user a`** rank **`user add`** and other subcommands—there is no **`user {email}`** entity picker. **Aliases** (e.g. `role set …`) never appear as their own suggestion rows; typing them still canonicalizes, and the field shows the canonical command after run.
+**Enter** uses layered intent: a small client ladder (`interpretEnter` + `commandLadder`) completes unique prefixes (e.g. `plugin li` → `plugin list`, `menu li` → `menu list`) and **POSTs** when the command is runnable or uniquely disambiguated by the ladder (single plugin/user match, terminal list commands, `nav` with a resolved URL, etc.). When the ladder does **not** uniquely resolve but the merged suggestion list includes a **trusted entity** row (`plugin`, `user`, `menu`, `destination`, `content`), **Enter** runs that row’s `value`: the **highlighted** row if present, otherwise the **first** row. **Mouse click** on those entity rows always runs that row’s `value` (no second fuzzy disambiguation pass). `configKey` / `configValue` rows keep the prior ladder + hybrid `config set` fill behavior. **Tab** still fills the highlighted suggestion without running. When a command **runs** (Enter or click), the input is filled with the **canonical** executed string (except `config …`, where raw casing is preserved for values). **Autocomplete** shows **top-level** commands only on an empty field; after a root and space (e.g. `user `), **Next steps** lists subcommands such as lock, unlock, add, and role set. Partial tails like **`user a`** rank **`user add`** and other subcommands—there is no **`user {email}`** entity picker. **Aliases** (e.g. `role set …`) never appear as their own suggestion rows; typing them still canonicalizes, and the field shows the canonical command after run.
 
 ### Dashboard widget layout
 
@@ -105,20 +107,20 @@ Main file: `flux-one.php`
 ### PHP layout
 
 - `app/Plugin.php`
-  - Registers admin hooks, REST routes, cron, auth lock filter, wp_mail capture.
+  - Always initializes `AdminController` (Command Bar on wp-admin and, for `manage_options`, the public site); registers `AdminDestinations` only in wp-admin; REST routes, cron, auth lock filter, wp_mail capture.
 - `app/Http/Controllers/*`
   - REST controllers
   - `BaseController` provides success/error envelopes
 - `app/Services/*`
   - `CommandRouter` parses/normalizes commands and dispatches to handlers
   - Command handlers (e.g. `PluginsHandler`) return structured action payloads (`userMessage`, `error_code`, optional `debug`)
-  - `IndexCacheService` provides cached indices for autocomplete (plugins/users/roles/menus/sites)
+  - `IndexCacheService` provides cached indices for autocomplete (plugins/users/roles/menus)
   - `Database` owns table creation/drop
   - `CleanupService` daily cleanup job for event retention
   - Email aggregation services:
     - `EmailEventLogger`
     - `EmailAggregationService`
-    - `AiSummaryService` / `EmailSummaryService` (feature-gated; Flux API `/api/v1/fo/email-summaries`)
+    - `AiSummaryService` / `EmailSummaryService`; Flux API `/api/v1/fo/email-summaries`)
     - `EmailSummaryRepository` / `{prefix}flux_one_email_summaries` table
 
 ### Data layer
@@ -127,17 +129,12 @@ Main file: `flux-one.php`
   - Created via `dbDelta()` in `app/Services/Database.php`
   - Retention: **indefinite** (retained until explicitly deleted)
 - **User memory:** `_flux_one_command_memory` user meta
-  - `recent_commands`, `recent_navigations` (max 5 admin URLs and/or `nav` commands with labels), `pinned_commands`, `frequent_entities`, `last_site_context`, `command_usage_counts` (map of top-level command root → run count: `nav`, `menu`, `plugin`, `user`, `config`, `aggregate`, `summary`, `edit` only; no subcommands or entities)
+  - `recent_commands`, `recent_navigations` (max 5 admin URLs and/or `nav` commands with labels), `pinned_commands`, `frequent_entities`, `command_usage_counts` (map of top-level command root → run count: `nav`, `pnav`, `menu`, `plugin`, `user`, `config`, `aggregate`, `summary`, `edit` only; no subcommands or entities)
 - **Time-saved estimates (SSOT):** `app/Services/CommandUsageEstimates.php` defines seconds saved per root (used by bootstrap, heartbeat response, and Overview). Client reads `bootstrap.commandUsage.estimatesSeconds` and does not hardcode values.
 
 ### Cron
 
 - (No default retention cleanup cron; events are retained until explicitly deleted.)
-
-### Multisite
-
-- v1 includes `sites`/`site switch` scaffolding, but **site commands are currently disabled** while UX and safety constraints are finalized.
-- Site context is persisted per-user in memory (`last_site_context`). Applying `switch_to_blog()` per request is a follow-up enhancement.
 
 ### Security model
 
@@ -166,6 +163,7 @@ Namespace: `flux-one/v1`
   - `GET /index/users?q=`
   - `GET /index/menus` (requires **`edit_theme_options`**, aligned with menu commands and `/menus/*`)
   - `GET /index/destinations?q=` → rows `{ id, label, value, url }` where **`url`** is an absolute same-origin `admin_url()` for trusted in-app navigation only
+  - `GET /index/content?q=&kind=` → post/page rows `{ id, postType, title, slug, editUrl, viewUrl, searchText }` for Command Bar **`edit`** / **`pnav`** search; each row requires **`edit_post`** on that post. **`viewUrl`** is the public permalink when the post is publicly viewable, otherwise a preview URL (`get_preview_post_link`) so operators still land on a working front URL.
 - **Menus**
   - `GET /menus`
   - `GET /menus/{id}`
@@ -230,15 +228,15 @@ High-level rules for Command Bar and portaled modals. **Normative sources:** `as
 - **Standard modal close**: modals should have an X close affordance, close on outside click, and close on Escape; focus should return to the trigger/input that opened the modal.
 - **Running/busy operations**: show a single, consistent spinner notice whenever Command Bar is “busy” so operators always get feedback and the input can be safely disabled.
   - **Server commands**: `POST /command` uses React Query `useMutation` and drives the busy state via `commandMutation.isPending`; the label comes from the canonical executed command.
-  - **Client-side navigation** (`nav` destinations + `edit` picks): set a client-nav busy flag and label **before** calling `window.location.assign(...)`, and schedule the redirect on the next frame so the spinner can paint.
-  - **Edit search**: while the `edit` XHR index query is fetching (and the debounced query is non-empty), show a lightweight “Searching…” spinner notice.
+  - **Client-side navigation** (`nav` destinations + `edit` / `pnav` picks): set a client-nav busy flag and label **before** calling `window.location.assign(...)`, and schedule the redirect on the next frame so the spinner can paint.
+  - **Content index search** (`edit` / `pnav`): while the `GET /index/content` query is fetching (and the debounced query is non-empty), show a lightweight “Searching…” spinner notice.
   - **Pattern**: keep this centralized (one `isBusy` flag + one `runningLabel` string) so new commands don’t re-implement loading UX ad hoc.
 
 ### Mount points
 
 Inserted by PHP:
 
-- Overlay root: `#flux-one-command-central-root`
+- Overlay root: `#flux-one-command-central-root` ( **`admin_footer`** in wp-admin; **`wp_footer`** on the front for the same `manage_options` audience, so the mount is not duplicated.)
 - Dashboard widget root: `#flux-one-dashboard-widget-root`
 - **Flux Suite → Flux One** (Overview / Settings React app): `AdminController::render_settings_page()` outputs `<div class="wrap">` → **`<span class="wp-header-end"></span>`** → `#flux-one-plugin-app`. The `wp-header-end` marker is required so WordPress places admin notices (including Flux Suite license warnings) **above** the app shell; without it, notices can render inside the React `PageLayout` card.
 - Loader API: `admin-loader.bundle.js` exposes `window.fluxOneOpenOverlay({ input?: string })`. Optional `input` must be a canonical command prefix (usually with a trailing space) and is also supported by the `flux-one-open` `CustomEvent.detail.input` convention once the React overlay is mounted.
@@ -301,7 +299,7 @@ Define a dedicated **multi-step command type** in the command registry layer (pa
 - `field`: semantic field id (e.g. `login`, `email`, `role`)
 - `kind`: input type (`text`, `email`, `entity`, `enum`)
 - `prompt`: helper message shown while this step is active
-- `source` (optional): entity source mapping for autocomplete (`users`, `roles`, `plugins`, `sites`, etc.)
+- `source` (optional): entity source mapping for autocomplete (`users`, `roles`, `plugins`, `menus`, etc.)
 - `validate` (optional): lightweight client validation hint/gate for enabling run state
 
 Suggested shape (documentation-level example):
@@ -436,8 +434,6 @@ This repository may include a `wporg/` folder used as a distribution/build artif
   - `edit page {query}` — pages only
 - Navigation:
   - `nav {destination}` (aliases `go`, `open` → `nav`; **client redirect** when URL is known from destinations index)
-- Multisite:
-  - (Disabled for now; planned feature.)
 - Aggregation:
   - `aggregate email` — **always** `POST /command` + follow-up `GET /aggregate/email` (no client-only shortcut); shows cached summaries when present
   - `summary email` (AI prefix; gated; opens same modal and runs AI for visible page, max 25 events)
@@ -470,7 +466,7 @@ This copies the same rsync-filtered tree to a temp directory and fails if `phpun
 
 **Source maps:** `*.map` files are excluded from the rsync copy so they do not ship in the WordPress.org zip while remaining available in the development tree.
 
-**Translations (Flux Suite UI in this tree):** React bundles under `src/assets/common/js/src/components/License/` and `…/Logs/` use the **`flux-one`** text domain for `__()` / `sprintf` so strings can be collected into this plugin’s `languages/` catalog alongside PHP strings.
+**Translations (Flux Suite UI in this tree):** React bundles under `src/assets/common/js/src/components/License/` and `…/Logs/` use the **`flux-one-command-bar`** text domain for `__()` / `sprintf` so strings can be collected into this plugin’s `languages/` catalog alongside PHP strings.
 
 ---
 

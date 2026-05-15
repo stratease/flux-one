@@ -19,10 +19,14 @@ use FluxOne\App\Services\SuiteConfigCatalog;
  * Handles `config …` with case-sensitive values for secrets (raw input).
  *
  * @since 0.1.0
+ * @since 1.6.3 Internationalized user-facing config command errors and set success message.
  */
 class ConfigHandler {
 
 	/**
+	 * Route raw `config …` input to list, get, or set handlers.
+	 *
+	 * @since 0.1.0
 	 * @param string $raw_input Untrimmed original command (preserves API key casing).
 	 * @return array
 	 */
@@ -32,7 +36,7 @@ class ConfigHandler {
 			return [
 				'type'    => 'error',
 				'command' => $raw,
-				'message' => 'Expected config command.',
+				'message' => __( 'Expected config command.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -44,7 +48,7 @@ class ConfigHandler {
 			return [
 				'type'    => 'error',
 				'command' => $raw,
-				'message' => __( '`config search` was removed. Use `config list` for the full grid, or type `config get` / `config set` and pick a key from suggestions.', 'flux-one' ),
+				'message' => __( '`config search` was removed. Use `config list` for the full grid, or type `config get` / `config set` and pick a key from suggestions.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -63,7 +67,7 @@ class ConfigHandler {
 		return [
 			'type'    => 'error',
 			'command' => $raw,
-			'message' => __( 'Unknown config command. Try: `config list`, `config get {id}`, `config set {id} {value}`.', 'flux-one' ),
+			'message' => __( 'Unknown config command. Try: `config list`, `config get {id}`, `config set {id} {value}`.', 'flux-one-command-bar' ),
 		];
 	}
 
@@ -122,7 +126,7 @@ class ConfigHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'config get ' . $id,
-				'message' => 'Unknown or unavailable config id (is the plugin active?). Try `config list`.',
+				'message' => __( 'Unknown or unavailable config id (is the plugin active?). Try `config list`.', 'flux-one-command-bar' ),
 			];
 		}
 		$raw = SuiteConfigCatalog::get_value( $def );
@@ -145,7 +149,7 @@ class ConfigHandler {
 			return [
 				'type'    => 'error',
 				'command' => 'config set ' . $id,
-				'message' => 'Unknown or unavailable config id (is the plugin active?). Try `config list`.',
+				'message' => __( 'Unknown or unavailable config id (is the plugin active?). Try `config list`.', 'flux-one-command-bar' ),
 			];
 		}
 
@@ -188,7 +192,8 @@ class ConfigHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'config set ' . $id,
-					'message' => 'Invalid value. Allowed: ' . implode( ', ', $choices ),
+					/* translators: %s: Comma-separated list of allowed enum values. */
+					'message' => sprintf( __( 'Invalid value. Allowed: %s', 'flux-one-command-bar' ), implode( ', ', $choices ) ),
 				];
 			}
 			$value = $match;
@@ -212,7 +217,8 @@ class ConfigHandler {
 			'type'    => 'action',
 			'command' => 'config set ' . $def['id'],
 			'status'  => 'success',
-			'message' => 'Updated ' . (string) $def['label'] . ' → ' . SuiteConfigCatalog::format_display( $def, $after ),
+			/* translators: 1: Setting label, 2: New formatted value. */
+			'message' => sprintf( __( 'Updated %1$s → %2$s', 'flux-one-command-bar' ), (string) $def['label'], SuiteConfigCatalog::format_display( $def, $after ) ),
 			'data'    => [
 				'id'           => (string) $def['id'],
 				'valueDisplay' => SuiteConfigCatalog::format_display( $def, $after ),

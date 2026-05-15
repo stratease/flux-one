@@ -17,7 +17,6 @@ use FluxOne\App\Services\AdminDestinations;
 use FluxOne\App\Services\IndexCacheService;
 use FluxOne\App\Services\SuiteConfigCatalog;
 use WP_REST_Request;
-use WP_Post;
 
 /**
  * Index controller.
@@ -93,24 +92,6 @@ class IndexController extends BaseController {
 
 		register_rest_route(
 			$this->namespace,
-			'/index/sites',
-			[
-				[
-					'methods'             => 'GET',
-					'callback'            => [ $this, 'sites' ],
-					'permission_callback' => [ $this, 'check_permissions' ],
-					'args'                => [
-						'q' => [
-							'type'     => 'string',
-							'required' => false,
-						],
-					],
-				],
-			]
-		);
-
-		register_rest_route(
-			$this->namespace,
 			'/index/destinations',
 			[
 				[
@@ -174,7 +155,7 @@ class IndexController extends BaseController {
 		$index = ( new IndexCacheService() )->get_plugins_index();
 
 		if ( '' === $q ) {
-			return $this->create_success_response( $index, __( 'Plugins index.', 'flux-one' ) );
+			return $this->create_success_response( $index, __( 'Plugins index.', 'flux-one-command-bar' ) );
 		}
 
 		$filtered = array_values(
@@ -187,7 +168,7 @@ class IndexController extends BaseController {
 			)
 		);
 
-		return $this->create_success_response( array_slice( $filtered, 0, 100 ), __( 'Plugins results.', 'flux-one' ) );
+		return $this->create_success_response( array_slice( $filtered, 0, 100 ), __( 'Plugins results.', 'flux-one-command-bar' ) );
 	}
 
 	/**
@@ -202,7 +183,7 @@ class IndexController extends BaseController {
 
 		$index = ( new IndexCacheService() )->get_users_index();
 		if ( '' === $q ) {
-			return $this->create_success_response( $index, __( 'Users index.', 'flux-one' ) );
+			return $this->create_success_response( $index, __( 'Users index.', 'flux-one-command-bar' ) );
 		}
 
 		$filtered = array_values(
@@ -215,7 +196,7 @@ class IndexController extends BaseController {
 			)
 		);
 
-		return $this->create_success_response( array_slice( $filtered, 0, 50 ), __( 'Users results.', 'flux-one' ) );
+		return $this->create_success_response( array_slice( $filtered, 0, 50 ), __( 'Users results.', 'flux-one-command-bar' ) );
 	}
 
 	/**
@@ -227,36 +208,7 @@ class IndexController extends BaseController {
 	 */
 	public function menus( WP_REST_Request $request ) {
 		$index = ( new IndexCacheService() )->get_menus_index();
-		return $this->create_success_response( $index, __( 'Menus index.', 'flux-one' ) );
-	}
-
-	/**
-	 * Sites index (multisite only).
-	 *
-	 * @since 0.1.0
-	 * @param WP_REST_Request $request Request.
-	 * @return \WP_REST_Response
-	 */
-	public function sites( WP_REST_Request $request ) {
-		$q = strtolower( trim( (string) $request->get_param( 'q' ) ) );
-		$index = ( new IndexCacheService() )->get_multisite_index();
-		$sites = (array) ( $index['sites'] ?? [] );
-
-		if ( '' === $q ) {
-			return $this->create_success_response( $sites, __( 'Sites index.', 'flux-one' ) );
-		}
-
-		$filtered = array_values(
-			array_filter(
-				$sites,
-				static function ( $s ) use ( $q ) {
-					$hay = strtolower( (string) ( $s['domain'] ?? '' ) . (string) ( $s['path'] ?? '' ) );
-					return false !== strpos( $hay, $q );
-				}
-			)
-		);
-
-		return $this->create_success_response( array_slice( $filtered, 0, 100 ), __( 'Sites results.', 'flux-one' ) );
+		return $this->create_success_response( $index, __( 'Menus index.', 'flux-one-command-bar' ) );
 	}
 
 	/**
@@ -272,7 +224,7 @@ class IndexController extends BaseController {
 		$destinations = AdminDestinations::get_index_entries();
 
 		if ( '' === $q ) {
-			return $this->create_success_response( $destinations, __( 'Destinations index.', 'flux-one' ) );
+			return $this->create_success_response( $destinations, __( 'Destinations index.', 'flux-one-command-bar' ) );
 		}
 
 		$filtered = array_values(
@@ -298,7 +250,7 @@ class IndexController extends BaseController {
 			)
 		);
 
-		return $this->create_success_response( $filtered, __( 'Destinations results.', 'flux-one' ) );
+		return $this->create_success_response( $filtered, __( 'Destinations results.', 'flux-one-command-bar' ) );
 	}
 
 	/**
@@ -354,7 +306,31 @@ class IndexController extends BaseController {
 			$rows[] = $row;
 		}
 
-		return $this->create_success_response( $rows, __( 'Suite config index.', 'flux-one' ) );
+		return $this->create_success_response( $rows, __( 'Suite config index.', 'flux-one-command-bar' ) );
+	}
+
+	/**
+	 * Front URL for a post the current user can edit (permalink when public, else preview).
+	 *
+	 * @since 1.6.3
+	 * @param int $post_id Post ID.
+	 * @return string
+	 */
+	private function resolve_content_view_url( $post_id ) {
+		$post_id = (int) $post_id;
+		if ( $post_id <= 0 ) {
+			return '';
+		}
+		if ( is_post_publicly_viewable( $post_id ) ) {
+			$link = get_permalink( $post_id );
+			return ( is_string( $link ) && '' !== $link ) ? $link : '';
+		}
+		$preview = function_exists( 'get_preview_post_link' ) ? get_preview_post_link( $post_id ) : '';
+		if ( is_string( $preview ) && '' !== $preview ) {
+			return $preview;
+		}
+		$fallback = get_permalink( $post_id );
+		return ( is_string( $fallback ) && '' !== $fallback ) ? $fallback : '';
 	}
 
 	/**
@@ -371,7 +347,7 @@ class IndexController extends BaseController {
 		$kind = strtolower( trim( (string) $request->get_param( 'kind' ) ) );
 
 		if ( '' === $q ) {
-			return $this->create_success_response( [], __( 'Content results.', 'flux-one' ) );
+			return $this->create_success_response( [], __( 'Content results.', 'flux-one-command-bar' ) );
 		}
 
 		$post_types = [ 'post', 'page' ];
@@ -423,12 +399,15 @@ class IndexController extends BaseController {
 				$edit_url = admin_url( 'post.php?post=' . $id . '&action=edit' );
 			}
 
+			$view_url = $this->resolve_content_view_url( $id );
+
 			$out[] = [
 				'id'         => $id,
 				'postType'   => in_array( $postType, [ 'post', 'page' ], true ) ? $postType : 'post',
 				'title'      => $title !== '' ? $title : '(no title)',
 				'slug'       => $slug,
 				'editUrl'    => (string) $edit_url,
+				'viewUrl'    => (string) $view_url,
 				'searchText' => trim( strtolower( $title . ' ' . $slug ) ),
 			];
 
@@ -437,7 +416,7 @@ class IndexController extends BaseController {
 			}
 		}
 
-		return $this->create_success_response( $out, __( 'Content results.', 'flux-one' ) );
+		return $this->create_success_response( $out, __( 'Content results.', 'flux-one-command-bar' ) );
 	}
 }
 

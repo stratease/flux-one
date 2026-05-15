@@ -112,7 +112,7 @@ export function SettingsPage() {
         data: settings,
       });
       setSettings(unwrapData<SettingsShape>(raw));
-      setMessage(__('Saved.', 'flux-one'));
+      setMessage(__('Saved.', 'flux-one-command-bar'));
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -124,13 +124,13 @@ export function SettingsPage() {
     return (
       <Box display="flex" alignItems="center" gap={2} py={2}>
         <CircularProgress size={24} />
-        <Typography variant="body2">{__('Loading…', 'flux-one')}</Typography>
+        <Typography variant="body2">{__('Loading…', 'flux-one-command-bar')}</Typography>
       </Box>
     );
   }
 
   if (!settings) {
-    return <Alert severity="error">{error || __('Could not load settings.', 'flux-one')}</Alert>;
+    return <Alert severity="error">{error || __('Could not load settings.', 'flux-one-command-bar')}</Alert>;
   }
 
   return (
@@ -142,19 +142,19 @@ export function SettingsPage() {
       ) : null}
 
       <Typography variant="body2" color="text.secondary">
-        {__('Manage your Flux Plugins license from the', 'flux-one')}{' '}
-        <a href={licenseUrl}>{__('suite license page', 'flux-one')}</a>.
+        {__('Manage your Flux Plugins license from the', 'flux-one-command-bar')}{' '}
+        <a href={licenseUrl}>{__('suite license page', 'flux-one-command-bar')}</a>.
       </Typography>
  
 
       <Box>
         <Typography variant="h6" gutterBottom>
-          {__('Email aggregation', 'flux-one')}
+          {__('Email aggregation', 'flux-one-command-bar')}
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
           {__(
             'These options apply to your user only. Review captured mail from the Command Bar with command:',
-            'flux-one'
+            'flux-one-command-bar'
           )}{' '}
           <Box
             component="code"
@@ -167,7 +167,7 @@ export function SettingsPage() {
               bgcolor: 'action.hover',
             }}
           >
-            {__('aggregate email', 'flux-one')}
+            {__('aggregate email', 'flux-one-command-bar')}
           </Box>
           .
         </Typography>
@@ -179,7 +179,7 @@ export function SettingsPage() {
                 onChange={(e) => setSettings({ ...settings, emailCaptureEnabled: e.target.checked })}
               />
             }
-            label={__('Log outbound email events', 'flux-one')}
+            label={__('Log outbound email events', 'flux-one-command-bar')}
           />
           <FormControlLabel
             control={
@@ -190,36 +190,36 @@ export function SettingsPage() {
             }
             label={__(
               'Suppress all outbound emails to my user',
-              'flux-one'
+              'flux-one-command-bar'
             )}
           />
         </Stack>
         <FormHelperText sx={{ mt: 1, maxWidth: 640 }}>
           {__(
             'Suppress runs after logging: your addresses are stripped from recipients so you do not receive a copy; the message still goes to everyone else. Use Command Bar “aggregate email” to review captured mail.',
-            'flux-one'
+            'flux-one-command-bar'
           )}
         </FormHelperText>
       </Box>
 
       <Box>
         <Typography variant="h6" gutterBottom>
-          {__('Command widget', 'flux-one')}
+          {__('Command widget', 'flux-one-command-bar')}
         </Typography>
         <Typography variant="body2" color="text.secondary" paragraph>
           {__(
             'Configure the keyboard shortcut for the Flux One Command widget (overlay). Default is Ctrl/Cmd+.',
-            'flux-one'
+            'flux-one-command-bar'
           )}
         </Typography>
         <Stack spacing={2} maxWidth={560}>
           <TextField
-            label={__('Record shortcut', 'flux-one')}
-            value={recordingShortcut ? __('Press keys…', 'flux-one') : shortcutLabel(settings.commandShortcut || 'mod+.')}
+            label={__('Record shortcut', 'flux-one-command-bar')}
+            value={recordingShortcut ? __('Press keys…', 'flux-one-command-bar') : shortcutLabel(settings.commandShortcut || 'mod+.')}
             size="small"
             helperText={`${__(
               'Format: mod+key',
-              'flux-one'
+              'flux-one-command-bar'
             )}`}
             onFocus={() => setRecordingShortcut(true)}
             onBlur={() => setRecordingShortcut(false)}
@@ -238,7 +238,7 @@ export function SettingsPage() {
 
       <Box>
         <Button variant="contained" onClick={() => void save()} disabled={saving}>
-          {saving ? __('Saving…', 'flux-one') : __('Save settings', 'flux-one')}
+          {saving ? __('Saving…', 'flux-one-command-bar') : __('Save settings', 'flux-one-command-bar')}
         </Button>
         {message ? (
           <Typography variant="body2" sx={{ mt: 1 }} role="status">

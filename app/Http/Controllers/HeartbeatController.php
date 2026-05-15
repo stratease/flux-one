@@ -73,7 +73,7 @@ class HeartbeatController extends BaseController {
 
 		return $this->create_success_response(
 			BootstrapCommandUsagePayload::build( $memory ),
-			__( 'Heartbeat OK.', 'flux-one' )
+			__( 'Heartbeat OK.', 'flux-one-command-bar' )
 		);
 	}
 }

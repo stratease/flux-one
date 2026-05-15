@@ -1,3 +1,8 @@
+= 1.6.3 =
+* Removed any references to incomplete "site" feature.
+* Updated some language around licensing features to clarify the service requires integration with our 3rd party infrastructure, and it is not trialware or feature locked capabilities.
+* Removed direct Composer requirement on Monolog; `vendor/monolog/monolog/` may still appear as a transitive dependency.
+
 = 1.6.1 =
 * The command reference was not always displaying.
 
@@ -15,7 +20,7 @@
 * Major update to email aggregate and email summary screen and functionality. Better sorting, tested API service integration and more.
 
 = 1.2.0 =
-* Improving UX of the Email Aggregate feature.y
+* Improving UX of the Email Aggregate feature.
 
 = 1.1.1 =
 * Some minor cleanup of entity visuals and email aggregate, optimized loader.

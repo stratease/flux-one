@@ -38,7 +38,7 @@ class MenusHandler {
 				return [
 					'type'    => 'error',
 					'command' => 'menu ' . $op,
-					'message' => __( 'You do not have permission to manage menus.', 'flux-one' ),
+					'message' => __( 'You do not have permission to manage menus.', 'flux-one-command-bar' ),
 				];
 			}
 			return [
@@ -52,7 +52,7 @@ class MenusHandler {
 		return [
 			'type'    => 'error',
 			'command' => 'menu ' . implode( ' ', $tokens ),
-			'message' => __( 'Try menu list.', 'flux-one' ),
+			'message' => __( 'Try menu list.', 'flux-one-command-bar' ),
 		];
 	}
 }

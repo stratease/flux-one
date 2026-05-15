@@ -81,11 +81,6 @@ export const api = {
     );
   },
 
-  async getSitesIndex(q: string = '') {
-    const qs = q ? `?q=${encodeURIComponent(q)}` : '';
-    return apiFetch(withNonce({ path: `/flux-one/v1/index/sites${qs}`, method: 'GET' }));
-  },
-
   async getDestinationsIndex(q: string = '') {
     const qs = q ? `?q=${encodeURIComponent(q)}` : '';
     return apiFetch(withNonce({ path: `/flux-one/v1/index/destinations${qs}`, method: 'GET' }));

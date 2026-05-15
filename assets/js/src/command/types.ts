@@ -8,7 +8,6 @@ export type EntityType =
   | 'plugin'
   | 'user'
   | 'menu'
-  | 'site'
   | 'destination'
   | 'content'
   | 'configKey'

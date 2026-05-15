@@ -177,7 +177,8 @@ final class SuiteConfigCatalog {
 	}
 
 	/**
-	 * @param string $plugin_file Plugin basename (e.g. flux-one/flux-one.php).
+	 * @since 1.6.4 Clarified example uses {@see plugin_basename()} form (directory may differ from marketing slug).
+	 * @param string $plugin_file Plugin basename (e.g. result of `plugin_basename( __FILE__ )` for the main plugin file).
 	 */
 	public static function is_plugin_available( string $plugin_file ): bool {
 		if ( ! function_exists( 'is_plugin_active' ) ) {
@@ -285,12 +286,19 @@ final class SuiteConfigCatalog {
 		);
 	}
 
+	/**
+	 * Flux One suite config rows (active-plugin check uses main plugin basename).
+	 *
+	 * @since 0.1.0
+	 * @since 1.6.4 Use {@see FLUX_ONE_PLUGIN_BASENAME} for `plugin_file` so installs match any plugin directory name.
+	 * @return list<array<string,mixed>>
+	 */
 	private static function flux_one_defs() {
 		return [
 			[
 				'group'       => 'flux_one',
 				'id'          => 'flux_one.email_capture_enabled',
-				'plugin_file' => 'flux-one/flux-one.php',
+				'plugin_file' => \FLUX_ONE_PLUGIN_BASENAME,
 				'plugin'      => 'Flux One',
 				'label'       => 'Email capture (log outbound mail for your user)',
 				'type'        => 'bool',
@@ -301,7 +309,7 @@ final class SuiteConfigCatalog {
 			[
 				'group'       => 'flux_one',
 				'id'          => 'flux_one.suppress_mail_to_self',
-				'plugin_file' => 'flux-one/flux-one.php',
+				'plugin_file' => \FLUX_ONE_PLUGIN_BASENAME,
 				'plugin'      => 'Flux One',
 				'label'       => 'Suppress your addresses on outbound mail',
 				'type'        => 'bool',

@@ -28,7 +28,7 @@ function isCompleteEmailQuery(s: string): boolean {
 }
 
 /**
- * When the user typed `plugin li` or `site sw`, expand to the single matching subcommand value if unambiguous.
+ * When the user typed `plugin li` or `menu li`, expand to the single matching subcommand value if unambiguous.
  */
 function expandUniqueSubcommandToken(root: string, partial: string): string | null {
   const subs = SUBCOMMANDS_BY_ROOT[root];
@@ -118,7 +118,7 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
     const fuse = new Fuse(plugins, { keys: ['name', 'pluginFile'], threshold: 0.35, ignoreLocation: true });
     const r = fuse.search(q);
     if (r.length === 1) {
-      return { ok: true, command: `plugin update ${r[0].item.name}` };
+      return { ok: true, command: `plugin update ${r[0].item.pluginFile}` };
     }
     return { ok: false };
   }
@@ -132,7 +132,7 @@ export function resolveRunnableCommand(canonical: string, indices: IndexData): {
       const fuse = new Fuse(plugins, { keys: ['name', 'pluginFile'], threshold: 0.35, ignoreLocation: true });
       const r = fuse.search(q);
       if (r.length === 1) {
-        return { ok: true, command: `plugin ${verb} ${r[0].item.name}` };
+        return { ok: true, command: `plugin ${verb} ${r[0].item.pluginFile}` };
       }
       return { ok: false };
     }

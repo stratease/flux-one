@@ -17,7 +17,6 @@
   ],
   "require": {
     "php": ">=8.1",
-    "monolog/monolog": "^2.8",
     "stratease/flux-plugins-common": "@dev",
     "woocommerce/action-scheduler": "^3.7"
   },
@@ -37,8 +36,8 @@
   "scripts": {
     "test": "phpunit -c tests/phpunit.xml.dist",
     "phpstan": "phpstan analyse",
-    "phpcs": "phpcs --standard=WordPress flux-one.php uninstall.php app/",
-    "phpcbf": "phpcbf --standard=WordPress flux-one.php uninstall.php app/",
+    "phpcs": "phpcs",
+    "phpcbf": "phpcbf",
     "quality": [
       "@phpcs",
       "@phpstan",
@@ -74,9 +73,7 @@
       "classmap_prefix": "FluxOne_",
       "constant_prefix": "FluxOne_",
       "packages": [
-        "stratease/flux-plugins-common",
-        "monolog/monolog",
-        "psr/log"
+        "stratease/flux-plugins-common"
       ],
       "exclude_from_namespace": [
         "woocommerce/action-scheduler"

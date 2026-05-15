@@ -79,14 +79,14 @@ export function OverviewPage() {
 
   const rootLabels: Record<CommandRootId, string> = useMemo(
     () => ({
-      nav: __('Navigate', 'flux-one'),
-      edit: __('Edit', 'flux-one'),
-      plugin: __('Plugin', 'flux-one'),
-      user: __('User', 'flux-one'),
-      menu: __('Menu', 'flux-one'),
-      config: __('Config', 'flux-one'),
-      aggregate: __('Aggregate', 'flux-one'),
-      summary: __('Summary', 'flux-one'),
+      nav: __('Navigate', 'flux-one-command-bar'),
+      edit: __('Edit', 'flux-one-command-bar'),
+      plugin: __('Plugin', 'flux-one-command-bar'),
+      user: __('User', 'flux-one-command-bar'),
+      menu: __('Menu', 'flux-one-command-bar'),
+      config: __('Config', 'flux-one-command-bar'),
+      aggregate: __('Aggregate', 'flux-one-command-bar'),
+      summary: __('Summary', 'flux-one-command-bar'),
     }),
     []
   );
@@ -129,10 +129,10 @@ export function OverviewPage() {
 
   const upsellBullets = useMemo(
     () => [
-      __('AI-Powered Email Summaries', 'flux-one'),
-      __('Advanced Automation and Scheduling', 'flux-one'),
-      __('CDN Integration for Faster Delivery', 'flux-one'),
-      __('Premium Features Across All Flux Suite Plugins', 'flux-one'),
+      __('AI-Powered Email Summaries', 'flux-one-command-bar'),
+      __('Advanced Automation and Scheduling', 'flux-one-command-bar'),
+      __('CDN Integration for Faster Delivery', 'flux-one-command-bar'),
+      __('Premium Features Across All Flux Suite Plugins', 'flux-one-command-bar'),
     ],
     []
   );
@@ -219,7 +219,7 @@ export function OverviewPageLayout({
             <IconBadge>
               <LightbulbOutlinedIcon />
             </IconBadge>
-            <Typography variant="subtitle2">{__('Don\u2019t forget to try these:', 'flux-one')}</Typography>
+            <Typography variant="subtitle2">{__('Don\u2019t forget to try these:', 'flux-one-command-bar')}</Typography>
           </Stack>
           <OverviewSuggestionChips ids={leastUsed} rootLabels={rootLabels} />
         </Box>
@@ -233,7 +233,7 @@ export function OverviewPageLayout({
             aria-expanded={showCommandsRef}
             aria-controls={COMMANDS_REFERENCE_ID}
           >
-            {showCommandsRef ? __('Hide commands', 'flux-one') : __('View all commands', 'flux-one')}
+            {showCommandsRef ? __('Hide commands', 'flux-one-command-bar') : __('View all commands', 'flux-one-command-bar')}
           </Button>
         </Box>
       </Stack>
@@ -250,7 +250,7 @@ export function OverviewPageLayout({
       >
         <Stack spacing={2}>
           <Typography variant="h6" component="h2">
-            {__('All commands', 'flux-one')}
+            {__('All commands', 'flux-one-command-bar')}
           </Typography>
           <CommandsReferenceList autoFocusSearch />
         </Stack>
@@ -275,7 +275,7 @@ export function OverviewPageLayout({
         </Grid>
         {!licenseValid && (
           <Grid item xs={12} md={4}>
-            <UpsellCard intro={__('Unlock Flux One Pro features:', 'flux-one')} bullets={upsellBullets} />
+            <UpsellCard intro={__('Unlock Flux One Pro features:', 'flux-one-command-bar')} bullets={upsellBullets} />
           </Grid>
         )}
       </Grid>

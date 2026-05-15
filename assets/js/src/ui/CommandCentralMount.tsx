@@ -4,7 +4,7 @@ import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tansta
 import { getGhostRemainder } from '../command/ghost';
 import { getRouteTokens, getSuggestions, resolveNavDestinationUrl, type IndexData } from '../command/suggest';
 import { recordCommandUsage } from '../admin/heartbeat';
-import { canonicalizeInput, getRootToken, parseInput } from '../command/normalize';
+import { canonicalizeInput, getRootToken, parseContentIndexTail, parseInput } from '../command/normalize';
 import type { Suggestion } from '../command/types';
 import { interpretEnter, interpretSuggestionPick } from '../command/interpretEnter';
 import { getIntent } from '../command/intent';
@@ -111,7 +111,7 @@ function getActionDisplayMessage(result: CommandResponse & { type: 'action' }): 
   return (result.message && result.message.trim()) || '';
 }
 
-type FluxIndexQueryKey = readonly ['flux-one', 'index', 'plugins' | 'users' | 'menus' | 'sites' | 'destinations' | 'suite-config'];
+type FluxIndexQueryKey = readonly ['flux-one', 'index', 'plugins' | 'users' | 'menus' | 'destinations' | 'suite-config'];
 
 /** After successful command actions, invalidate matching TanStack index queries (server has no index transients). */
 function getInvalidatedIndexKeys(canonical: string): FluxIndexQueryKey[] {
@@ -286,20 +286,25 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [editDebouncedQ, setEditDebouncedQ] = useState('');
   const [editKind, setEditKind] = useState<'any' | 'post' | 'page'>('any');
   useEffect(() => {
-    if (intent.root !== 'edit') {
-      setEditDebouncedQ('');
-      setEditKind('any');
+    if ( ! intent.wantsContentIndex ) {
+      setEditDebouncedQ( '' );
+      setEditKind( 'any' );
       return;
     }
     const rawLower = input.toLowerCase();
-    const kindFromInput = rawLower.startsWith('edit page') ? 'page' : rawLower.startsWith('edit post') ? 'post' : 'any';
-    setEditKind(kindFromInput);
-    const rest = rawLower.replace(/^edit\s+(post|page|p)\s*/i, '').trim();
-    const t = window.setTimeout(() => {
-      setEditDebouncedQ(rest);
-    }, 160);
-    return () => window.clearTimeout(t);
-  }, [input, intent.root]);
+    const root: 'edit' | 'pnav' = intent.wantsPnav ? 'pnav' : 'edit';
+    const parsed = parseContentIndexTail( rawLower, root );
+    if ( ! parsed ) {
+      setEditDebouncedQ( '' );
+      setEditKind( 'any' );
+      return;
+    }
+    setEditKind( parsed.kind );
+    const t = window.setTimeout( () => {
+      setEditDebouncedQ( parsed.rest );
+    }, 160 );
+    return () => window.clearTimeout( t );
+  }, [input, intent.root, intent.wantsContentIndex, intent.wantsPnav] );
 
   useEffect(() => {
     const t = window.setTimeout(() => setAggregateEmailDebouncedQ(aggregateEmailQ.trim()), 250);
@@ -439,11 +444,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     queryFn: () => api.getMenusIndex(),
     enabled: canFetchIndices && intent.wantsMenus,
   });
-  const sitesQuery = useQuery({
-    queryKey: ['flux-one', 'index', 'sites'],
-    queryFn: () => api.getSitesIndex(),
-    enabled: canFetchIndices && intent.wantsSites,
-  });
   const destinationsQuery = useQuery({
     queryKey: ['flux-one', 'index', 'destinations'],
     queryFn: () => api.getDestinationsIndex(),
@@ -459,7 +459,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const contentQuery = useQuery({
     queryKey: ['flux-one', 'index', 'content', editKind, editDebouncedQ],
     queryFn: () => api.getContentIndex(editDebouncedQ, editKind),
-    enabled: canFetchIndices && intent.wantsEdit && editDebouncedQ.length > 0,
+    enabled: canFetchIndices && intent.wantsContentIndex && editDebouncedQ.length > 0,
     staleTime: 10_000,
   });
 
@@ -653,7 +653,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       plugins: (pluginsQuery.data as any)?.data ?? pluginsQuery.data ?? [],
       users: (usersQuery.data as any)?.data ?? usersQuery.data ?? [],
       menus: (menusQuery.data as any)?.data ?? menusQuery.data ?? [],
-      sites: (sitesQuery.data as any)?.data ?? sitesQuery.data ?? [],
       destinations: (destinationsQuery.data as any)?.data ?? destinationsQuery.data ?? [],
       suiteConfig: (suiteConfigQuery.data as any)?.data ?? suiteConfigQuery.data ?? [],
       content: (contentQuery.data as any)?.data ?? contentQuery.data ?? [],
@@ -671,7 +670,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     pluginsQuery.data,
     usersQuery.data,
     menusQuery.data,
-    sitesQuery.data,
     destinationsQuery.data,
     suiteConfigQuery.data,
     contentQuery.data,
@@ -789,7 +787,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
    * - Server-backed commands use `commandMutation.isPending` (+ `variables` for label)
    * - Read-only fast path uses `fastPathLoading`
    * - Client-side navigation (nav + edit picks) sets `clientNavPending` so the spinner can paint before redirect
-   * - Edit search (XHR suggestions) shows a lightweight spinner notice while `contentQuery` is fetching
+   * - `edit` / `pnav` content index search (XHR) shows a lightweight spinner notice while `contentQuery` is fetching
    */
   const [clientNavPending, setClientNavPending] = useState(false);
   const [clientNavLabel, setClientNavLabel] = useState('');
@@ -798,7 +796,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     plugins: ((pluginsQuery.data as any)?.data ?? pluginsQuery.data ?? []) as IndexData['plugins'],
     users: ((usersQuery.data as any)?.data ?? usersQuery.data ?? []) as IndexData['users'],
     menus: ((menusQuery.data as any)?.data ?? menusQuery.data ?? []) as IndexData['menus'],
-    sites: ((sitesQuery.data as any)?.data ?? sitesQuery.data ?? []) as IndexData['sites'],
     destinations: ((destinationsQuery.data as any)?.data ?? destinationsQuery.data ?? []) as IndexData['destinations'],
     suiteConfig: ((suiteConfigQuery.data as any)?.data ?? suiteConfigQuery.data ?? []) as IndexData['suiteConfig'],
     currentUser: readBootstrapCurrentUser(),
@@ -834,12 +831,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         panelId: 'users',
         queryKey: ['flux-one', 'index', 'users'],
         queryFn: () => api.getUsersIndex(),
-      },
-      {
-        keys: ['site list', 'site show'],
-        panelId: 'sites',
-        queryKey: ['flux-one', 'index', 'sites'],
-        queryFn: () => api.getSitesIndex(),
       },
       {
         keys: ['menu list'],
@@ -984,17 +975,19 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     })();
   };
 
-  const isEditSearching = intent.wantsEdit && editDebouncedQ.length > 0 && contentQuery.isFetching;
+  const isContentIndexSearching =
+    intent.wantsContentIndex && editDebouncedQ.length > 0 && contentQuery.isFetching;
 
   const isExecuting = commandMutation.isPending || fastPathLoading || clientNavPending;
-  const isBusy = isExecuting || isEditSearching;
+  const isBusy = isExecuting || isContentIndexSearching;
 
   const runningLabel = (() => {
     if (clientNavPending) return clientNavLabel;
     if (commandMutation.variables != null) return canonicalizeInput(String(commandMutation.variables)).canonical;
-    if (isEditSearching) {
+    if (isContentIndexSearching) {
       const kindLabel = editKind === 'page' ? 'page' : editKind === 'post' ? 'post' : 'p';
-      return `edit ${kindLabel} ${editDebouncedQ}`.trim();
+      const rootLabel = intent.wantsPnav ? 'pnav' : 'edit';
+      return `${rootLabel} ${kindLabel} ${editDebouncedQ}`.trim();
     }
     return '';
   })();
@@ -1007,7 +1000,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const pluginsIndex: any[] = ((pluginsQuery.data as any)?.data ?? pluginsQuery.data ?? []) as any[];
   const usersIndex: any[] = ((usersQuery.data as any)?.data ?? usersQuery.data ?? []) as any[];
   const menusIndex: any[] = ((menusQuery.data as any)?.data ?? menusQuery.data ?? []) as any[];
-  const sitesIndex: any[] = ((sitesQuery.data as any)?.data ?? sitesQuery.data ?? []) as any[];
 
   const adminBase =
     typeof window !== 'undefined' && window.fluxOneAdmin?.adminUrl
@@ -1017,7 +1009,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const isStructuredListPanel =
     lastResult?.type === 'panel' &&
     !!(lastResult as any).panelId &&
-    ['plugins', 'users', 'sites', 'menus', 'suite_config'].includes((lastResult as any).panelId) &&
+    ['plugins', 'users', 'menus', 'suite_config'].includes((lastResult as any).panelId) &&
     Array.isArray(panelData);
 
   useLayoutEffect(() => {
@@ -1035,9 +1027,10 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
     if (intent.root === 'plugin' && pluginsQuery.isFetching && pluginsQuery.data == null) return 'Loading plugins…';
     if (intent.root === 'user' && usersQuery.isFetching && usersQuery.data == null) return 'Loading users…';
     if (intent.root === 'menu' && menusQuery.isFetching && menusQuery.data == null) return 'Loading menus…';
-    if (intent.root === 'site' && sitesQuery.isFetching && sitesQuery.data == null) return 'Loading sites…';
     if (intent.root === 'config' && suiteConfigQuery.isFetching && suiteConfigQuery.data == null) return 'Loading configuration…';
-    if (intent.root === 'edit' && contentQuery.isFetching && contentQuery.data == null) return 'Searching…';
+    if ( intent.wantsContentIndex && contentQuery.isFetching && contentQuery.data == null ) {
+      return 'Searching…';
+    }
     return '';
   })();
 
@@ -1299,7 +1292,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           <div className="flux-one-notice flux-one-notice--running" role="status" aria-live="polite">
             <span className="flux-one-spinner" aria-hidden />
             <span>
-              {isEditSearching && !isExecuting ? (
+              {isContentIndexSearching && !isExecuting ? (
                 <>
                   Searching… <span className="flux-one-running-label-muted">{runningLabel}</span>
                 </>
@@ -1364,20 +1357,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
               </div>
             ) : null}
 
-            {parsed.hasTrailingSpace && rt0 === 'site' && rt1 === 'switch' ? (
-              <div>
-                <div className="flux-one-preview-section-title">Sites</div>
-                <div className="flux-one-preview-scroll">
-                  {(sitesIndex || []).slice(0, 12).map((s) => (
-                    <div key={s.blogId} className="flux-one-preview-row">
-                      <span>{`${s.domain}${s.path}`}</span>
-                      <span className="flux-one-preview-meta">#{s.blogId}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : null}
-
             {selectedSuggestion.value === 'aggregate email' ? (
               <div className="flux-one-preview-stack">
                 <div className="flux-one-preview-title">Aggregate email (7d)</div>
@@ -1413,7 +1392,7 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
             {selectedSuggestion.value === 'summary email' ? (
               <div className="flux-one-preview-stack-inner">
-                AI summary will run when executed (feature-gated).
+                AI summary will run when executed.
               </div>
             ) : null}
           </div>

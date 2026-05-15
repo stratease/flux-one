@@ -83,7 +83,6 @@ class BootstrapController extends BaseController {
 					'plugins'        => [ 'enabled' => true ],
 					'users'          => [ 'enabled' => true ],
 					'menus'          => [ 'enabled' => true ],
-					'multisite'       => [ 'enabled' => is_multisite() ],
 					'aggregateEmail'  => [ 'enabled' => true ],
 					'summaryEmail'    => [ 'enabled' => $license_valid ],
 					'navigation'      => [ 'enabled' => true ],

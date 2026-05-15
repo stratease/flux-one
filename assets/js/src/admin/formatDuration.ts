@@ -12,7 +12,7 @@ import { __ } from '@wordpress/i18n';
  */
 export function formatDuration(totalSeconds: number): string {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return __('0s', 'flux-one');
+    return __('0s', 'flux-one-command-bar');
   }
   const s = Math.floor(totalSeconds);
   const h = Math.floor(s / 3600);
@@ -39,7 +39,7 @@ const MEDIUM_TIER_SECONDS = 2 * 60 * 60;
  */
 export function formatDurationLong(totalSeconds: number): string {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return __('0s', 'flux-one');
+    return __('0s', 'flux-one-command-bar');
   }
 
   const s = Math.floor(totalSeconds);
@@ -70,7 +70,7 @@ export function formatDurationLong(totalSeconds: number): string {
  */
 export function formatDurationShort(totalSeconds: number): string {
   if (!Number.isFinite(totalSeconds) || totalSeconds <= 0) {
-    return __('0s', 'flux-one');
+    return __('0s', 'flux-one-command-bar');
   }
 
   const s = Math.floor(totalSeconds);

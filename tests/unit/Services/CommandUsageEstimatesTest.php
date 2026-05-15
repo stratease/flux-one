@@ -16,10 +16,11 @@ use PHPUnit\Framework\TestCase;
  */
 class CommandUsageEstimatesTest extends TestCase {
 
-	public function test_seconds_per_root_has_eight_balanced_keys() {
+	public function test_seconds_per_root_has_nine_balanced_keys() {
 		$map = CommandUsageEstimates::seconds_per_root();
-		$this->assertCount( 8, $map );
+		$this->assertCount( 9, $map );
 		$this->assertSame( 5, $map['nav'] );
+		$this->assertSame( 5, $map['pnav'] );
 		$this->assertSame( 8, $map['edit'] );
 		$this->assertSame( 15, $map['plugin'] );
 		$this->assertSame( 20, $map['user'] );

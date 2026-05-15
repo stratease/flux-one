@@ -1,7 +1,32 @@
 import { canonicalizeInput } from './normalize';
-import type { Suggestion } from './types';
+import type { EntityType, Suggestion } from './types';
 import type { IndexData } from './suggest';
 import { resolveRunnableCommand } from './commandLadder';
+
+/**
+ * Entity suggestions whose `value` is the exact command to POST (or client-nav),
+ * unlike `configKey` / `configValue` rows that may open hybrid UI or need ladder checks.
+ *
+ * @since 1.6.3
+ */
+const ENTITY_TYPES_TRUST_PICK_RUN: ReadonlySet<EntityType> = new Set([
+  'plugin',
+  'user',
+  'menu',
+  'destination',
+  'content',
+]);
+
+/**
+ * @since 1.6.3
+ */
+function isTrustedEntityRunnablePick(s: Suggestion): boolean {
+  if (s.kind !== 'entity') {
+    return false;
+  }
+  const t = s.entityType;
+  return t != null && ENTITY_TYPES_TRUST_PICK_RUN.has(t);
+}
 
 export type InterpretEnterResult =
   | { kind: 'complete'; value: string }
@@ -32,13 +57,18 @@ export function interpretEnter(
     return { kind: 'complete_and_run', value: direct.command };
   }
 
-  const active = ctx.mergedSuggestions[ctx.activeIndex] ?? null;
+  const merged = ctx.mergedSuggestions;
+  const active = merged[ctx.activeIndex] ?? merged[0] ?? null;
   if (!active) {
     return { kind: 'none' };
   }
 
   // Client-side navigation suggestions (nav-style entities) should run immediately on Enter.
   if (active.clientAction === 'nav' && typeof active.navUrl === 'string' && active.navUrl.trim() !== '') {
+    return { kind: 'complete_and_run', value: active.value };
+  }
+
+  if (isTrustedEntityRunnablePick(active)) {
     return { kind: 'complete_and_run', value: active.value };
   }
 
@@ -65,6 +95,9 @@ export function interpretSuggestionPick(suggestion: Suggestion, indices: IndexDa
     typeof suggestion.navUrl === 'string' &&
     suggestion.navUrl.trim() !== ''
   ) {
+    return { kind: 'complete_and_run', value: suggestion.value };
+  }
+  if (isTrustedEntityRunnablePick(suggestion)) {
     return { kind: 'complete_and_run', value: suggestion.value };
   }
   const activeCanon = canonicalizeInput(suggestion.value.trim()).canonical;

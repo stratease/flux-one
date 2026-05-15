@@ -40,18 +40,19 @@ class Plugin {
 	 * Initialize the plugin.
 	 *
 	 * @since 0.1.0
+	 * @since 1.6.3 AdminController always initializes so Command Bar can load on the front for `manage_options`; AdminDestinations stays admin-only.
 	 * @return void
 	 */
 	public function init() {
 		Database::maybe_update_database();
 
-
 		add_action( 'plugins_loaded', [ FluxOneSettings::class, 'maybe_migrate_legacy_email_options' ], 20 );
 
 		add_action( 'admin_init', [ FluxOneSettings::class, 'register_settings' ] );
 
+		( new AdminController() )->init();
+
 		if ( is_admin() ) {
-			( new AdminController() )->init();
 			AdminDestinations::register();
 		}
 

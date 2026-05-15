@@ -23,7 +23,10 @@ export function parseInput(raw: string): ParsedInput {
 
 /**
  * Canonicalize alias token orders to match server CommandRouter rules.
- * This must align with `app/Services/CommandRouter.php`.
+ *
+ * @since 0.1.0
+ * @since 1.6.3 Dropped `sites` → `site` mapping (site command removed).
+ * This must align with `app/Services/CommandRouter.php` (no `sites` root alias).
  */
 export function canonicalizeTokens(tokens: Token[]): Token[] {
   // "plugin upload|install" => "nav add plugin" (navigation command).
@@ -62,14 +65,44 @@ export function canonicalizeTokens(tokens: Token[]): Token[] {
   if (out[0] === 'users') {
     out[0] = 'user';
   }
-  if (out[0] === 'sites') {
-    out[0] = 'site';
-  }
   if (out[0] === 'edit') {
-    if (out[1] === 'posts') out[1] = 'post';
-    if (out[1] === 'pages') out[1] = 'page';
+    if (out[1] === 'posts') {
+      out[1] = 'post';
+    }
+    if (out[1] === 'pages') {
+      out[1] = 'page';
+    }
+  }
+  if (out[0] === 'pnav') {
+    if (out[1] === 'posts') {
+      out[1] = 'post';
+    }
+    if (out[1] === 'pages') {
+      out[1] = 'page';
+    }
   }
   return out;
+}
+
+/**
+ * Parse `edit` / `pnav` content search tail after the root (same rules as Command Bar debounce).
+ *
+ * @since 1.6.3
+ * @param rawLower Lowercased full input.
+ * @param root     `edit` or `pnav`.
+ * @return Kind + remainder for XHR `q`, or null when input does not start with the root command.
+ */
+export function parseContentIndexTail(
+  rawLower: string,
+  root: 'edit' | 'pnav'
+): { kind: 'any' | 'post' | 'page'; rest: string } | null {
+  if ( ! new RegExp( `^${ root }(\\s|$)`, 'i' ).test( rawLower ) ) {
+    return null;
+  }
+  const kindFromInput =
+    rawLower.startsWith( `${ root } page` ) ? 'page' : rawLower.startsWith( `${ root } post` ) ? 'post' : 'any';
+  const rest = rawLower.replace( new RegExp( `^${ root }\\s+(post|page|p)\\s*`, 'i' ), '' ).trim();
+  return { kind: kindFromInput, rest };
 }
 
 export function canonicalizeInput(raw: string): CanonicalizationResult {

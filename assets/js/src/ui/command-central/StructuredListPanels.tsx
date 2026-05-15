@@ -16,13 +16,14 @@ export type StructuredListPanelsProps = {
 };
 
 /**
- * Structured panel rendering for plugins, users, sites, menus, suite_config lists.
+ * Structured panel rendering for plugins, users, menus, suite_config lists.
  *
  * @since 1.3.0
  * @since 1.4.0 Menus panel delegates to MenuListPanel (tree editor).
  * @since 1.4.0 Users panel omits Lock for currentUserId.
  * @since 1.7.0 Suite config delegates to SuiteConfigPanel (grouped grid + field widgets).
  * @since 1.5.0 Optional focusedSuiteConfigRowId for hybrid entity pick.
+ * @since 1.6.3 Removed `sites` structured panel.
  */
 export function StructuredListPanels({
   structuredPanelRef,
@@ -54,7 +55,7 @@ export function StructuredListPanels({
                   <button
                     type="button"
                     className="flux-one-btn-small"
-                    onClick={() => executeFromInput(`plugin activate ${p.name}`)}
+                    onClick={() => executeFromInput(`plugin activate ${p.pluginFile}`)}
                   >
                     Activate
                   </button>
@@ -63,7 +64,7 @@ export function StructuredListPanels({
                   <button
                     type="button"
                     className="flux-one-btn-small"
-                    onClick={() => executeFromInput(`plugin deactivate ${p.name}`)}
+                    onClick={() => executeFromInput(`plugin deactivate ${p.pluginFile}`)}
                   >
                     Deactivate
                   </button>
@@ -72,7 +73,7 @@ export function StructuredListPanels({
                   <button
                     type="button"
                     className="flux-one-btn-small"
-                    onClick={() => executeFromInput(`plugin update ${p.name}`)}
+                    onClick={() => executeFromInput(`plugin update ${p.pluginFile}`)}
                   >
                     Update
                   </button>
@@ -104,25 +105,6 @@ export function StructuredListPanels({
                   Unlock
                 </button>
               </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (panelId === 'sites') {
-    return (
-      <div ref={structuredPanelRef} className="flux-one-structured-results">
-        <div className="flux-one-structured-panel">
-          <div className="flux-one-structured-panel-title">Sites</div>
-          {(panelData as any[]).map((s) => (
-            <div key={s.blogId} className="flux-one-structured-row">
-              <span className="flux-one-structured-cell-grow-wide">{`${s.domain}${s.path}`}</span>
-              <span className="flux-one-structured-meta">#{s.blogId}</span>
-              <button type="button" className="flux-one-btn-small" onClick={() => executeFromInput(`site switch ${s.domain}${s.path}`)}>
-                Switch
-              </button>
             </div>
           ))}
         </div>

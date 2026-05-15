@@ -40,5 +40,7 @@ class BootstrapCommandUsagePayloadTest extends TestCase {
 		$this->assertSame( 10, $payload['totalSecondsSaved'] );
 		$this->assertArrayHasKey( 'nav', $payload['estimatesSeconds'] );
 		$this->assertSame( 5, $payload['estimatesSeconds']['nav'] );
+		$this->assertArrayHasKey( 'pnav', $payload['estimatesSeconds'] );
+		$this->assertSame( 5, $payload['estimatesSeconds']['pnav'] );
 	}
 }

@@ -46,10 +46,10 @@ function Navigation() {
 
   return (
     <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
-      <Tabs value={tabIndex} onChange={handleChange} aria-label={__('Flux One navigation', 'flux-one')}>
-        <Tab label={__('Overview', 'flux-one')} />
-        <Tab label={__('Settings', 'flux-one')} />
-        {isDev ? <Tab label={__('Dev UI', 'flux-one')} /> : null}
+      <Tabs value={tabIndex} onChange={handleChange} aria-label={__('Flux One navigation', 'flux-one-command-bar')}>
+        <Tab label={__('Overview', 'flux-one-command-bar')} />
+        <Tab label={__('Settings', 'flux-one-command-bar')} />
+        {isDev ? <Tab label={__('Dev UI', 'flux-one-command-bar')} /> : null}
       </Tabs>
     </Box>
   );
@@ -89,7 +89,7 @@ export function PluginApp() {
     <QueryClientProvider client={queryClient}>
       <FluxAppProvider>
         <HashRouter>
-          <PageLayout title={__('Flux One', 'flux-one')} maxWidth="lg">
+          <PageLayout title={__('Flux One', 'flux-one-command-bar')} maxWidth="lg">
             <AppRoutes />
           </PageLayout>
         </HashRouter>

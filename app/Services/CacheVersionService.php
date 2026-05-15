@@ -43,7 +43,6 @@ class CacheVersionService {
 				'plugins'      => 1,
 				'users'        => 1,
 				'menus'        => 1,
-				'sites'        => 1,
 				'destinations' => 1,
 			]
 		);
