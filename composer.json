@@ -17,8 +17,7 @@
   ],
   "require": {
     "php": ">=8.1",
-    "stratease/flux-plugins-common": "@dev",
-    "woocommerce/action-scheduler": "^3.7"
+    "stratease/flux-plugins-common": "@dev"
   },
   "require-dev": {
     "brianhenryie/strauss": "^0.22.5",
@@ -44,19 +43,26 @@
       "@test"
     ],
     "copy-common-assets": [
-      "sh -c 'if [ -d vendor/stratease/flux-plugins-common/src/assets ]; then mkdir -p src/assets/common && cp -r vendor/stratease/flux-plugins-common/src/assets/* src/assets/common/; else echo \"⚠️  Common library assets not found in vendor/\"; fi'"
+      "sh -c 'SRC=vendor/stratease/flux-plugins-common/src/assets; DST=src/assets/common; if [ -d \"$SRC\" ]; then mkdir -p \"$DST/js\" \"$DST/images\"; cp -r \"$SRC/images\" \"$DST/\" 2>/dev/null || true; cp -r \"$SRC/js/dist\" \"$DST/js/\"; echo \"✅ Copied common runtime assets (js/dist + images) to src/assets/common/\"; else echo \"⚠️  Common library assets not found in vendor/ — run composer install\"; fi'"
+    ],
+    "fix-bin-wrappers": [
+      "sh -c 'if [ -f vendor-prefixed/stratease/flux-plugins-common/bin/fix-bin-wrappers.php ]; then php vendor-prefixed/stratease/flux-plugins-common/bin/fix-bin-wrappers.php; elif [ -f vendor/stratease/flux-plugins-common/bin/fix-bin-wrappers.php ]; then php vendor/stratease/flux-plugins-common/bin/fix-bin-wrappers.php; fi'"
     ],
     "prefix-namespaces": [
       "@copy-common-assets",
       "sh -c 'test -f ./bin/strauss.phar || curl -o bin/strauss.phar -L -C - https://github.com/BrianHenryIE/strauss/releases/latest/download/strauss.phar'",
       "@php bin/strauss.phar",
-      "@composer dump-autoload"
+      "@composer dump-autoload",
+      "@fix-bin-wrappers"
     ],
     "post-install-cmd": [
       "@prefix-namespaces"
     ],
     "post-update-cmd": [
       "@prefix-namespaces"
+    ],
+    "post-autoload-dump": [
+      "@fix-bin-wrappers"
     ]
   },
   "config": {
@@ -75,9 +81,7 @@
       "packages": [
         "stratease/flux-plugins-common"
       ],
-      "exclude_from_namespace": [
-        "woocommerce/action-scheduler"
-      ]
+      "delete_vendor_packages": true
     }
   }
 }

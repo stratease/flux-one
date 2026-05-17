@@ -257,7 +257,7 @@ class IndexController extends BaseController {
 	 * Keys for `config` command autocomplete (active suite plugins + WordPress core subset).
 	 *
 	 * @since 0.1.0
-	 * @since 1.7.0 Adds group metadata and WordPress core definitions via SuiteConfigCatalog.
+	 * @since 1.6.4 Adds group metadata and WordPress core definitions via SuiteConfigCatalog.
 	 * @since 1.5.0 searchText includes group and group label for Command Bar entity matching.
 	 * @return \WP_REST_Response
 	 */

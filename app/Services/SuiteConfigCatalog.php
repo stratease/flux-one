@@ -26,14 +26,14 @@ final class SuiteConfigCatalog {
 	/**
 	 * Suite config definition applies only when its plugin is active.
 	 *
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 */
 	public const SUITE_SCOPE_PLUGIN = 'plugin';
 
 	/**
 	 * Suite config definition for WordPress core options (requires manage_options).
 	 *
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 */
 	public const SUITE_SCOPE_WORDPRESS_CORE = 'wordpress_core';
 
@@ -69,7 +69,7 @@ final class SuiteConfigCatalog {
 	/**
 	 * Numeric sort order for config list grouping (lower first).
 	 *
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 */
 	public static function get_group_sort_order( string $group ): int {
 		static $orders = [
@@ -88,7 +88,7 @@ final class SuiteConfigCatalog {
 	}
 
 	/**
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 * @param array<string,mixed> $def Definition.
 	 * @return array<string,mixed>
 	 */
@@ -106,7 +106,7 @@ final class SuiteConfigCatalog {
 	}
 
 	/**
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 */
 	private static function resolve_group_label( string $group ): string {
 		static $map = [
@@ -155,7 +155,7 @@ final class SuiteConfigCatalog {
 	/**
 	 * Stable sort: group order, then label.
 	 *
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 * @param list<array<string,mixed>> $defs Definitions.
 	 * @return list<array<string,mixed>>
 	 */
@@ -642,7 +642,7 @@ final class SuiteConfigCatalog {
 	/**
 	 * Curated WordPress options from Settings → General, Reading, Permalinks.
 	 *
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 * @return list<array<string,mixed>>
 	 */
 	private static function wordpress_core_defs() {
@@ -794,7 +794,7 @@ final class SuiteConfigCatalog {
 	/**
 	 * Read WordPress core option values for suite config.
 	 *
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 * @return mixed|null Null when this handler is not a WordPress core option.
 	 */
 	private static function wordpress_core_invoke_get( string $handler ) {
@@ -831,7 +831,7 @@ final class SuiteConfigCatalog {
 	/**
 	 * Persist WordPress core option values for suite config.
 	 *
-	 * @since 1.7.0
+	 * @since 1.6.4
 	 * @param mixed $value Normalized value.
 	 * @return true|\WP_Error|null Null when handler is not WordPress core.
 	 */

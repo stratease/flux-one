@@ -155,7 +155,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
   const [lastDurationMs, setLastDurationMs] = useState<number | null>(null);
   const [panelData, setPanelData] = useState<any>(null);
   const [suiteConfigFocusRowId, setSuiteConfigFocusRowId] = useState<string | null>(null);
-  const [aiData, setAiData] = useState<any>(null);
   const [mergedSuggestions, setMergedSuggestions] = useState<Suggestion[]>([]);
   const [commandRow, setCommandRow] = useState<Suggestion[]>([]);
   const [subcommandRow, setSubcommandRow] = useState<Suggestion[]>([]);
@@ -621,7 +620,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       } else {
         setAggregateEmailSummary({ status: 'pending', message: msg || 'Summaries loaded.' });
       }
-      setAiData((raw as any)?.data ?? raw);
       void queryClient.invalidateQueries({ queryKey: ['flux-one', 'aggregate', 'email'] });
     } catch (e: any) {
       setAggregateEmailSummary({
@@ -718,7 +716,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
       if (result.type === 'panel') {
         if (result.panelId === 'aggregate_email') {
-          setAiData(null);
           const aiRequested = !!result?.data?.aiRequested;
           if (!aiRequested) {
             setAggregateEmailSummary({ status: 'idle' });
@@ -855,7 +852,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
         setLastResult({ type: 'panel', panelId: row.panelId, command: canonical });
         setPanelData(data);
         setSuiteConfigFocusRowId(null);
-        setAiData(null);
         setLastDurationMs(0);
         return true;
       } catch {
@@ -875,7 +871,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
       }
       setInput(commandLine);
       setSuggestionsDismissed(true);
-      setAiData(null);
       setLastDurationMs(null);
       setLastResult({
         type: 'panel',
@@ -921,7 +916,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
 
     setPanelData(null);
     setSuiteConfigFocusRowId(null);
-    setAiData(null);
     setLastResult(null);
     setLastDurationMs(null);
 
@@ -1440,8 +1434,10 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
                 <a href={`${adminBase}admin.php?page=flux-one#/settings`}>Flux One → Settings</a>, then run this
                 command again to see logged mail.
               </div>
+            ) : aggregateEmailModalOpen ? (
+              <div className="flux-one-body-copy">Email aggregate is open in the modal.</div>
             ) : (
-              <div className="flux-one-muted-loading">Loading aggregate…</div>
+              <div className="flux-one-muted-loading">Opening aggregate…</div>
             )}
           </div>
         ) : null}
@@ -1680,17 +1676,6 @@ export function CommandCentralMount({ kind }: { kind: 'overlay' | 'dashboardWidg
           </>
         )}
       </FluxOneModal>
-
-        {lastResult?.type === 'panel' && panelData && !isStructuredListPanel && lastResult.panelId !== 'aggregate_email' ? (
-          <div className="flux-one-result-block">
-            {kind !== 'dev' ? <div className="flux-one-result-heading">Result</div> : null}
-            <pre className="flux-one-pre">{JSON.stringify(panelData, null, 2)}</pre>
-          </div>
-        ) : null}
-
-        {aiData ? (
-          <pre className="flux-one-pre flux-one-pre--short">{JSON.stringify(aiData, null, 2)}</pre>
-        ) : null}
 
         {kind === 'dev' && lastResult ? (
           <pre className="flux-one-pre flux-one-pre--short">{JSON.stringify(lastResult, null, 2)}</pre>

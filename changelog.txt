@@ -1,3 +1,8 @@
+= 1.6.4 =
+* Command Bar suite configuration panel (`config list`): grouped grid with inline controls for Flux suite plugin settings and curated WordPress options (Settings → General, Reading, Permalinks).
+* Dev-only UI component design guide tab in the Flux One admin app (when `WP_DEBUG` and `SCRIPT_DEBUG` are enabled).
+* Updated some dependencies, trimming overall package size.
+
 = 1.6.3 =
 * Removed any references to incomplete "site" feature.
 * Updated some language around licensing features to clarify the service requires integration with our 3rd party infrastructure, and it is not trialware or feature locked capabilities.

@@ -724,7 +724,7 @@
   cursor: pointer;
 }
 
-/* Suite configuration panel (@since 1.7.0) */
+/* Suite configuration panel (@since 1.6.4) */
 .flux-one-suite-config-scroll {
   overflow-x: auto;
   margin-top: var(--flux-one-space-2);

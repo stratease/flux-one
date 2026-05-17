@@ -1,7 +1,7 @@
 /**
  * Suite configuration panel row shape (matches REST / command panel payloads).
  *
- * @since 1.7.0
+ * @since 1.6.4
  */
 export type SuiteConfigRow = {
   id: string;

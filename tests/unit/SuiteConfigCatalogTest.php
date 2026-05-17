@@ -3,7 +3,7 @@
  * SuiteConfigCatalog unit tests.
  *
  * @package FluxOne
- * @since 1.7.0
+ * @since 1.6.4
  */
 
 use FluxOne\App\Services\CommandRouter;

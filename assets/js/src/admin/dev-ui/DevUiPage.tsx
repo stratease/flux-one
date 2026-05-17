@@ -29,7 +29,7 @@ function ComponentCard({
 /**
  * Dev-only UI design guide / component demo page.
  *
- * @since 1.8.0
+ * @since 1.6.4
  */
 export function DevUiPage() {
   const enabled = isDevEnabled();

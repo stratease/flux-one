@@ -95,8 +95,8 @@ The Overview tab's **View all commands** CTA toggles an **inline** command refer
 This plugin follows the shared suite contract:
 
 1. Load autoloaders:
-   - `vendor/autoload.php`
-   - `vendor-prefixed/autoload.php`
+   - `vendor/autoload.php` (plugin app + other Composer deps)
+   - `vendor-prefixed/autoload.php` (Strauss-prefixed `flux-plugins-common` PHP)
 2. Initialize Flux suite common library:
    - `FluxPlugins::init( $slug, $version, $text_domain, $common_assets_url )`
 3. Initialize plugin app orchestrator:
@@ -368,10 +368,12 @@ From `wp-content/plugins/flux-one/`:
 composer install
 ```
 
-This also runs Strauss prefixing and copies common assets:
+This also runs Strauss prefixing and copies common **runtime** assets:
 
-- Common assets copied to `src/assets/common/`
-- Prefixed dependencies to `vendor-prefixed/`
+- `js/dist` + `images` copied to `src/assets/common/` (not `js/src`; build-time sources live in `flux-plugins-common`)
+- Prefixed PHP to `vendor-prefixed/`; unprefixed `vendor/stratease/flux-plugins-common` removed after Strauss (`delete_vendor_packages`)
+
+For JS builds, webpack resolves `flux-plugins-common` from the monorepo sibling (`../../../flux-plugins-common`) or `FLUX_PLUGINS_COMMON_PATH`.
 
 ### JS dependencies
 

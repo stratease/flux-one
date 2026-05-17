@@ -10,7 +10,7 @@ export type SuiteConfigFieldProps = {
 /**
  * Inline edit controls for one suite config row (maps catalog type → widget).
  *
- * @since 1.7.0
+ * @since 1.6.4
  */
 export function SuiteConfigField({ row, executeFromInput }: SuiteConfigFieldProps) {
   const runSet = useCallback(

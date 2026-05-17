@@ -4,7 +4,7 @@ Tags: command bar, command palette, admin productivity, streamline, wp-admin
 Requires at least: 5.8
 Tested up to: 6.9
 Requires PHP: 8.1
-Stable tag: 1.6.3
+Stable tag: 1.6.4
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 
@@ -74,8 +74,7 @@ This plugin bundles third-party libraries in the distributed build. Exact conten
 
 Bundled libraries include:
 
-* WooCommerce Action Scheduler (`vendor/woocommerce/action-scheduler/`) — GPLv3 compatible. See included library license/readme.
-* Flux Plugins Common (Strauss-prefixed) (`vendor-prefixed/stratease/flux-plugins-common/` and/or `vendor/stratease/flux-plugins-common/`) — license as included with the library.
+* Flux Plugins Common (Strauss-prefixed PHP in `vendor-prefixed/stratease/flux-plugins-common/`; runtime JS in `src/assets/common/js/dist/`) — license as included with the library.
 
 = External services =
 
@@ -106,7 +105,7 @@ To rebuild bundles from source:
    - `npm run build`
    - Output: `assets/js/dist/`
 
-The Flux Suite shared admin page bundles under `src/assets/common/js/dist/` are copied into this plugin during Composer install/update via the `copy-common-assets` script in `composer.json` (from `vendor/stratease/flux-plugins-common/src/assets/`).
+The Flux Suite shared admin page bundles under `src/assets/common/js/dist/` are built in the `flux-plugins-common` repository (`npm run build`) and copied into this plugin during Composer install/update via the `copy-common-assets` script (`js/dist` and `images` only).
 
 == Installation ==
 
@@ -150,6 +149,11 @@ Flux One may communicate with the Flux Plugins API for license validation, licen
 
 == Changelog ==
 
+= 1.6.4 =
+* Command Bar suite configuration panel (`config list`): grouped grid with inline controls for Flux suite plugin settings and curated WordPress options (Settings → General, Reading, Permalinks).
+* Dev-only UI component design guide tab in the Flux One admin app (when `WP_DEBUG` and `SCRIPT_DEBUG` are enabled).
+* Updated some dependencies, trimming overall package size.
+
 = 1.6.3 =
 * Removed any references to incomplete "site" feature.
 * Updated some language around licensing features to clarify the service requires integration with our 3rd party infrastructure, and it is not trialware or feature locked capabilities.
@@ -157,9 +161,6 @@ Flux One may communicate with the Flux Plugins API for license validation, licen
 
 = 1.6.2 =
 * Maintenance and WordPress.org readiness (documentation, i18n text domain alignment, serviceware disclosure).
-
-= 1.6.1 =
-* The command reference was not always displaying.
 
 
 == Upgrade Notice ==

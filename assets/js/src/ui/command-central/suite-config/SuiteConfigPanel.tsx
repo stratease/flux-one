@@ -14,7 +14,7 @@ export type SuiteConfigPanelProps = {
 /**
  * Grouped, grid-aligned suite configuration list for Command Bar panel.
  *
- * @since 1.7.0
+ * @since 1.6.4
  * @since 1.5.0 Supports focusedRowId for accessibility after entity pick.
  */
 export function SuiteConfigPanel({

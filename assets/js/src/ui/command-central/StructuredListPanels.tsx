@@ -21,7 +21,7 @@ export type StructuredListPanelsProps = {
  * @since 1.3.0
  * @since 1.4.0 Menus panel delegates to MenuListPanel (tree editor).
  * @since 1.4.0 Users panel omits Lock for currentUserId.
- * @since 1.7.0 Suite config delegates to SuiteConfigPanel (grouped grid + field widgets).
+ * @since 1.6.4 Suite config delegates to SuiteConfigPanel (grouped grid + field widgets).
  * @since 1.5.0 Optional focusedSuiteConfigRowId for hybrid entity pick.
  * @since 1.6.3 Removed `sites` structured panel.
  */

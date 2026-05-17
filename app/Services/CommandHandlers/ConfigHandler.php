@@ -74,7 +74,7 @@ class ConfigHandler {
 	/**
 	 * Full catalog panel for `config list` (filtering is client-side via suite-config index).
 	 *
-	 * @since 1.7.0 Panel rows include group metadata, min/max, and choices for suite config UI.
+	 * @since 1.6.4 Panel rows include group metadata, min/max, and choices for suite config UI.
 	 * @since 1.5.0 Drops query filtering; `config search` removed.
 	 */
 	private function panel_list() {
